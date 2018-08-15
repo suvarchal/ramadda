@@ -10,8 +10,6 @@ addons:
 services: docker
 python:
 - '3.6'
-before_install:
- - cd ramadda
 script:
  - ant 
-
+ - ls dist/
