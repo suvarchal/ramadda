@@ -2,6 +2,6 @@ FROM unidata/ramadda-docker:latest
 
 USER root
 
-COPY dist/repository.war:${CATALINA_HOME}/webapps/repository.war
+COPY dist/repository.war ${CATALINA_HOME}/webapps/repository.war
 
 ###add some test here 
