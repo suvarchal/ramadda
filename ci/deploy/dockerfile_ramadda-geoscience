@@ -10,4 +10,6 @@ RUN apt-get install -qy \
     nco
 
 
-COPY dist/repository.war:${CATALINA_HOME}/webapps/repository.war 
+COPY dist/repository.war:${CATALINA_HOME}/webapps/repository.war
+
+##add some test here 
