@@ -1,5 +1,6 @@
 sudo: true
-language: python
+language: java
+services: docker
 addons:
   apt:
     sources:
@@ -7,9 +8,9 @@ addons:
     packages:
       - g++-4.8
       - openjdk-7-jdk
-services: docker
-python:
-- '3.6'
+
 script:
  - ant 
  - ls dist/
+ - docker image list
+ - docker run -it unidata/ramadda-docker:latest 
