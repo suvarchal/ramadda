@@ -11,8 +11,8 @@ addons:
 
 script:
  - ant
- - docker build -t suvarchal/ramadda -f ci/deploy/dockerfile_ramadda
- - docker build -t suvarchal/ramadda-geoscience -f ci/deploy/dockerfile_ramadda-geoscience 
+ - docker build -t suvarchal/ramadda -f ci/deploy/dockerfile_ramadda .
+ - docker build -t suvarchal/ramadda-geoscience -f ci/deploy/dockerfile_ramadda-geoscience .
  - docker images
 
 before_deploy:
