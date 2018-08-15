@@ -1,0 +1,5 @@
+FROM unidata/ramadda-docker:latest
+
+USER root
+
+COPY dist/repository.war:${CATALINA_HOME}/webapps/repository.war 

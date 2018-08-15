@@ -10,7 +10,15 @@ addons:
       - openjdk-7-jdk
 
 script:
- - ant 
- - ls dist/
- - docker image list
- - docker run -it unidata/ramadda-docker:latest 
+ - ant
+ - docker build -t suvarchal/ramadda -f ci/deploy/dockerfile_ramadda
+ - docker build -t suvarchal/ramadda-geoscience -f ci/deploy/dockerfile_ramadda-geoscience 
+ - docker images
+
+before_deploy:
+ - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+deploy:
+   provider: script
+   script: docker push "suvarchal/ramadda:latest" && docker push "suvarchal/ramadda-geoscience:latest"
+   on:
+     branch: master 

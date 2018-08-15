@@ -1,0 +1,13 @@
+FROM unidata/ramadda-docker:latest
+
+USER root
+
+###
+
+RUN apt-get update
+RUN apt-get install -qy \
+    cdo \
+    nco
+
+
+COPY dist/repository.war:${CATALINA_HOME}/webapps/repository.war 
