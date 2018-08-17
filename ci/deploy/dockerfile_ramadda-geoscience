@@ -7,7 +7,10 @@ USER root
 RUN apt-get update
 RUN apt-get install -qy \
     cdo \
-    nco
+    nco \
+    pandoc\
+    jupyter-core\
+    jupyter-nbconvert
 
 
 COPY dist/repository.war ${CATALINA_HOME}/webapps/repository.war
