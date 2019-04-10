@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -1063,9 +1063,8 @@ public class CdmManager extends RepositoryManager {
             return true;
         }
         String type = entry.getTypeHandler().getType();
-        if(type.indexOf("trajectory")>=0 ||
-           type.indexOf("point")>=0 ||
-           type.indexOf("track")>=0) {
+        if ((type.indexOf("trajectory") >= 0) || (type.indexOf("point") >= 0)
+                || (type.indexOf("track") >= 0)) {
             return false;
         }
 

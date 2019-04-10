@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -1067,7 +1067,7 @@ public class Service extends RepositoryManager {
                                         argPrefix, arg.getName(),
                                         (String) null);
                 if (Utils.stringDefined(dateString)) {
-                    Date date = getRepository().getPageHandler().parseDate(
+                    Date date = getRepository().getDateHandler().parseDate(
                                     dateString);
                     argValue = arg.getDateFormat().format(date);
                 }
@@ -1625,7 +1625,7 @@ public class Service extends RepositoryManager {
         String rightSide = HtmlUtils.href(
                                getRepository().getJobManager().getServiceUrl(
                                    request, this), HtmlUtils.img(
-                                   iconUrl("/icons/application_form.png"),
+                                   getIconUrl("/icons/application_form.png"),
                                    msg("View top-level form")));
 
         rightSide =
@@ -1634,7 +1634,7 @@ public class Service extends RepositoryManager {
         sb.append(
             HtmlUtils.div(
                 HtmlUtils.leftRight(
-                    HtmlUtils.img(iconUrl(getIcon())) + " " + label,
+                    HtmlUtils.img(getIconUrl(getIcon())) + " " + label,
                     rightSide), HtmlUtils.cssClass("service-form-header")));
 
 
@@ -1763,7 +1763,7 @@ public class Service extends RepositoryManager {
                         dates);
             }
             inputHtml.append(
-                getRepository().getPageHandler().makeDateInput(
+                getRepository().getDateHandler().makeDateInput(
                     request, argUrlName, "searchform", null, null, false,
                     dates));
         } else if (arg.isFile()) {

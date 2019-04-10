@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -354,16 +354,40 @@ public class CDOArealStatisticsService extends CDODataService {
      * @param op       the operand
      * @param opNum    the operand number
      * @param type     the type of request
+     * @param climSample _more_
      *
      * @return  some output
      *
      * @throws Exception Problem processing the monthly request
+     * protected ServiceOperand evaluateMonthlyRequest(Request request,
+     *       ServiceInput dpi, ServiceOperand op, int opNum, String type)
+     *       throws Exception {
+     *   return evaluateMonthlyRequest(request, dpi, op, opNum, type, null);
+     * }
      */
-    protected ServiceOperand evaluateMonthlyRequest(Request request,
-            ServiceInput dpi, ServiceOperand op, int opNum, String type)
+
+    /**
+     * Process the daily data request
+     *
+     * @param request  the request
+     * @param dpi      the ServiceInput
+     * @param op       the operand
+     * @param opNum    the operand number
+     * @param type     the type of request
+     * @param climSample sample entry for finding climatology
+     *
+     * @return  some output
+     *
+     * @throws Exception problem processing the daily data
+     */
+    protected ServiceOperand evaluateDailyRequest(Request request,
+            ServiceInput dpi, ServiceOperand op, int opNum, String type,
+            Entry climSample)
             throws Exception {
-        return evaluateMonthlyRequest(request, dpi, op, opNum, type, null);
+        return evaluatePeriodRequest(request, dpi, op, opNum, type,
+                                     climSample, CDOOutputHandler.PERIOD_DAY);
     }
+
 
     /**
      * Process the monthly request
@@ -382,6 +406,29 @@ public class CDOArealStatisticsService extends CDODataService {
     protected ServiceOperand evaluateMonthlyRequest(Request request,
             ServiceInput dpi, ServiceOperand op, int opNum, String type,
             Entry climSample)
+            throws Exception {
+        return evaluatePeriodRequest(request, dpi, op, opNum, type,
+                                     climSample, CDOOutputHandler.PERIOD_MON);
+    }
+
+    /**
+     * Process the time period request
+     *
+     * @param request  the request
+     * @param dpi      the ServiceInput
+     * @param op       the operand
+     * @param opNum    the operand number
+     * @param type     the type of request
+     * @param climSample sample entry for finding climatology
+     * @param period _more_
+     *
+     * @return  some output
+     *
+     * @throws Exception Problem processing the monthly request
+     */
+    protected ServiceOperand evaluatePeriodRequest(Request request,
+            ServiceInput dpi, ServiceOperand op, int opNum, String type,
+            Entry climSample, String period)
             throws Exception {
 
         //System.err.println("opNum = "+opNum);
@@ -434,7 +481,8 @@ public class CDOArealStatisticsService extends CDODataService {
                     || stat.equals(CDOOutputHandler.STAT_STDANOM)
                     || stat.equals(CDOOutputHandler.STAT_PCTANOM))) {
             climEntry = getClimatologyEntry(request, dpi, climSample,
-                                            climstartYear, climendYear);
+                                            climstartYear, climendYear,
+                                            period);
 
             if (stat.equals(CDOOutputHandler.STAT_STDANOM)) {
                 sprdEntry = getSpreadEntry(request, dpi, climSample,
@@ -701,17 +749,17 @@ public class CDOArealStatisticsService extends CDODataService {
                               GridDataset dataset, String varname, int opNum)
             throws Exception {
 
-        long              millis      = System.currentTimeMillis();
-        long              submillis   = System.currentTimeMillis();
-        String            opStr       = (opNum == 0)
-                                        ? ""
-                                        : "" + (opNum + 1);
+        long    millis      = System.currentTimeMillis();
+        long    submillis   = System.currentTimeMillis();
+        String  opStr       = (opNum == 0)
+                              ? ""
+                              : "" + (opNum + 1);
 
-        Request           timeRequest = handleNamedTimePeriod(request, opStr);
+        Request timeRequest = handleNamedTimePeriod(request, opStr);
         if ((dataset == null) || dataset.getGrids().isEmpty()) {
             throw new Exception("No grids found");
         }
-        CalendarDateRange dateRange   = dataset.getCalendarDateRange();
+        CalendarDateRange dateRange = dataset.getCalendarDateRange();
         int firstDataYearMM = Integer.parseInt(
                                   new CalendarDateTime(
                                       dateRange.getStart()).formattedString(
@@ -724,8 +772,8 @@ public class CDOArealStatisticsService extends CDODataService {
                                      dateRange.getEnd()).formattedString(
                                      "yyyyMM",
                                      CalendarDateTime.DEFAULT_TIMEZONE));
-        int lastDataYear  = lastDataYearMM / 100;
-        int lastDataMonth = lastDataYearMM % 100;
+        int          lastDataYear  = lastDataYearMM / 100;
+        int          lastDataMonth = lastDataYearMM % 100;
         boolean      collapseTimes = request.get(ARG_TIME_AVERAGE, false);
         List<String> commands      = initCDOService();
         // Select order (left to right) - operations go right to left:
@@ -907,7 +955,7 @@ public class CDOArealStatisticsService extends CDODataService {
 
         } else {
             submillis = System.currentTimeMillis();
-            if (!collapseTimes) {
+            if ( !collapseTimes) {
                 commands.add("-timselmean," + numMonths);
             }
             getOutputHandler().addDateSelectServices(timeRequest, sample,
@@ -1115,7 +1163,6 @@ public class CDOArealStatisticsService extends CDODataService {
      *
      * @param request  the Request
      * @param sb       the StringBuilder to add to
-     * @param grids    list of grids to use
      * @param input    the service input
      * @param type     the type of request
      *
@@ -1123,8 +1170,7 @@ public class CDOArealStatisticsService extends CDODataService {
      */
     private void makeYearsWidget(Request request, Appendable sb,
                                  ServiceInput input, String type)
-    //                                 List<GridDataset> grids, String type)
-    throws Exception {
+            throws Exception {
 
         /* If we are doing a compare, we make widgets for each operand.  If we are doing
          * a multi compare, we make one widget from the intersection of all grids

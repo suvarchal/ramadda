@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -23,11 +23,11 @@ import org.ramadda.repository.*;
 import org.ramadda.repository.auth.*;
 import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.output.*;
-
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.EntryGroup;
 import org.ramadda.util.HtmlUtils;
+
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -79,7 +79,7 @@ public class CatalogOutputHandler extends OutputHandler {
     public static final String ICON_OPENDAP = "/cdmdata/opendap.gif";
 
     /** _more_ */
-    public static final String ICON_CATALOG = "ramadda.icon.catalog";
+    public static final String ICON_CATALOG = "/icons/book_open.png";
 
     /** _more_ */
     public static final String SERVICE_HTTP = "http";
@@ -259,7 +259,7 @@ public class CatalogOutputHandler extends OutputHandler {
                 OutputType outputType = OUTPUT_CATALOG;
                 link = new Link(url, (outputType.getIcon() == null)
                                      ? null
-                                     : iconUrl(outputType
+                                     : getIconUrl(outputType
                                          .getIcon()), outputType.getLabel(),
                                              outputType);
                 */
@@ -304,14 +304,12 @@ public class CatalogOutputHandler extends OutputHandler {
         List<MetadataHandler> metadataHandlers =
             repository.getMetadataManager().getMetadataHandlers();
         for (Metadata metadata : metadataList) {
-            for (MetadataHandler metadataHandler : metadataHandlers) {
-                if (metadataHandler.canHandle(metadata)) {
-                    metadataHandler.addMetadataToXml(request,
-                            MetadataTypeBase.TEMPLATETYPE_THREDDS, entry,
-                            metadata, catalogInfo.doc, datasetNode);
-
-                    break;
-                }
+            MetadataHandler metadataHandler =
+                getMetadataManager().findMetadataHandler(metadata);
+            if (metadataHandler != null) {
+                metadataHandler.addMetadataToXml(request,
+                        MetadataTypeBase.TEMPLATETYPE_THREDDS, entry,
+                        metadata, catalogInfo.doc, datasetNode);
             }
         }
 
@@ -445,7 +443,7 @@ public class CatalogOutputHandler extends OutputHandler {
                                new String[] { CatalogUtil.ATTR_NAME,
                         "icon", CatalogUtil.ATTR_VALUE,
                         request.getAbsoluteUrl(
-                            getRepository().iconUrl(ICON_OPENDAP)) });
+                            getRepository().getIconUrl(ICON_OPENDAP)) });
 
 
                 topDataset.insertBefore(latestDataset, firstChild);
@@ -720,7 +718,7 @@ public class CatalogOutputHandler extends OutputHandler {
                            subDataset, new String[] { CatalogUtil.ATTR_NAME,
                     "icon", CatalogUtil.ATTR_VALUE,
                     request.getAbsoluteUrl(
-                        getRepository().iconUrl(ICON_FILE)) });
+                        getRepository().getIconUrl(ICON_FILE)) });
 
         }
 
@@ -817,14 +815,14 @@ public class CatalogOutputHandler extends OutputHandler {
                                          new String[] { CatalogUtil.ATTR_NAME,
                 entryName });
 
-        String iconUrl =
+        String getIconUrl =
             request.getAbsoluteUrl(getPageHandler().getIconUrl(request,
                 entry));
 
         XmlUtil.create(catalogInfo.doc, CatalogUtil.TAG_PROPERTY, dataset,
                        new String[] { CatalogUtil.ATTR_NAME,
                                       "icon", CatalogUtil.ATTR_VALUE,
-                                      iconUrl });
+                                      getIconUrl });
 
 
         XmlUtil.create(catalogInfo.doc, CatalogUtil.TAG_PROPERTY, dataset,

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -131,7 +131,7 @@ public class IdvPointFile extends CsvFile {
     public VisitInfo prepareToVisit(VisitInfo visitInfo) throws Exception {
         super.prepareToVisit(visitInfo);
         List<String> headerLines = getHeaderLines();
-        if (headerLines.size() !=3) {
+        if (headerLines.size() != 3) {
             throw new IllegalArgumentException("Bad number of header lines:"
                     + headerLines.size());
         }

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ public class ConfluenceSearchProvider extends SearchProvider {
      * @return _more_
      */
     @Override
-    public String getIconUrl() {
+    public String getSearchProviderIconUrl() {
         return "${root}/atlassian/confluence.png";
     }
 
@@ -211,7 +211,7 @@ public class ConfluenceSearchProvider extends SearchProvider {
                     new Metadata(getRepository().getGUID(), newEntry.getId(),
                                  ContentMetadataHandler.TYPE_THUMBNAIL,
                                  false, thumb, null, null, null, null);
-                newEntry.addMetadata(thumbnailMetadata);
+                                 getMetadataManager().addMetadata(newEntry, thumbnailMetadata);
             }
             */
 

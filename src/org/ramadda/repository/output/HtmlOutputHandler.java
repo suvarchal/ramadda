@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -21,9 +21,6 @@ import org.ramadda.repository.*;
 import org.ramadda.repository.auth.*;
 import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.type.*;
-
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.CategoryBuffer;
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.JQuery;
@@ -32,6 +29,9 @@ import org.ramadda.util.TTLCache;
 
 
 import org.ramadda.util.Utils;
+
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -191,6 +191,20 @@ public class HtmlOutputHandler extends OutputHandler {
     }
 
 
+    /**
+     * _more_
+     *
+     * @param repository _more_
+     * @param element _more_
+     * @param fromChildClass _more_
+     *
+     * @throws Exception _more_
+     */
+    public HtmlOutputHandler(Repository repository, Element element,
+                             boolean fromChildClass)
+            throws Exception {
+        super(repository, element);
+    }
 
 
     /**
@@ -254,7 +268,7 @@ public class HtmlOutputHandler extends OutputHandler {
                                   getRepository().URL_ENTRY_SHOW, entry,
                                   ARG_OUTPUT,
                                   output.toString()), HtmlUtils.img(
-                                      iconUrl(output.getIcon()),
+                                      getIconUrl(output.getIcon()),
                                       output.getLabel()));
             sb.append("<td align=center>");
             if (output.getId().equals(selected)) {
@@ -302,11 +316,6 @@ public class HtmlOutputHandler extends OutputHandler {
 
 
 
-    public Result getMapInfo(Request request, Entry entry) throws Exception {
-        return getMapInfo(request, entry, true);
-    }
-
-
     /**
      * _more_
      *
@@ -317,7 +326,24 @@ public class HtmlOutputHandler extends OutputHandler {
      *
      * @throws Exception _more_
      */
-    public Result getMapInfo(Request request, Entry entry, boolean asXml) throws Exception {
+    public Result getMapInfo(Request request, Entry entry) throws Exception {
+        return getMapInfo(request, entry, true);
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param asXml _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public Result getMapInfo(Request request, Entry entry, boolean asXml)
+            throws Exception {
         String html = null;
         Result typeResult = entry.getTypeHandler().getHtmlDisplay(request,
                                 entry);
@@ -340,13 +366,13 @@ public class HtmlOutputHandler extends OutputHandler {
         }
         html = getRepository().translate(request, html);
 
-        if(asXml) {
-        StringBuffer xml = new StringBuffer(XmlUtil.XML_HEADER);
-        xml.append("\n<content>\n");
-        XmlUtil.appendCdata(xml, html);
-        xml.append("\n</content>");
+        if (asXml) {
+            StringBuffer xml = new StringBuffer(XmlUtil.XML_HEADER);
+            xml.append("\n<content>\n");
+            XmlUtil.appendCdata(xml, html);
+            xml.append("\n</content>");
 
-        return new Result("", xml, "text/xml");
+            return new Result("", xml, "text/xml");
         } else {
             return new Result("", html);
         }
@@ -403,7 +429,7 @@ public class HtmlOutputHandler extends OutputHandler {
         StringBuffer inner = new StringBuffer();
         String cLink =
             HtmlUtils.jsLink(HtmlUtils.onMouseClick("hidePopupObject();"),
-                             HtmlUtils.img(iconUrl(ICON_CLOSE)), "");
+                             HtmlUtils.img(getIconUrl(ICON_CLOSE)), "");
         inner.append(cLink);
         inner.append(HtmlUtils.br());
         inner.append(links);
@@ -482,7 +508,8 @@ public class HtmlOutputHandler extends OutputHandler {
             return getMetadataXml(request, entry, false);
         }
 
-        return getHtmlResult(request, outputType, entry);
+        return getHtmlResult(request, outputType, entry,
+                             !outputType.equals(OUTPUT_INFO));
     }
 
 
@@ -531,7 +558,8 @@ public class HtmlOutputHandler extends OutputHandler {
         StringBuilder sb        = new StringBuilder();
         boolean       doingInfo = outputType.equals(OUTPUT_INFO);
         if (doingInfo) {
-            getPageHandler().entrySectionOpen(request, entry, sb, "Entry Information");
+            getPageHandler().entrySectionOpen(request, entry, sb,
+                    "Entry Information");
             StringBuilder suffix = new StringBuilder();
             addDescription(request, entry, sb, true, suffix);
             String informationBlock = getInformationTabs(request, entry,
@@ -846,7 +874,7 @@ public class HtmlOutputHandler extends OutputHandler {
                                  List<Entry> subGroups, List<Entry> entries)
             throws Exception {
         StringBuffer sb         = new StringBuffer();
-        String       folder     = iconUrl(ICON_FOLDER_CLOSED);
+        String       folder     = getIconUrl(ICON_FOLDER_CLOSED);
         boolean      showUrl    = request.get(ARG_DISPLAYLINK, true);
         boolean      onlyGroups = request.get(ARG_ONLYGROUPS, false);
 
@@ -960,7 +988,7 @@ public class HtmlOutputHandler extends OutputHandler {
      *
      * @throws Exception _more_
      */
-    public Result getSelectXml(Request request, List<Entry> subGroups,
+    public Result getSelectXml(Request request, Entry group, List<Entry> subGroups,
                                List<Entry> entries)
             throws Exception {
 
@@ -1070,6 +1098,10 @@ public class HtmlOutputHandler extends OutputHandler {
         }
 
 
+        Entry parent = group.getParentEntry();
+        if(parent!=null) {
+            sb.append(getSelectLink(request, parent, target,"../"));
+        }
         for (Entry subGroup : subGroups) {
             if (Misc.equals(localeId, subGroup.getId())) {
                 continue;
@@ -1088,12 +1120,13 @@ public class HtmlOutputHandler extends OutputHandler {
                 sb.append(getSelectLink(request, entry, target));
             }
         }
-
         sb.append(HtmlUtils.close("div"));
+        String s = sb.toString();
+        s = HtmlUtils.div(
+            s, HtmlUtils.style(
+                "padding-left:5px;padding-right:5px;padding-bottom:5px;"));
 
-        return makeAjaxResult(request,
-                              getRepository().translate(request,
-                                  sb.toString()));
+        return makeAjaxResult(request, getRepository().translate(request, s));
 
     }
 
@@ -1132,7 +1165,11 @@ public class HtmlOutputHandler extends OutputHandler {
         if (isWiki) {
             getPageHandler().entrySectionOpen(request, entry, suffix,
                     "Wiki Text", true);
-            suffix.append(HtmlUtils.textArea("", desc, 20, 80));
+
+
+            entry.getTypeHandler().addWikiEditor(request, entry, suffix,
+                    null, "", desc, null, true, 0);
+
             getPageHandler().entrySectionClose(request, entry, suffix);
         }
 
@@ -1162,7 +1199,7 @@ public class HtmlOutputHandler extends OutputHandler {
             basicSB.append(desc);
             basicSB.append(HtmlUtils.br());
         }
-        request.put("showtitle", "false");
+        request.put(WikiConstants.ATTR_SHOWTITLE, "false");
         basicSB.append(entry.getTypeHandler().getEntryContent(request, entry,
                 false, true));
 
@@ -1267,7 +1304,9 @@ public class HtmlOutputHandler extends OutputHandler {
         List<Entry>  allEntries = new ArrayList<Entry>();
         allEntries.addAll(subGroups);
         allEntries.addAll(entries);
-        makeTreeView(request, allEntries, sb, 750, 500);
+        getPageHandler().entrySectionOpen(request, group, sb, "Tree View");
+        makeTreeView(request, allEntries, sb, 750, 500, true);
+        getPageHandler().entrySectionClose(request, group, sb);
 
         return makeLinksResult(request, group.getName(), sb,
                                new State(group, subGroups, entries));
@@ -1372,7 +1411,7 @@ public class HtmlOutputHandler extends OutputHandler {
         sb.append(HtmlUtils.submit("submit", "Submit"));
 
         sb.append(HtmlUtils.hr());
-        sb.append(HtmlUtils.img(iconUrl("/icons/arrow.gif"), "",
+        sb.append(HtmlUtils.img(getIconUrl("/icons/arrow.gif"), "",
                                 HtmlUtils.attr("id", formId + "_image")));
 
         sb.append(HtmlUtils.script(js.toString()));
@@ -1400,11 +1439,13 @@ public class HtmlOutputHandler extends OutputHandler {
     public Result outputTable(Request request, Entry group,
                               List<Entry> subGroups, List<Entry> entries)
             throws Exception {
-        StringBuffer sb         = new StringBuffer();
-        List<Entry>  allEntries = new ArrayList<Entry>();
+        StringBuffer sb = new StringBuffer();
+        getPageHandler().entrySectionOpen(request, group, sb, "Table");
+        List<Entry> allEntries = new ArrayList<Entry>();
         allEntries.addAll(subGroups);
         allEntries.addAll(entries);
         makeTable(request, allEntries, sb);
+        getPageHandler().entrySectionClose(request, group, sb);
 
         return makeLinksResult(request, group.getName(), sb,
                                new State(group, subGroups, entries));
@@ -1477,8 +1518,8 @@ public class HtmlOutputHandler extends OutputHandler {
             sb.append(getEntryManager().getTooltipLink(request, entry,
                     getEntryDisplayName(entry), url));
             sb.append(HtmlUtils.br());
-            sb.append(entry.getTypeHandler().formatDate(request, entry,
-                    new Date(entry.getStartDate()), ""));
+            sb.append(getDateHandler().formatDateShort(request, entry,
+                    entry.getStartDate()));
 
 
             //            sb.append (getEntryManager().getAjaxLink( request,  entry,
@@ -1507,7 +1548,7 @@ public class HtmlOutputHandler extends OutputHandler {
      * @throws Exception _more_
      */
     public void makeTreeView(Request request, List<Entry> children,
-                             Appendable sb, int width, int height)
+                             Appendable sb, int width, int height, boolean noTemplate)
             throws Exception {
 
         //TODO:  make the DOM ids be unique
@@ -1534,20 +1575,22 @@ public class HtmlOutputHandler extends OutputHandler {
             if (firstLink == null) {
                 firstLink = HtmlUtils.href(
                     url,
-                    HtmlUtils.img(getRepository().iconUrl("/icons/link.png"))
-                    + " " + label);
+                    HtmlUtils.img(
+                        getRepository().getIconUrl("/icons/link.png")) + " "
+                            + label);
             }
 
-            url = HtmlUtils.concat("javascript:",
-                                   HtmlUtils.call("treeViewClick",
-                                       HtmlUtils.jsMakeArgs(true,
-                                           child.getId(), url, label)));
-            listSB.append(HtmlUtils.open(HtmlUtils.TAG_DIV,
-                                         HtmlUtils.attrs(new String[] {
-                                             "class",
-                                             "ramadda-treeview-entry" })));
-            listSB.append(HtmlUtils.href(url, leftLabel));
-            listSB.append(HtmlUtils.close(HtmlUtils.TAG_DIV));
+            url = Utils.concatString("javascript:",
+                                     HtmlUtils.call("treeViewClick",
+                                         HtmlUtils.jsMakeArgs(false,
+                                                              HtmlUtils.squote(child.getId()), HtmlUtils.squote(url), 
+                                                              HtmlUtils.squote(label),noTemplate?"'empty'":"null")));
+            HtmlUtils.open(listSB, HtmlUtils.TAG_DIV,
+                           HtmlUtils.attrs(new String[] { "class",
+                    "ramadda-treeview-entry" }));
+            HtmlUtils.href(listSB, url, leftLabel,
+                           HtmlUtils.attr("title", "Click to view " + label));
+            HtmlUtils.close(listSB, HtmlUtils.TAG_DIV);
             listSB.append("\n");
         }
 
@@ -1588,7 +1631,7 @@ public class HtmlOutputHandler extends OutputHandler {
                 }
             }
             initUrl = request.entryUrl(getRepository().URL_ENTRY_SHOW,
-                                       initEntry, "template", "empty");
+                                       initEntry, (noTemplate?"template":"dummy"), "empty");
         }
         sb.append("<div class=\"col-md-" + wtr
                   + " ramadda-treeview-right \"  \"  >");
@@ -1711,9 +1754,9 @@ public class HtmlOutputHandler extends OutputHandler {
             tableSB.append("</thead>");
             tableSB.append("<tbody>");
 
-            String  blank =
-                HtmlUtils.img(getRepository().iconUrl(ICON_BLANK));
-            boolean odd   = true;
+            String blank =
+                HtmlUtils.img(getRepository().getIconUrl(ICON_BLANK));
+            boolean odd = true;
             for (Entry entry : entries) {
                 tableSB.append(HtmlUtils.open(HtmlUtils.TAG_TR,
                         HtmlUtils.attrs(new String[] { "class", odd
@@ -1727,8 +1770,8 @@ public class HtmlOutputHandler extends OutputHandler {
                     HtmlUtils.col(
                         entryLink.getLink(),
                         " nowrap " + HtmlUtils.cssClass("entry-table-name")));
-                String date = entry.getTypeHandler().formatDate(request,
-                                  entry, new Date(entry.getStartDate()), "");
+                String date = getDateHandler().formatDateShort(request,
+                                  entry, entry.getStartDate());
                 tableSB.append(
                     HtmlUtils.col(
                         date,
@@ -1739,7 +1782,8 @@ public class HtmlOutputHandler extends OutputHandler {
                         HtmlUtils.href(
                             entry.getTypeHandler().getEntryResourceUrl(
                                 request, entry), HtmlUtils.img(
-                                iconUrl(ICON_DOWNLOAD), msg("Download"), ""));
+                                getIconUrl(ICON_DOWNLOAD), msg("Download"),
+                                ""));
 
                     if (entry.isFile()) {
                         tableSB.append(HtmlUtils
@@ -1862,7 +1906,7 @@ public class HtmlOutputHandler extends OutputHandler {
         }
 
         if (outputType.equals(OUTPUT_SELECTXML)) {
-            return getSelectXml(request, subGroups, entries);
+            return getSelectXml(request, group, subGroups, entries);
         }
         if (outputType.equals(OUTPUT_METADATAXML)) {
             return getMetadataXml(request, group, true);
@@ -1973,9 +2017,10 @@ public class HtmlOutputHandler extends OutputHandler {
 
                 if ( !isSearchResults
                         && !Utils.stringDefined(group.getDescription())) {
-                    sb.append(
+                    /*                    sb.append(
                         getPageHandler().showDialogNote(
                             msg(LABEL_EMPTY_FOLDER)));
+                    */
                 }
             }
 
@@ -2025,13 +2070,31 @@ public class HtmlOutputHandler extends OutputHandler {
      *
      * @throws Exception _more_
      */
-    public String getWikiText(Request request, Entry entry)
+    public String getWikiText(Request request, Entry entry) throws Exception {
+        String wikiText = getWikiTextInner(request, entry);
+        if (wikiText != null) {
+            wikiText = entry.getTypeHandler().preProcessWikiText(request,
+                    entry, wikiText);
+        }
+
+        return wikiText;
+    }
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public String getWikiTextInner(Request request, Entry entry)
             throws Exception {
         String description = entry.getDescription();
-
         String wikiInner   = null;
         //If it begins with <wiki> then it overrides anything else
-
         if (TypeHandler.isWikiText(description)) {
             if (description.startsWith("<wiki_inner>")) {
                 wikiInner = description;

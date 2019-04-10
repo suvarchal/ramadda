@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -23,17 +23,17 @@ import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.output.OutputHandler;
 import org.ramadda.repository.output.OutputType;
 import org.ramadda.repository.type.*;
-
-
-import org.ramadda.sql.Clause;
-
-
-import org.ramadda.sql.SqlUtil;
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.FormInfo;
 import org.ramadda.util.HtmlUtils;
 
 import org.ramadda.util.WikiUtil;
+
+
+import org.ramadda.util.sql.Clause;
+
+
+import org.ramadda.util.sql.SqlUtil;
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -213,7 +213,7 @@ public class SlideshowTypeHandler extends GenericTypeHandler {
                 request.url(
                     getRepository().URL_ENTRY_SHOW, ARG_ENTRYID,
                     entry.getId(), ARG_SLIDESHOW_SHOW,
-                    "true"), getRepository().iconUrl(ICON_SLIDESHOW),
+                    "true"), getRepository().getIconUrl(ICON_SLIDESHOW),
                              "View Slideshow", OutputType.TYPE_VIEW));
     }
 
@@ -342,25 +342,24 @@ public class SlideshowTypeHandler extends GenericTypeHandler {
      */
     private String makeCommands(int cnt, boolean exists, boolean visible) {
         String newLink =
-            HtmlUtils.submitImage(getRepository().iconUrl(ICON_SLIDE_NEW),
+            HtmlUtils.submitImage(getRepository().getIconUrl(ICON_SLIDE_NEW),
                                   ARG_SLIDE_NEW + cnt, "Insert New Slide",
                                   "");
-        String copyLink =
-            HtmlUtils.submitImage(getRepository().iconUrl(ICON_SLIDE_COPY),
-                                  ARG_SLIDE_COPY + cnt, "Copy Slide", "");
+        String copyLink = HtmlUtils.submitImage(
+                              getRepository().getIconUrl(ICON_SLIDE_COPY),
+                              ARG_SLIDE_COPY + cnt, "Copy Slide", "");
         String upLink =
-            HtmlUtils.submitImage(getRepository().iconUrl(ICON_SLIDE_UP),
+            HtmlUtils.submitImage(getRepository().getIconUrl(ICON_SLIDE_UP),
                                   ARG_SLIDE_UP + cnt, "Move Slide Up", "");
-        String downLink =
-            HtmlUtils.submitImage(getRepository().iconUrl(ICON_SLIDE_DOWN),
-                                  ARG_SLIDE_DOWN + cnt, "Move Slide Down",
-                                  "");
+        String downLink = HtmlUtils.submitImage(
+                              getRepository().getIconUrl(ICON_SLIDE_DOWN),
+                              ARG_SLIDE_DOWN + cnt, "Move Slide Down", "");
         String deleteLink = ( !exists
                               ? ""
                               : HtmlUtils.submitImage(
-                                  getRepository().iconUrl(ICON_SLIDE_DELETE),
-                                  ARG_SLIDE_DELETE + cnt, "Delete Slide",
-                                  ""));
+                                  getRepository().getIconUrl(
+                                      ICON_SLIDE_DELETE), ARG_SLIDE_DELETE
+                                          + cnt, "Delete Slide", ""));
         String visibleCbx = HtmlUtils.checkbox(ARG_SLIDE_VISIBLE + cnt,
                                 "true", visible);
 
@@ -698,8 +697,7 @@ public class SlideshowTypeHandler extends GenericTypeHandler {
         template = template.replace("${head}",
                                     HtmlUtils.script("setEscapeUrl('" + url
                                         + "');"));
-        template = template.replace("${urlroot}",
-                                    getRepository().getUrlBase());
+        template = template.replace("${root}", getRepository().getUrlBase());
         template = template.replace("${title}", entry.getName());
         template = template.replace("${header}", header);
         template = template.replace("${footer}", footer);

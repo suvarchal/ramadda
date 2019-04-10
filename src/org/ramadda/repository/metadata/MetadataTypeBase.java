@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -67,6 +67,9 @@ public class MetadataTypeBase extends RepositoryManager {
 
     /** _more_ */
     public static final String TAG_TEMPLATE = "template";
+
+    /** _more_ */
+    public static String ATTR_HELP = "help";
 
     /** _more_ */
     public static final String ATTR_FILE = "file";
@@ -402,8 +405,8 @@ public class MetadataTypeBase extends RepositoryManager {
     public void init(Element node) throws Exception {
         setName(XmlUtil.getAttribute(node, ATTR_NAME, ""));
         setLabel(XmlUtil.getAttribute(node, ATTR_LABEL, (String) null));
-        setSuffixLabel(XmlUtil.getAttribute(node, ATTR_SUFFIX,
-                                            (String) null));
+        setSuffixLabel(Utils.getAttributeOrTag(node, ATTR_SUFFIX,
+                (String) null));
 
         setShowInHtml(XmlUtil.getAttribute(node, ATTR_SHOWINHTML, true));
         setSearchable(XmlUtil.getAttributeFromTree(node, ATTR_SEARCHABLE,
@@ -426,6 +429,8 @@ public class MetadataTypeBase extends RepositoryManager {
             if (childNode.getTagName().equals(TAG_TEMPLATE)) {
                 processTemplateTag(childNode);
             } else if (childNode.getTagName().equals(TAG_ELEMENT)) {}
+            else if (childNode.getTagName().equals(ATTR_HELP)) {}
+            else if (childNode.getTagName().equals("suffix")) {}
             else {
                 logError("Unknown metadata xml tag:"
                          + XmlUtil.toString(childNode), null);
@@ -608,13 +613,12 @@ public class MetadataTypeBase extends RepositoryManager {
         }
 
         String extra = (forLink
-                        ? HtmlUtils.cssClass("ramadda-thumbnail")
+                        ? HtmlUtils.cssClass("ramadda-thumbnail-image")
                         : "");
         String tail  = getStorageManager().getFileTail(f.toString());
         String path =
-            HtmlUtils
-                .concat(handler.getRepository().getMetadataManager()
-                    .URL_METADATA_VIEW.toString(), "/", tail);
+            Utils.concatString(handler.getRepository().getMetadataManager()
+                .URL_METADATA_VIEW.toString(), "/", tail);
 
 
         if (Utils.isImage(f.toString())) {
@@ -632,16 +636,11 @@ public class MetadataTypeBase extends RepositoryManager {
                                     ARG_METADATA_ID,
                                     metadata.getId()), "thumbnail", "");
 
-
-                String imgUrl = HtmlUtils.url(path, ARG_ELEMENT,
-                                    element.getIndex() + "", ARG_ENTRYID,
-                                    metadata.getEntryId(), ARG_METADATA_ID,
-                                    metadata.getId());
-
                 img = handler.getPageHandler().makePopupLink(img, bigimg,
                         true, false);
+                img = HtmlUtils.div(img,HtmlUtils.cssClass("ramadda-thumbnail"));
             } else {
-                img = HtmlUtils.concat(img, "\n<br>\n<b>", tail, "</b>\n");
+                img = Utils.concatString(img, "\n<br>\n<b>", tail, "</b>\n");
             }
 
             return img;

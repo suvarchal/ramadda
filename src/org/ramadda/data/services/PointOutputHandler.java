@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@ import org.ramadda.repository.metadata.Metadata;
 import org.ramadda.repository.metadata.MetadataHandler;
 import org.ramadda.repository.output.OutputType;
 import org.ramadda.repository.type.TypeHandler;
+import org.ramadda.util.Bounds;
 import org.ramadda.util.ColorTable;
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.Json;
@@ -56,11 +57,13 @@ import org.ramadda.util.grid.LatLonGrid;
 
 import org.w3c.dom.Element;
 
+
 import ucar.unidata.ui.ImageUtils;
 import ucar.unidata.util.IOUtil;
 
 import ucar.unidata.util.LogUtil;
 import ucar.unidata.util.Misc;
+import ucar.unidata.util.StringUtil;
 import ucar.unidata.xml.XmlUtil;
 //import ucar.nc2.ft.point.writer.CFPointObWriter;
 //import ucar.nc2.ft.point.writer.PointObVar;
@@ -70,6 +73,7 @@ import java.awt.Color;
 import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.geom.Rectangle2D;
+import java.awt.image.*;
 import java.awt.image.MemoryImageSource;
 
 import java.io.ByteArrayOutputStream;
@@ -83,6 +87,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -165,6 +170,7 @@ public class PointOutputHandler extends RecordOutputHandler {
 
     /** _more_ */
     public final OutputType OUTPUT_JSON;
+
 
     /** output type */
     public final OutputType OUTPUT_ASC;
@@ -272,7 +278,6 @@ public class PointOutputHandler extends RecordOutputHandler {
         OUTPUT_JSON = new OutputType("JSON", base + ".json",
                                      OutputType.TYPE_OTHER, "json", ICON_CSV,
                                      category);
-
 
         OUTPUT_ASC = new OutputType("ARC ASCII Grid", base + ".asc",
                                     OutputType.TYPE_OTHER, "asc", ICON_DATA,
@@ -383,6 +388,7 @@ public class PointOutputHandler extends RecordOutputHandler {
      *
      * @return _more_
      */
+    @Override
     public RecordEntry doMakeEntry(Request request, Entry entry) {
         RecordTypeHandler typeHandler =
             (RecordTypeHandler) entry.getTypeHandler();
@@ -667,10 +673,22 @@ public class PointOutputHandler extends RecordOutputHandler {
                         GridVisitor gridVisitor = (GridVisitor) visitor;
                         gridVisitor.finishedWithAllFiles();
                         info.addStatusItem("Generating gridded products");
-                        outputEntryGrid(request, entry,
-                                        gridVisitor.getGrid(), formats,
-                                        jobId);
+                        IdwGrid llg = gridVisitor.getGrid();
+                        pointEntries.get(0).setBounds(llg.getBounds());
+                        outputEntryGrid(request, entry, llg, formats, jobId);
                         memoryCheck("POINT: memory after grid:");
+                    }
+                }
+                for (RecordVisitor visitor : visitors) {
+                    if (visitor instanceof BarnesVisitor) {
+                        BarnesVisitor barnesVisitor = (BarnesVisitor) visitor;
+                        barnesVisitor.finishedWithAllFiles();
+                        IdwGrid llg = barnesVisitor.getGrid();
+                        pointEntries.get(0).setBounds(llg.getBounds());
+                        info.addStatusItem("Generating gridded products");
+                        outputEntryGrid(request, entry,
+                                        barnesVisitor.getGrid(), formats,
+                                        jobId);
                     }
                 }
                 info.addStatusItem("Product processing complete");
@@ -867,17 +885,48 @@ public class PointOutputHandler extends RecordOutputHandler {
      *
      * @param request _more_
      * @param entry _more_
+     * @param props _more_
      *
      *
      * @return _more_
      * @throws Exception _more_
      */
-    public String getJsonUrl(Request request, Entry entry) throws Exception {
+    public String getJsonUrl(Request request, Entry entry, Hashtable props)
+            throws Exception {
+        String max = null;
+        PointTypeHandler typeHandler =
+            (PointTypeHandler) entry.getTypeHandler();
+        String extra     = "";
+        String extraArgs = (String) props.get("extraArgs");
+        if (extraArgs != null) {
+            for (String tuple :
+                    StringUtil.split(extraArgs, ",", true, true)) {
+                List<String> toks  = StringUtil.splitUpTo(tuple, ":", 2);
+                String       arg   = toks.get(0);
+                String       value = ((toks.size() > 1)
+                                      ? toks.get(1)
+                                      : "");
+                extra += "&";
+                extra += HtmlUtils.arg(arg, value);
+            }
+        }
+        if (props != null) {
+            max = (String) props.get("max");
+        }
+        if (max == null) {
+            max = "5000";
+        }
+
+        String path = entry.getResource().getPath();
+        if ((path != null) && (path.indexOf("${latitude}") >= 0)) {
+            extra += "&latitude=${latitude}&longitude=${longitude}";
+        }
+
         return request.entryUrl(getRepository().URL_ENTRY_SHOW, entry,
                                 ARG_OUTPUT, OUTPUT_PRODUCT.getId(),
                                 ARG_PRODUCT, OUTPUT_JSON.toString()) + "&"
-                                    + RecordFormHandler.ARG_NUMPOINTS
-                                    + "=5000";
+                                    + RecordFormHandler.ARG_MAX + "=" + max
+                                    + extra;
 
     }
 
@@ -945,12 +994,12 @@ public class PointOutputHandler extends RecordOutputHandler {
             return outputEntryBounds(request, group);
         }
 
-        for(Entry entry: subGroups) {
-            if(entry.getTypeHandler().isType("type_point")) {
+        for (Entry entry : subGroups) {
+            if (entry.getTypeHandler().isType("type_point")) {
                 entries.add(entry);
             }
         }
-        if(group.getTypeHandler().isType("type_point")) {
+        if (group.getTypeHandler().isType("type_point")) {
             entries.clear();
             entries.add(group);
         }
@@ -980,7 +1029,7 @@ public class PointOutputHandler extends RecordOutputHandler {
         //        System.err.println("record entries:" + makeRecordEntries(request, entries, true));
         final List<PointEntry> pointEntries =
             PointEntry.toPointEntryList(doSubsetEntries(request,
-                                                        makeRecordEntries(request, entries, true)));
+                makeRecordEntries(request, entries, true)));
 
         boolean asynchronous = request.get(ARG_ASYNCH, false);
         if ( !doingPointCount && (pointEntries.size() == 0) && asynchronous) {
@@ -1103,6 +1152,10 @@ public class PointOutputHandler extends RecordOutputHandler {
         if (formats.contains(OUTPUT_NC.getId())) {
             visitors.add(makeNetcdfVisitor(request, entry, pointEntries,
                                            jobInfo.getJobId()));
+        }
+        if (request.get(ARG_GRID_BARNES, false)) {
+            visitors.add(makeBarnesVisitor(request, pointEntries,
+                                           getBounds(request, pointEntries)));
         }
         if (formats.contains(OUTPUT_LATLONALTCSV.getId())) {
             visitors.add(makeLatLonAltCsvVisitor(request, entry,
@@ -1285,6 +1338,7 @@ public class PointOutputHandler extends RecordOutputHandler {
 
 
 
+
     /**
      * _more_
      *
@@ -1313,6 +1367,13 @@ public class PointOutputHandler extends RecordOutputHandler {
                                   bounds.x, bounds.y + bounds.height,
                                   bounds.x + bounds.width);
 
+        if (request.defined(RecordConstants.ARG_GRID_POWER)) {
+            llg.setPower(request.get(RecordConstants.ARG_GRID_POWER, 1.0));
+        }
+        if (request.defined(RecordConstants.ARG_GRID_MINPOINTS)) {
+            llg.setMinPoints(request.get(RecordConstants.ARG_GRID_MINPOINTS,
+                                         1));
+        }
         //llg.fillValue(Double.NaN);
         //If nothing specified then default to 2 grid cells radius
         if ( !request.defined(ARG_GRID_RADIUS_DEGREES)
@@ -1320,20 +1381,22 @@ public class PointOutputHandler extends RecordOutputHandler {
             llg.setRadius(0.0);
             llg.setNumCells(2);
         } else {
-            //If the user did not change the degrees radius then get the default radius from the bounds
-            if (request.getString(ARG_GRID_RADIUS_DEGREES, "").equals(
-                    request.getString(ARG_GRID_RADIUS_DEGREES_ORIG, ""))) {
-                //                System.err.println("getting default:" +
-                //                                   getFormHandler().getDefaultRadiusDegrees(request, bounds));
-                llg.setRadius(
-                    getFormHandler().getDefaultRadiusDegrees(
-                        request, bounds));
+            if (request.defined(ARG_GRID_RADIUS_CELLS)) {
+                llg.setNumCells(request.get(ARG_GRID_RADIUS_CELLS, 0));
             } else {
-                //                System.err.println("using arg:" +
-                //                                   request.get(ARG_GRID_RADIUS_DEGREES, 0.0));
-                llg.setRadius(request.get(ARG_GRID_RADIUS_DEGREES, 0.0));
+                //If the user did not change the degrees radius then get the default radius from the bounds
+                if (request.getString(ARG_GRID_RADIUS_DEGREES, "").equals(
+                        request.getString(
+                            ARG_GRID_RADIUS_DEGREES_ORIG, ""))) {
+                    llg.setRadius(
+                        getFormHandler().getDefaultRadiusDegrees(
+                            request, bounds));
+                } else {
+                    llg.setRadius(request.get(ARG_GRID_RADIUS_DEGREES, 0.0));
+                }
             }
-            llg.setNumCells(request.get(ARG_GRID_RADIUS_CELLS, 0));
+
+
         }
         if (llg.getCellIndexDelta() > 100) {
             System.err.println("POINT: bad grid neighborhood size: "
@@ -1348,6 +1411,37 @@ public class PointOutputHandler extends RecordOutputHandler {
 
         return visitor;
     }
+
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param recordEntries _more_
+     * @param bounds _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public BarnesVisitor makeBarnesVisitor(
+            Request request, List<? extends PointEntry> recordEntries,
+            Rectangle2D.Double bounds)
+            throws Exception {
+        int imageWidth  = request.get(ARG_WIDTH, DFLT_WIDTH);
+        int imageHeight = request.get(ARG_HEIGHT, DFLT_HEIGHT);
+
+        if ((imageWidth > 2500) || (imageHeight > 2500)) {
+            throw new IllegalArgumentException("Too large image dimension: "
+                    + imageWidth + " X " + imageHeight);
+        }
+        //        System.err.println("Grid BOUNDS: " + bounds);
+
+        return new BarnesVisitor(this, request, imageWidth, imageHeight,
+                                 bounds);
+    }
+
+
 
 
 
@@ -1696,7 +1790,11 @@ public class PointOutputHandler extends RecordOutputHandler {
                 grid = llg.getMinGrid();
             } else if (whatGrid.equals(ARG_GRID_MAX)) {
                 grid = llg.getMaxGrid();
+            } else if (whatGrid.equals(ARG_GRID_BARNES)) {
+                grid = llg.getValueGrid();
             } else if (whatGrid.equals(ARG_GRID_AVERAGE)) {
+                grid = llg.getAverageGrid();
+            } else if (whatGrid.equals(ARG_GRID_SUM)) {
                 grid = llg.getValueGrid();
             } else if (whatGrid.equals(ARG_GRID_COUNT)) {
                 isAltitudeValue = false;
@@ -1721,11 +1819,13 @@ public class PointOutputHandler extends RecordOutputHandler {
                                   missingValue, fileSuffix + ".asc");
             }
 
+            double threshold = request.get(ARG_THRESHOLD, Double.NaN);
             if (doImage) {
                 File imageFile =
                     getRepository().getStorageManager().getTmpFile(request,
                         "pointimage.png");
-                writeImage(request, imageFile, llg, grid, missingValue);
+                writeImage(request, imageFile, llg, grid, missingValue,
+                           threshold);
                 InputStream imageInputStream =
                     getStorageManager().getFileInputStream(imageFile);
                 OutputStream os = getOutputStream(request, jobId, mainEntry,
@@ -1768,7 +1868,8 @@ public class PointOutputHandler extends RecordOutputHandler {
                             destFileName), new Boolean(false));
                 }
                 writeImage(request, imageFile, hillshadeGrid,
-                           hillshadeGrid.getValueGrid(), missingValue);
+                           hillshadeGrid.getValueGrid(), missingValue,
+                           threshold);
                 InputStream imageInputStream =
                     getStorageManager().getFileInputStream(imageFile);
                 OutputStream os = getOutputStream(request, jobId, mainEntry,
@@ -1900,11 +2001,13 @@ public class PointOutputHandler extends RecordOutputHandler {
      * @param llg latlongrid
      * @param grid _more_
      * @param missingValue _more_
+     * @param threshold _more_
      *
      * @throws Exception On badness
      */
     public void writeImage(Request request, File imageFile, LatLonGrid llg,
-                           double[][] grid, double missingValue)
+                           double[][] grid, double missingValue,
+                           double threshold)
             throws Exception {
         int     imageWidth       = llg.getWidth();
         int     imageHeight      = llg.getHeight();
@@ -1939,8 +2042,10 @@ public class PointOutputHandler extends RecordOutputHandler {
             }
         }
 
-        int[][] colorTable =
+        ColorTable colorTable =
             ColorTable.getColorTable(request.getString(ARG_COLORTABLE, ""));
+        min = request.get(RecordConstants.ARG_GRID_RANGE_MIN, min);
+        max = request.get(RecordConstants.ARG_GRID_RANGE_MAX, max);
         double[] range =
             ColorTable.getRange(request.getString(ARG_COLORTABLE, ""), min,
                                 max);
@@ -1952,15 +2057,16 @@ public class PointOutputHandler extends RecordOutputHandler {
         for (int y = 0; y < imageHeight; y++) {
             for (int x = 0; x < imageWidth; x++) {
                 double value = grid[y][x];
-                if (Double.isNaN(value) || (value == LatLonGrid.GRID_MISSING)
+                if (( !Double.isNaN(threshold) && (value < threshold))
+                        || Double.isNaN(value)
+                        || (value == LatLonGrid.GRID_MISSING)
                         || (haveMissingValue && (value == missingValue))) {
                     //Set missing to transparent
                     pixels[index] = (0x00 << 24);
                 } else {
                     //TODO: Check range for DBZ exception
                     double percent = (value - colorRangeMin) / colorRange;
-                    pixels[index] = ColorTable.getPixelValue(colorTable,
-                            percent);
+                    pixels[index] = colorTable.getPixelValue(percent);
                 }
                 index++;
             }
@@ -1972,9 +2078,45 @@ public class PointOutputHandler extends RecordOutputHandler {
                                  imageWidth, imageHeight, pixels, 0,
                                  imageWidth));
 
+        float[] matrix = new float[400];
+        for (int i = 0; i < 400; i++) {
+            matrix[i] = 1.0f / 400.0f;
+        }
+
+        //        BufferedImageOp op = new ConvolveOp( new Kernel(20, 20, matrix), ConvolveOp.EDGE_NO_OP, null );
+        /*
+        com.jhlabs.image.ConvolveFilter filter = new com.jhlabs.image.ConvolveFilter();
+        Image filteredImage = filter.filter(ImageUtils.toBufferedImage(newImage), null);
+
+        ImageUtils.writeImageToFile(filteredImage, imageFile);
+        */
         ImageUtils.writeImageToFile(newImage, imageFile);
     }
 
+
+    /**
+     * _more_
+     *
+     * @param args _more_
+     *
+     * @throws Exception _more_
+     */
+    public static void main(String[] args) throws Exception {
+        System.err.println("main");
+        float[] matrix = new float[400];
+        for (int i = 0; i < 400; i++) {
+            matrix[i] = 1.0f / 400.0f;
+        }
+
+        //        BufferedImage newImage = ImageUtils.toBufferedImage(ImageUtils.readImage(args[0]));
+        //        System.err.println("filtering");
+        //        com.jhlabs.image.ConvolveFilter filter = new com.jhlabs.image.ConvolveFilter(new Kernel(20, 20, matrix));
+        //        com.jhlabs.image.GaussianFilter filter = new com.jhlabs.image.GaussianFilter(5.0f);
+
+        //        Image filteredImage = filter.filter(newImage, null);
+        //        System.err.println("writing");
+        //        ImageUtils.writeImageToFile(filteredImage, "filtered_" + args[0]);
+    }
 
     /**
      * _more_
@@ -2175,7 +2317,7 @@ public class PointOutputHandler extends RecordOutputHandler {
             { OUTPUT_LATLONALTCSV.toString(), "Lat/Lon/Alt CSV", ".csv",
               ICON_POINTS }, { lasProduct, "LAS 1.2", ".las", ICON_POINTS },
             { OUTPUT_KMZ.toString(), ".kmz", "Google Earth KMZ",
-              getIconUrl(request, ICON_KML) }
+              getAbsoluteIconUrl(request, ICON_KML) }
         };
 
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -27,11 +27,11 @@ import org.ramadda.repository.output.JsonOutputHandler;
 
 import org.ramadda.repository.output.WikiManager;
 import org.ramadda.repository.search.*;
-
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.Utils;
+
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 
@@ -107,6 +107,7 @@ public class RepositoryManager implements RepositorySource, Constants,
      * @throws Exception _more_
      */
     public void shutdown() throws Exception {}
+
 
 
     /**
@@ -243,6 +244,23 @@ public class RepositoryManager implements RepositorySource, Constants,
      * _more_
      *
      * @param bytes _more_
+     * @param decorate _more_
+     *
+     * @return _more_
+     */
+    public static String formatFileLength(double bytes, boolean decorate) {
+        String s = formatFileLength(bytes);
+        if (decorate && (s.length() > 0)) {
+            return " (" + s + ")";
+        }
+
+        return s;
+    }
+
+    /**
+     * _more_
+     *
+     * @param bytes _more_
      *
      * @return _more_
      */
@@ -271,8 +289,8 @@ public class RepositoryManager implements RepositorySource, Constants,
      *
      * @return _more_
      */
-    public String fileUrl(String url) {
-        return getRepository().fileUrl(url);
+    public String getFileUrl(String url) {
+        return getRepository().getFileUrl(url);
     }
 
     /**
@@ -282,8 +300,8 @@ public class RepositoryManager implements RepositorySource, Constants,
      *
      * @return _more_
      */
-    public String htdocsUrl(String url) {
-        return getRepository().htdocsUrl(url);
+    public String getHtdocsUrl(String url) {
+        return getRepository().getHtdocsUrl(url);
     }
 
     /**
@@ -293,8 +311,8 @@ public class RepositoryManager implements RepositorySource, Constants,
      *
      * @return _more_
      */
-    public String iconUrl(String url) {
-        return getRepository().iconUrl(url);
+    public String getIconUrl(String url) {
+        return getRepository().getIconUrl(url);
     }
 
 
@@ -449,9 +467,9 @@ public class RepositoryManager implements RepositorySource, Constants,
      */
     public String subHeaderLink(String url, String label, boolean toggle) {
         //        if(true) return "x";
-        String img = HtmlUtils.img(iconUrl(toggle
-                                           ? ICON_MINUS
-                                           : ICON_PLUS));
+        String img = HtmlUtils.img(getIconUrl(toggle
+                ? ICON_MINUS
+                : ICON_PLUS));
         label = img + HtmlUtils.space(1) + label;
         String html =
             HtmlUtils.href(url, label,
@@ -472,7 +490,7 @@ public class RepositoryManager implements RepositorySource, Constants,
      * @return _more_
      */
     public String formatDate(Request request, Date d) {
-        return getPageHandler().formatDate(request, d);
+        return getDateHandler().formatDate(request, d);
     }
 
     /**
@@ -485,37 +503,11 @@ public class RepositoryManager implements RepositorySource, Constants,
      * @return _more_
      */
     public String formatDate(Request request, Date d, Entry entry) {
-        return getPageHandler().formatDate(request, d,
+        return getDateHandler().formatDate(request, d,
                                            getEntryUtil().getTimezone(entry));
     }
 
 
-    /**
-     * _more_
-     *
-     * @param request _more_
-     * @param ms _more_
-     *
-     * @return _more_
-     */
-    public String formatDate(Request request, long ms) {
-        return getPageHandler().formatDate(request, ms);
-    }
-
-
-    /**
-     * _more_
-     *
-     * @param request _more_
-     * @param ms _more_
-     * @param entry _more_
-     *
-     * @return _more_
-     */
-    public String formatDate(Request request, long ms, Entry entry) {
-        return getPageHandler().formatDate(request, ms,
-                                           getEntryUtil().getTimezone(entry));
-    }
 
     /**
      * _more_
@@ -672,6 +664,15 @@ public class RepositoryManager implements RepositorySource, Constants,
      *
      * @return _more_
      */
+    public DateHandler getDateHandler() {
+        return repository.getDateHandler();
+    }
+
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
     public SearchManager getSearchManager() {
         return repository.getSearchManager();
     }
@@ -810,7 +811,7 @@ public class RepositoryManager implements RepositorySource, Constants,
         String onSubmit = " onsubmit=\"return submitEntryForm('#" + id
                           + "');\" ";
         String loadingImage =
-            HtmlUtils.img(getRepository().iconUrl(ICON_PROGRESS));
+            HtmlUtils.img(getRepository().getIconUrl(ICON_PROGRESS));
         Utils.append(sb,
                      "<div style=\"display:none;\" id=\"" + id + "\">"
                      + loadingImage + " " + message + "</div>");
@@ -833,7 +834,7 @@ public class RepositoryManager implements RepositorySource, Constants,
         String onSubmit = " onclick=\"return submitEntryForm('#" + id
                           + "');\" ";
         String loadingImage =
-            HtmlUtils.img(getRepository().iconUrl(ICON_PROGRESS));
+            HtmlUtils.img(getRepository().getIconUrl(ICON_PROGRESS));
         Utils.append(sb,
                      "<div style=\"display:none;\" id=\"" + id + "\">"
                      + loadingImage + " " + message + "</div>");
@@ -866,6 +867,11 @@ public class RepositoryManager implements RepositorySource, Constants,
      * _more_
      */
     public void clearCache() {}
+
+    /**
+     * _more_
+     */
+    public void initAttributes() {}
 
     /**
      * A method to find out if a radio button should be selected based on the request arguments

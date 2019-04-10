@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -24,7 +24,8 @@ import org.ramadda.repository.search.*;
 import org.ramadda.repository.type.*;
 
 import org.ramadda.util.HtmlUtils;
-import org.ramadda.util.HtmlUtils;
+import org.ramadda.util.TTLCache;
+import org.ramadda.util.Utils;
 
 import org.w3c.dom.*;
 
@@ -57,6 +58,9 @@ public class TwilioApiHandler extends RepositoryManager implements RequestHandle
 
     /** _more_ */
     public static final String PROP_AUTHTOKEN = "twilio.authtoken";
+
+    /** _more_ */
+    public static final String PROP_PHONE = "twilio.phone";
 
     /** _more_ */
     public static final String PROP_APPID = "twilio.appid";
@@ -129,14 +133,170 @@ public class TwilioApiHandler extends RepositoryManager implements RequestHandle
      *     ctor
      *
      *     @param repository the repository
-     *     @param node xml from api.xml
-     *     @param props propertiesn
      *
      *     @throws Exception on badness
      */
     public TwilioApiHandler(Repository repository) throws Exception {
         super(repository);
+        String appId = repository.getProperty(PROP_APPID, null);
+        if (appId != null) {
+            repository.getAccessManager().setTwoFactorAuthenticator(
+                new TwilioTwoFactorAuthenticator(repository) {}
+            );
+        }
+
     }
+
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
+    public boolean sendingEnabled() {
+        return isEnabled()
+               && Utils.stringDefined(getRepository().getProperty(PROP_PHONE,
+                   ""));
+    }
+
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
+    public boolean isEnabled() {
+        return Utils.stringDefined(repository.getProperty(PROP_APPID, null));
+    }
+
+    /**
+     * Class description
+     *
+     *
+     * @version        $version$, Sat, Dec 8, '18
+     * @author         Enter your name here...
+     */
+    public class TwilioTwoFactorAuthenticator extends AccessManager
+        .TwoFactorAuthenticator {
+
+        /** _more_ */
+        private Repository repository;
+
+        /**
+         * _more_
+         *
+         * @param repository _more_
+         */
+        public TwilioTwoFactorAuthenticator(Repository repository) {
+            this.repository = repository;
+            authCache       = new TTLCache<String, String>(1000 * 60 * 10);
+        }
+
+        /** _more_ */
+        private TTLCache<String, String> authCache;
+
+
+        /**
+         * _more_
+         *
+         * @param user _more_
+         *
+         * @return _more_
+         */
+        @Override
+        public boolean userCanBeAuthenticated(User user) {
+            System.err.println("auth user:" + user);
+            String phone = (String) user.getProperty("phone");
+            if (phone == null) {
+                return false;
+            }
+            phone = phone.replaceAll("[^\\d]", "");
+            if (phone.length() != 10) {
+                return false;
+            }
+
+            return true;
+        }
+
+        /**
+         * _more_
+         *
+         * @param request _more_
+         * @param user _more_
+         * @param sb _more_
+         *
+         * @throws Exception _more_
+         */
+        @Override
+        public void addAuthForm(Request request, User user, Appendable sb)
+                throws Exception {
+            String phone = (String) user.getProperty("phone");
+            if (phone == null) {
+                sb.append(
+                    repository.getPageHandler().showDialogNote(
+                        "No phone number on record"));
+
+                return;
+            }
+            phone = phone.replaceAll("[^\\d]", "");
+            String from   = getRepository().getProperty(PROP_PHONE, "");
+            double random = 1000000 * Math.random();
+            String code   = "" + random;
+            code = StringUtil.padRight(code.substring(0, 6), 6, "0");
+            authCache.put(user.getId(), code);
+            sendTextMessage(from, phone, "RAMADDA login code:\n" + code);
+
+            sb.append(
+                repository.getPageHandler().showDialogNote(
+                    "Enter the code we texted you"));
+
+            String id = request.getString(ARG_USER_ID, "");
+            sb.append(HtmlUtils.formPost(repository.getUrlPath(request,
+                    repository.getRepositoryBase().URL_USER_LOGIN)));
+
+
+
+            sb.append(HtmlUtils.formTable());
+            sb.append(HtmlUtils.formEntry(msgLabel("Code"),
+                                          HtmlUtils.input("code", "")));
+            if (request.exists(ARG_REDIRECT)) {
+                sb.append(HtmlUtils.hidden(ARG_REDIRECT,
+                                           request.getString(ARG_REDIRECT,
+                                               "")));
+            }
+            sb.append(HtmlUtils.hidden(ARG_USER_ID, user.getId()));
+            sb.append(
+                HtmlUtils.formEntry(
+                    "",
+                    HtmlUtils.submit(msg("Login")) + " "
+                    + HtmlUtils.submit(msg("Resend Code"))));
+            sb.append(HtmlUtils.formClose());
+            sb.append(HtmlUtils.formTableClose());
+        }
+
+
+        /**
+         * _more_
+         *
+         * @param request _more_
+         * @param user _more_
+         * @param sb _more_
+         *
+         * @return _more_
+         *
+         * @throws Exception _more_
+         */
+        @Override
+        public boolean userHasBeenAuthenticated(Request request, User user,
+                Appendable sb)
+                throws Exception {
+            String enteredCode = request.getString("code", "");
+            String sentCode    = authCache.get(user.getId());
+            System.err.println("codes:" + enteredCode + "  " + sentCode);
+
+            return Misc.equals(enteredCode, sentCode);
+        }
+
+    }
+
 
 
 
@@ -417,19 +577,52 @@ public class TwilioApiHandler extends RepositoryManager implements RequestHandle
      */
     public void sendTextMessage(String fromPhone, String toPhone, String msg)
             throws Exception {
-        String smsUrl = "https://"
-                        + getRepository().getProperty(PROP_APPID, null) + ":"
-                        + getRepository().getProperty(PROP_AUTHTOKEN, null)
-                        + "@api.twilio.com/2010-04-01/Accounts/"
-                        + getRepository().getProperty(PROP_APPID, null)
-                        + "/SMS/Messages";
+        sendTextMessage(fromPhone, toPhone, msg, null);
+    }
+
+    /**
+     * _more_
+     *
+     * @param fromPhone _more_
+     * @param toPhone _more_
+     * @param msg _more_
+     * @param url _more_
+     *
+     * @throws Exception _more_
+     */
+    public void sendTextMessage(String fromPhone, String toPhone, String msg,
+                                String url)
+            throws Exception {
+        if (fromPhone == null) {
+            fromPhone = getRepository().getProperty(PROP_PHONE, "");
+        }
+
+        fromPhone = fromPhone.replaceAll("-", "").replaceAll(" ", "");
+        toPhone   = toPhone.replaceAll("-", "").replaceAll(" ", "");
+
+        if ( !fromPhone.startsWith("+1")) {
+            fromPhone = "+1" + fromPhone;
+        }
+        if ( !toPhone.startsWith("+1")) {
+            toPhone = "+1" + toPhone;
+        }
+        String appId     = getRepository().getProperty(PROP_APPID, null);
+        String authToken = getRepository().getProperty(PROP_AUTHTOKEN, null);
+        String smsUrl = "https://api.twilio.com/2010-04-01/Accounts/" + appId
+                        + "/Messages.json";
+        //        -u AC182514c8af787ab441a7ea05940995d9:[AuthToken]
+
         String result = doPost(smsUrl,
                                "From="
                                + URLEncoder.encode(fromPhone, "UTF-8") + "&"
                                + "To=" + URLEncoder.encode(toPhone, "UTF-8")
-                               + "&" + "Body="
-                               + URLEncoder.encode(msg, "UTF-8"));
-        System.err.println("Result:" + result);
+                               + ((url == null)
+                                  ? ""
+                                  : "&" + "MediaUrl="
+                                    + URLEncoder.encode(url, "UTF-8")) + "&"
+                                        + "Body="
+                                        + URLEncoder.encode(msg, "UTF-8"));
+        //        System.err.println("Result:" + result);
     }
 
     /**
@@ -506,16 +699,28 @@ public class TwilioApiHandler extends RepositoryManager implements RequestHandle
         huc.addRequestProperty("Authorization", "Basic " + encoding);
 
         huc.setRequestMethod("POST");
-        huc.setRequestProperty("Content-length",
-                               String.valueOf(args.length()));
+        huc.setRequestProperty("Host", "api.twilio.com");
+        //        huc.setRequestProperty("Content-length",
+        //                               String.valueOf(args.length()));
         huc.setDoOutput(true);
         huc.setDoInput(true);
         DataOutputStream output = new DataOutputStream(huc.getOutputStream());
         output.writeBytes(args);
         output.close();
 
-        return new String(IOUtil.readBytes(huc.getInputStream(), null));
+        System.err.println("url:" + myurl);
+        try {
+            return new String(IOUtil.readBytes(huc.getInputStream(), null));
+        } catch (Exception exc) {
+            System.err.println("error:" + huc.getResponseMessage());
+            System.err.println(
+                new String(IOUtil.readBytes(huc.getErrorStream(), null)));
+
+            throw exc;
+
+        }
     }
+
 
 
 

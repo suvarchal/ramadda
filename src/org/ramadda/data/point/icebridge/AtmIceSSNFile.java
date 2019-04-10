@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -78,87 +78,87 @@ public class AtmIceSSNFile extends org.ramadda.data.point.text.TextFile {
      * Class description
      *
      *
-     * @version        $version$, Sat, Feb 28, '15
-     * @author         Enter your name here...
+     * @version        $version$, Wed, Feb 20, '19
+     * @author         Enter your name here...    
      */
-    public static class AtmIceSSNRecord extends org.ramadda.data.point
-        .PointRecord {
+    public static class AtmIceSSNRecord extends org.ramadda.data.point.text
+        .TextRecord {
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_FIRST =
-            org.ramadda.data.point.PointRecord.ATTR_LAST;
+            org.ramadda.data.point.text.TextRecord.ATTR_LAST;
 
-        /** _more_ */
+        /** _more_          */
         public static final List<RecordField> FIELDS =
             new ArrayList<RecordField>();
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_SECONDS = ATTR_FIRST + 1;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_SECONDS;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_CENTERLATITUDE = ATTR_FIRST + 2;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_CENTERLATITUDE;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_CENTERLONGITUDE = ATTR_FIRST + 3;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_CENTERLONGITUDE;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_HEIGHT = ATTR_FIRST + 4;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_HEIGHT;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_SOUTHTONORTHSLOPE = ATTR_FIRST + 5;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_SOUTHTONORTHSLOPE;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_WESTTOEASTSLOPE = ATTR_FIRST + 6;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_WESTTOEASTSLOPE;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_RMSFIT = ATTR_FIRST + 7;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_RMSFIT;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_NUMBEROFPOINTSUSED = ATTR_FIRST + 8;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_NUMBEROFPOINTSUSED;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_NUMBEROFPOINTSEDITED = ATTR_FIRST + 9;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_NUMBEROFPOINTSEDITED;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_DISTANCEFROMTRAJECTORY = ATTR_FIRST + 10;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_DISTANCEFROMTRAJECTORY;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_TRACKIDENTIFIER = ATTR_FIRST + 11;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_TRACKIDENTIFIER;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_LAST = ATTR_FIRST + 12;
 
 
@@ -341,37 +341,37 @@ public class AtmIceSSNFile extends org.ramadda.data.point.text.TextFile {
         }
 
 
-        /** _more_ */
+        /** _more_          */
         double seconds;
 
-        /** _more_ */
+        /** _more_          */
         double centerLatitude;
 
-        /** _more_ */
+        /** _more_          */
         double centerLongitude;
 
-        /** _more_ */
+        /** _more_          */
         double height;
 
-        /** _more_ */
+        /** _more_          */
         double southToNorthSlope;
 
-        /** _more_ */
+        /** _more_          */
         double westToEastSlope;
 
-        /** _more_ */
+        /** _more_          */
         double rmsFit;
 
-        /** _more_ */
+        /** _more_          */
         int numberOfPointsUsed;
 
-        /** _more_ */
+        /** _more_          */
         int numberOfPointsEdited;
 
-        /** _more_ */
+        /** _more_          */
         double distanceFromTrajectory;
 
-        /** _more_ */
+        /** _more_          */
         int trackIdentifier;
 
 
@@ -548,6 +548,7 @@ public class AtmIceSSNFile extends org.ramadda.data.point.text.TextFile {
          *
          * @param fields _more_
          */
+        @Override
         protected void addFields(List<RecordField> fields) {
             super.addFields(fields);
             fields.addAll(FIELDS);
@@ -707,37 +708,45 @@ public class AtmIceSSNFile extends org.ramadda.data.point.text.TextFile {
             if (superCnt > 0) {
                 pw.print(',');
             }
-            pw.print(seconds);
+            pw.print(getStringValue(RECORDATTR_SECONDS, seconds));
             myCnt++;
             pw.print(',');
-            pw.print(centerLatitude);
+            pw.print(getStringValue(RECORDATTR_CENTERLATITUDE,
+                                    centerLatitude));
             myCnt++;
             pw.print(',');
-            pw.print(centerLongitude);
+            pw.print(getStringValue(RECORDATTR_CENTERLONGITUDE,
+                                    centerLongitude));
             myCnt++;
             pw.print(',');
-            pw.print(height);
+            pw.print(getStringValue(RECORDATTR_HEIGHT, height));
             myCnt++;
             pw.print(',');
-            pw.print(southToNorthSlope);
+            pw.print(getStringValue(RECORDATTR_SOUTHTONORTHSLOPE,
+                                    southToNorthSlope));
             myCnt++;
             pw.print(',');
-            pw.print(westToEastSlope);
+            pw.print(getStringValue(RECORDATTR_WESTTOEASTSLOPE,
+                                    westToEastSlope));
             myCnt++;
             pw.print(',');
-            pw.print(rmsFit);
+            pw.print(getStringValue(RECORDATTR_RMSFIT, rmsFit));
             myCnt++;
             pw.print(',');
-            pw.print(numberOfPointsUsed);
+            pw.print(getStringValue(RECORDATTR_NUMBEROFPOINTSUSED,
+                                    numberOfPointsUsed));
             myCnt++;
             pw.print(',');
-            pw.print(numberOfPointsEdited);
+            pw.print(getStringValue(RECORDATTR_NUMBEROFPOINTSEDITED,
+                                    numberOfPointsEdited));
             myCnt++;
             pw.print(',');
-            pw.print(distanceFromTrajectory);
+            pw.print(getStringValue(RECORDATTR_DISTANCEFROMTRAJECTORY,
+                                    distanceFromTrajectory));
             myCnt++;
             pw.print(',');
-            pw.print(trackIdentifier);
+            pw.print(getStringValue(RECORDATTR_TRACKIDENTIFIER,
+                                    trackIdentifier));
             myCnt++;
 
             return myCnt + superCnt;

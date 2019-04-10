@@ -19,12 +19,14 @@
       <echo message="Building core plugins"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/apis/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/atlassian/build.xml" inheritAll="false"/>
-      <ant antfile="${src_dir}/org/ramadda/plugins/awhere/build.xml" inheritAll="false"/>
+<!--
       <ant antfile="${src_dir}/org/ramadda/plugins/aws/build.xml" inheritAll="false"/>
+-->
       <ant antfile="${src_dir}/org/ramadda/plugins/beforeafter/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/biblio/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/biz/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/blog/build.xml" inheritAll="false"/>
+      <ant antfile="${src_dir}/org/ramadda/plugins/chat/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/calendar/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/census/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/community/build.xml" inheritAll="false"/>
@@ -45,18 +47,16 @@
       <ant antfile="${src_dir}/org/ramadda/plugins/media/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/metameta/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/multisearch/build.xml" inheritAll="false"/>
-      <ant antfile="${src_dir}/org/ramadda/plugins/nist/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/notes/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/ontology/build.xml" inheritAll="false"/>
-      <ant antfile="${src_dir}/org/ramadda/plugins/pasteit/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/phone/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/poll/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/power/build.xml" inheritAll="false"/>
+      <ant antfile="${src_dir}/org/ramadda/plugins/records/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/search/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/slack/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/socrata/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/trip/build.xml" inheritAll="false"/>
-      <ant antfile="${src_dir}/org/ramadda/plugins/usda/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/userguide/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/wiki/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/worldbank/build.xml" inheritAll="false"/>
@@ -66,9 +66,6 @@
 <!--
       <ant antfile="${src_dir}/org/ramadda/plugins/dropbox/build.xml" inheritAll="false"/>
       <ant antfile="${src_dir}/org/ramadda/plugins/box/build.xml" inheritAll="false"/>
--->
-<!--
-      <ant antfile="${src_dir}/org/ramadda/plugins/personfinder/build.xml" inheritAll="false"/>
 -->
     </target>
 

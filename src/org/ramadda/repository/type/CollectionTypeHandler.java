@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -24,13 +24,13 @@ import org.ramadda.repository.Result;
 import org.ramadda.repository.database.Tables;
 import org.ramadda.repository.output.BulkDownloadOutputHandler;
 import org.ramadda.repository.output.ZipOutputHandler;
-import org.ramadda.sql.Clause;
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.JQuery;
 import org.ramadda.util.Json;
 import org.ramadda.util.TTLCache;
 import org.ramadda.util.Utils;
+import org.ramadda.util.sql.Clause;
+import org.ramadda.util.sql.SqlUtil;
 
 import org.w3c.dom.Element;
 
@@ -430,7 +430,10 @@ public class CollectionTypeHandler extends ExtensibleGroupTypeHandler {
         for (String value : (List<String>) values) {
             String label = (String) map.get(value);
             if (label == null) {
-                label = value;
+                label = column.getEnumLabel(value);
+                if (label == null) {
+                    label = value;
+                }
             }
             tfos.add(new TwoFacedObject(label.trim(), value));
         }
@@ -679,7 +682,7 @@ public class CollectionTypeHandler extends ExtensibleGroupTypeHandler {
         BulkDownloadOutputHandler bdoh = getBulkDownloadOutputHandler();
         bdoh.process(request, sb, getEntryManager().getDummyGroup(),
                      processSearch(request, entry, true), false, true,
-                     new HashSet<String>());
+                     new HashSet<String>(), false);
 
         return new Result(
             "", sb, bdoh.getMimeType(BulkDownloadOutputHandler.OUTPUT_CURL));
@@ -890,7 +893,7 @@ public class CollectionTypeHandler extends ExtensibleGroupTypeHandler {
     public String openForm(Request request, Entry entry, Appendable sb,
                            Appendable js)
             throws Exception {
-        sb.append(HtmlUtils.importJS(fileUrl("/selectform.js")));
+        sb.append(HtmlUtils.importJS(getFileUrl("/selectform.js")));
         String formId = "selectform" + HtmlUtils.blockCnt++;
         sb.append(
             HtmlUtils.form(

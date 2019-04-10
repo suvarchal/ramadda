@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -382,7 +382,7 @@ public class CommandHarvester extends Harvester {
         }
         sb.append("\n");
         String searchUrl =
-            request.getRequest().makeUrl(getSearchManager().URL_SEARCH_TEXTFORM)
+            request.getRequest().makeUrl(getSearchManager().URL_SEARCH_FORM)
             + "?show_providers=true";
         String searchHref =
             makeLink(request, searchUrl,
@@ -856,7 +856,7 @@ public class CommandHarvester extends Harvester {
                 cmdRequest.getRequest()
                     .getAbsoluteUrl(cmdRequest.getRequest()
                         .makeUrl(getSearchManager()
-                            .URL_SEARCH_TEXTFORM) + "?show_providers=true");
+                            .URL_SEARCH_FORM) + "?show_providers=true");
 
             StringBuffer help    = new StringBuffer();
             String       command = cmdRequest.getCommand();
@@ -1931,7 +1931,7 @@ public class CommandHarvester extends Harvester {
                           repository.getPageHandler().getIconUrl(
                               request.getRequest(), entry));
 
-        return HtmlUtils.concat(
+        return Utils.concatString(
             HtmlUtils.img(icon), " ",
             HtmlUtils.b(
                 HtmlUtils.href(
@@ -1968,7 +1968,7 @@ public class CommandHarvester extends Harvester {
         for (List<Object> row : rows) {
             StringBuffer rowSB = new StringBuffer("<tr>");
             for (Object value : row) {
-                String s = HtmlUtils.concat("&nbsp;", ((value == null)
+                String s = Utils.concatString("&nbsp;", ((value == null)
                         ? ""
                         : value.toString()), "&nbsp;");
                 if (rowCnt == 0) {

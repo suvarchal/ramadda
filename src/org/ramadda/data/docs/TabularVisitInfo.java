@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ package org.ramadda.data.docs;
 
 import org.ramadda.repository.*;
 
+import org.ramadda.util.HtmlUtils;
 import ucar.unidata.util.StringUtil;
 
 import java.util.ArrayList;
@@ -78,7 +79,7 @@ public class TabularVisitInfo {
                 if (toks.size() > 1) {
                     line = toks.get(0);
                     Hashtable props =
-                        StringUtil.parseHtmlProperties(toks.get(1));
+                        HtmlUtils.parseHtmlProperties(toks.get(1));
                     label = (String) props.get("label");
                 }
 

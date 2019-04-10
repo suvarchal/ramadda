@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 */
 
 package org.ramadda.repository;
-
 
 
 import org.apache.log4j.Logger;
@@ -42,6 +41,9 @@ import java.io.*;
 import java.io.FileNotFoundException;
 
 import java.sql.SQLException;
+
+
+import java.text.SimpleDateFormat;
 
 
 import java.util.ArrayList;
@@ -139,6 +141,9 @@ public class LogManager extends RepositoryManager {
     /** _more_ */
     private int requestCount = 0;
 
+    /** _more_ */
+    private SimpleDateFormat sdf;
+
     /**
      * _more_
      *
@@ -147,6 +152,7 @@ public class LogManager extends RepositoryManager {
     public LogManager(Repository repository) {
         super(repository);
         LOGGER_OK = repository.getProperty(PROP_USELOG4J, true);
+        sdf = RepositoryUtil.makeDateFormat(DateHandler.DEFAULT_TIME_FORMAT);
     }
 
 
@@ -208,7 +214,7 @@ public class LogManager extends RepositoryManager {
         String uri       = request.getRequestPath();
         String method    = request.getHttpServletRequest().getMethod();
         String userAgent = request.getUserAgent("none");
-        String time      = getPageHandler().formatDate(new Date());
+        String time      = sdf.format(new Date());
         String requestPath = method + " " + uri + " "
                              + request.getHttpServletRequest().getProtocol();
         String referer = request.getHttpServletRequest().getHeader("referer");
@@ -931,7 +937,7 @@ public class LogManager extends RepositoryManager {
 
             }
 
-            String dttm = getPageHandler().formatDate(logEntry.getDate());
+            String dttm = getDateHandler().formatDate(logEntry.getDate());
             dttm = dttm.replace(" ", "&nbsp;");
             String user = logEntry.getUser().getLabel();
             user = user.replace(" ", "&nbsp;");

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -131,10 +131,13 @@ public class DataRecord extends PointRecord {
      *
      * @param fields _more_
      */
-@Override
+    @Override
     public void initFields(List<RecordField> fields) {
-       super.initFields(fields);
-       if(values!=null) return;
+
+        super.initFields(fields);
+        if (values != null) {
+            return;
+        }
         numDataFields = 0;
         String timeField = (String) getRecordFile().getProperty("field.time");
         String timeFormat =
@@ -294,6 +297,7 @@ public class DataRecord extends PointRecord {
             }
         }
         checkIndices();
+
     }
 
 
@@ -369,7 +373,7 @@ public class DataRecord extends PointRecord {
      */
     @Override
     public long getRecordTime() {
-        if (idxTime >= 0) {
+        if ((idxTime >= 0) && (objectValues != null)) {
             Object obj = objectValues[idxTime];
             if (obj == null) {
                 return super.getRecordTime();
@@ -398,8 +402,9 @@ public class DataRecord extends PointRecord {
      */
     protected void addFields(List<RecordField> fields) {
         super.addFields(fields);
-        if(fields.size()==0)
+        if ((fields.size() == 0) && (this.fields != null)) {
             fields.addAll(this.fields);
+        }
     }
 
 
@@ -417,8 +422,6 @@ public class DataRecord extends PointRecord {
         if ((idx >= 0) && (idx < values.length)) {
             return values[idx];
         }
-
-
 
         return super.getValue(attrId);
     }
@@ -469,7 +472,7 @@ public class DataRecord extends PointRecord {
             if (objectValues[idx] == null) {
                 return "" + values[idx];
             }
-            if (idx == idxTime) {
+            if (objectValues[idx] instanceof Date) {
                 return Utils.format((Date) objectValues[idx]);
             }
 
@@ -578,12 +581,7 @@ public class DataRecord extends PointRecord {
                 continue;
             }
 
-
-
             double value = values[fieldCnt];
-
-
-
             if (recordField.isTypeInteger()) {
                 int v = (int) value;
                 pw.print(v);
@@ -684,6 +682,12 @@ public class DataRecord extends PointRecord {
         }
     }
 
-
-
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
+    public double[] getValues() {
+        return values;
+    }
 }

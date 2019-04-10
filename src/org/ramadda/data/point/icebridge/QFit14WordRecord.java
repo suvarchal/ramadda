@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -33,99 +33,99 @@ import java.util.List;
 public class QFit14WordRecord extends org.ramadda.data.point.icebridge
     .QfitRecord {
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_FIRST =
         org.ramadda.data.point.icebridge.QfitRecord.ATTR_LAST;
 
-    /** _more_ */
+    /** _more_          */
     public static final List<RecordField> FIELDS =
         new ArrayList<RecordField>();
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_RELATIVETIME = ATTR_FIRST + 1;
 
-    /** _more_ */
+    /** _more_          */
     public static final RecordField RECORDATTR_RELATIVETIME;
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_LASERLATITUDE = ATTR_FIRST + 2;
 
-    /** _more_ */
+    /** _more_          */
     public static final RecordField RECORDATTR_LASERLATITUDE;
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_LASERLONGITUDE = ATTR_FIRST + 3;
 
-    /** _more_ */
+    /** _more_          */
     public static final RecordField RECORDATTR_LASERLONGITUDE;
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_ELEVATION = ATTR_FIRST + 4;
 
-    /** _more_ */
+    /** _more_          */
     public static final RecordField RECORDATTR_ELEVATION;
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_STARTSIGNALSTRENGTH = ATTR_FIRST + 5;
 
-    /** _more_ */
+    /** _more_          */
     public static final RecordField RECORDATTR_STARTSIGNALSTRENGTH;
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_REFLECTEDSIGNALSTRENGTH = ATTR_FIRST + 6;
 
-    /** _more_ */
+    /** _more_          */
     public static final RecordField RECORDATTR_REFLECTEDSIGNALSTRENGTH;
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_AZIMUTH = ATTR_FIRST + 7;
 
-    /** _more_ */
+    /** _more_          */
     public static final RecordField RECORDATTR_AZIMUTH;
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_PITCH = ATTR_FIRST + 8;
 
-    /** _more_ */
+    /** _more_          */
     public static final RecordField RECORDATTR_PITCH;
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_ROLL = ATTR_FIRST + 9;
 
-    /** _more_ */
+    /** _more_          */
     public static final RecordField RECORDATTR_ROLL;
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_PASSIVESIGNAL = ATTR_FIRST + 10;
 
-    /** _more_ */
+    /** _more_          */
     public static final RecordField RECORDATTR_PASSIVESIGNAL;
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_PASSIVELATITUDE = ATTR_FIRST + 11;
 
-    /** _more_ */
+    /** _more_          */
     public static final RecordField RECORDATTR_PASSIVELATITUDE;
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_PASSIVELONGITUDE = ATTR_FIRST + 12;
 
-    /** _more_ */
+    /** _more_          */
     public static final RecordField RECORDATTR_PASSIVELONGITUDE;
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_PASSIVEELEVATION = ATTR_FIRST + 13;
 
-    /** _more_ */
+    /** _more_          */
     public static final RecordField RECORDATTR_PASSIVEELEVATION;
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_GPSTIME = ATTR_FIRST + 14;
 
-    /** _more_ */
+    /** _more_          */
     public static final RecordField RECORDATTR_GPSTIME;
 
-    /** _more_ */
+    /** _more_          */
     public static final int ATTR_LAST = ATTR_FIRST + 15;
 
 
@@ -328,34 +328,34 @@ public class QFit14WordRecord extends org.ramadda.data.point.icebridge
     }
 
 
-    /** _more_ */
+    /** _more_          */
     int startSignalStrength;
 
-    /** _more_ */
+    /** _more_          */
     int reflectedSignalStrength;
 
-    /** _more_ */
+    /** _more_          */
     int azimuth;
 
-    /** _more_ */
+    /** _more_          */
     int pitch;
 
-    /** _more_ */
+    /** _more_          */
     int roll;
 
-    /** _more_ */
+    /** _more_          */
     int passiveSignal;
 
-    /** _more_ */
+    /** _more_          */
     int passiveLatitude;
 
-    /** _more_ */
+    /** _more_          */
     int passiveLongitude;
 
-    /** _more_ */
+    /** _more_          */
     int passiveElevation;
 
-    /** _more_ */
+    /** _more_          */
     int gpsTime;
 
 
@@ -675,46 +675,50 @@ public class QFit14WordRecord extends org.ramadda.data.point.icebridge
         if (superCnt > 0) {
             pw.print(',');
         }
-        pw.print(relativeTime);
+        pw.print(getStringValue(RECORDATTR_RELATIVETIME, relativeTime));
         myCnt++;
         pw.print(',');
-        pw.print(laserLatitude);
+        pw.print(getStringValue(RECORDATTR_LASERLATITUDE, laserLatitude));
         myCnt++;
         pw.print(',');
-        pw.print(laserLongitude);
+        pw.print(getStringValue(RECORDATTR_LASERLONGITUDE, laserLongitude));
         myCnt++;
         pw.print(',');
-        pw.print(elevation);
+        pw.print(getStringValue(RECORDATTR_ELEVATION, elevation));
         myCnt++;
         pw.print(',');
-        pw.print(startSignalStrength);
+        pw.print(getStringValue(RECORDATTR_STARTSIGNALSTRENGTH,
+                                startSignalStrength));
         myCnt++;
         pw.print(',');
-        pw.print(reflectedSignalStrength);
+        pw.print(getStringValue(RECORDATTR_REFLECTEDSIGNALSTRENGTH,
+                                reflectedSignalStrength));
         myCnt++;
         pw.print(',');
-        pw.print(azimuth);
+        pw.print(getStringValue(RECORDATTR_AZIMUTH, azimuth));
         myCnt++;
         pw.print(',');
-        pw.print(pitch);
+        pw.print(getStringValue(RECORDATTR_PITCH, pitch));
         myCnt++;
         pw.print(',');
-        pw.print(roll);
+        pw.print(getStringValue(RECORDATTR_ROLL, roll));
         myCnt++;
         pw.print(',');
-        pw.print(passiveSignal);
+        pw.print(getStringValue(RECORDATTR_PASSIVESIGNAL, passiveSignal));
         myCnt++;
         pw.print(',');
-        pw.print(passiveLatitude);
+        pw.print(getStringValue(RECORDATTR_PASSIVELATITUDE, passiveLatitude));
         myCnt++;
         pw.print(',');
-        pw.print(passiveLongitude);
+        pw.print(getStringValue(RECORDATTR_PASSIVELONGITUDE,
+                                passiveLongitude));
         myCnt++;
         pw.print(',');
-        pw.print(passiveElevation);
+        pw.print(getStringValue(RECORDATTR_PASSIVEELEVATION,
+                                passiveElevation));
         myCnt++;
         pw.print(',');
-        pw.print(gpsTime);
+        pw.print(getStringValue(RECORDATTR_GPSTIME, gpsTime));
         myCnt++;
 
         return myCnt + superCnt;

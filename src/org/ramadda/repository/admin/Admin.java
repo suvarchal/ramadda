@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -25,13 +25,13 @@ import org.ramadda.repository.database.*;
 import org.ramadda.repository.harvester.*;
 
 import org.ramadda.repository.output.*;
-
-import org.ramadda.sql.Clause;
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.JQuery;
 import org.ramadda.util.Utils;
+
+import org.ramadda.util.sql.Clause;
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -1255,6 +1255,7 @@ public class Admin extends RepositoryManager {
         csb.append(HtmlUtils.formTable());
 
 
+        /*
         csb.append(HtmlUtils.row(HtmlUtils.colspan(msgHeader("Registration"),
                 2)));
 
@@ -1263,8 +1264,6 @@ public class Admin extends RepositoryManager {
         csb.append(HtmlUtils.formEntry(msgLabel("Key"),
                                        HtmlUtils.input(PROP_REGISTER_KEY,
                                            regKey, HtmlUtils.SIZE_90)));
-
-        /*
         if (isRegistered()) {
             csb.append(HtmlUtils.formEntry("",
                                            "Registered for " + numberUsers
@@ -1276,7 +1275,7 @@ public class Admin extends RepositoryManager {
                 csb.append(HtmlUtils.formEntry("", "Not registered"));
             }
             }
-        */
+*/
 
         csb.append(
             HtmlUtils.row(
@@ -1347,7 +1346,7 @@ public class Admin extends RepositoryManager {
                     PROP_PROPERTIES,
                     getRepository().getProperty(
                         PROP_PROPERTIES,
-                        "#add extra properties\n#name=value\n#ramadda.html.template.default=mapheader\n\n"), 5, 60)));
+                        "#add extra properties\n#name=value\n#ramadda.html.template.default=fixedmapheader\n\n"), 5, 60)));
 
 
 
@@ -1717,9 +1716,8 @@ public class Admin extends RepositoryManager {
                           boolean asHtml)
             throws Exception {
         getRepository().getMailManager().sendEmail(to, from, subject,
-                contents, bcc, asHtml);
+                contents, bcc, asHtml, null);
     }
-
 
     /**
      * _more_
@@ -1800,6 +1798,7 @@ public class Admin extends RepositoryManager {
         */
 
         getRepository().setLocalFilePaths();
+        getRepository().initAttributes();
         getRepository().clearCache();
 
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -53,6 +53,16 @@ public class Row {
     /** _more_ */
     private List values;
 
+    /** _more_          */
+    private Object skipTo;
+
+    /**
+     * _more_
+     */
+    public Row() {
+        values = new ArrayList();
+    }
+
     /**
      * _more_
      *
@@ -84,6 +94,28 @@ public class Row {
     public Row(String line, String delimiter) {
         this(Utils.tokenizeColumns(line, delimiter));
     }
+
+
+    /**
+     * Set the SkipTo property.
+     *
+     * @param value The new value for SkipTo
+     */
+    public void setSkipTo(Object value) {
+        skipTo = value;
+    }
+
+    /**
+     * Get the SkipTo property.
+     *
+     * @return The SkipTo
+     */
+    public Object getSkipTo() {
+        return skipTo;
+    }
+
+
+
 
 
     /**
@@ -135,8 +167,11 @@ public class Row {
         if (index >= values.size()) {
             System.err.println("Row error:" + index + " " + values);
         }
+        Object o = values.get(index);
 
-        return values.get(index).toString();
+        return (o == null)
+               ? ""
+               : o.toString();
     }
 
     /**
@@ -154,6 +189,15 @@ public class Row {
      *
      * @param object _more_
      */
+    public void insert(Object object) {
+        values.add(object);
+    }
+
+    /**
+     * _more_
+     *
+     * @param object _more_
+     */
     public void add(Object object) {
         values.add(object);
     }
@@ -164,7 +208,7 @@ public class Row {
      * @param index _more_
      * @param object _more_
      */
-    public void add(int index, Object object) {
+    public void insert(int index, Object object) {
         values.add(index, object);
     }
 

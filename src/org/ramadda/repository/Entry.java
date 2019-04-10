@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@ import org.ramadda.repository.metadata.Metadata;
 import org.ramadda.repository.type.Column;
 import org.ramadda.repository.type.TypeHandler;
 import org.ramadda.repository.util.ServerInfo;
+import org.ramadda.util.Bounds;
+import org.ramadda.util.GeoUtils;
 
 import org.ramadda.util.Utils;
 
@@ -87,6 +89,9 @@ public class Entry implements Cloneable {
 
     /** the description */
     private String description = "";
+
+    /** _more_ */
+    private String snippet;
 
     /** the parent entry */
     private Entry parentEntry;
@@ -479,6 +484,19 @@ public class Entry implements Cloneable {
     }
 
     /**
+     * _more_
+     *
+     * @return _more_
+     */
+    public String getBoundsString() {
+        if ( !hasAreaDefined()) {
+            return null;
+        }
+
+        return north + "," + west + "," + south + "," + east;
+    }
+
+    /**
      * Get the geographic bounds
      *
      * @return  the bounds
@@ -496,10 +514,10 @@ public class Entry implements Cloneable {
      * @param rect  the bounds
      */
     public void setBounds(Rectangle2D.Double rect) {
-        west  = cleanLon(rect.getX());
-        south = cleanLat(rect.getY());
-        east  = cleanLon(west + rect.getWidth());
-        north = cleanLat(south + rect.getHeight());
+        setWest(cleanLon(rect.getX()));
+        setSouth(cleanLat(rect.getY()));
+        setEast(cleanLon(west + rect.getWidth()));
+        setNorth(cleanLat(south + rect.getHeight()));
     }
 
 
@@ -625,6 +643,16 @@ public class Entry implements Cloneable {
      */
     public void setStartDate(long value) {
         startDate = value;
+    }
+
+    /**
+     * _more_
+     *
+     * @param value _more_
+     */
+    public void setStartAndEndDate(long value) {
+        startDate = value;
+        endDate   = value;
     }
 
     /**
@@ -866,6 +894,29 @@ public class Entry implements Cloneable {
     }
 
     /**
+     * _more_
+     *
+     * @param index _more_
+     * @param dflt _more_
+     *
+     * @return _more_
+     */
+    public int getValue(int index, int dflt) {
+        String sValue = getValue(index, "");
+        if (sValue.length() == 0) {
+            return dflt;
+        }
+        int retval = dflt;
+        try {
+            retval = new Integer(sValue);
+        } catch (Exception e) {
+            retval = dflt;
+        }
+
+        return retval;
+    }
+
+    /**
      * Get the indexed value as a double
      *
      * @param index  index in getValues array;
@@ -914,10 +965,13 @@ public class Entry implements Cloneable {
         return name + " id:" + id + "  type:" + getTypeHandler();
     }
 
+    /**
+     * _more_
+     */
     public void printMe() {
         System.err.println(this.toString());
-        if(values!=null) {
-            for(Object obj: values) {
+        if (values != null) {
+            for (Object obj : values) {
                 System.err.println("\tvalue:" + obj);
             }
         }
@@ -958,8 +1012,12 @@ public class Entry implements Cloneable {
      * @return true if this entry has a location defined
      */
     public boolean hasLocationDefined() {
-        if ((south != NONGEO) && (east != NONGEO) && !hasAreaDefined()) {
-            return true;
+        if ((south != NONGEO) && (east != NONGEO) && Utils.isReal(south)
+                && Utils.isReal(east) && !hasAreaDefined()) {
+            if (Utils.between(east, -180, 180)
+                    && Utils.between(south, -90, 90)) {
+                return true;
+            }
         }
 
         return false;
@@ -1018,6 +1076,17 @@ public class Entry implements Cloneable {
      * @return true if this entry has an area defined
      */
     public boolean hasAreaDefined() {
+        if ( !Utils.isReal(south) || !Utils.isReal(east)
+                || !Utils.isReal(north) || !Utils.isReal(west)) {
+            return false;
+        }
+        if ( !(Utils.between(east, -180, 180)
+                && Utils.between(south, -90, 90)
+                && Utils.between(west, -180, 180)
+                && Utils.between(north, -90, 90))) {
+            return false;
+        }
+
         if ((south != NONGEO) && (east != NONGEO) && (north != NONGEO)
                 && (west != NONGEO)) {
             if ((south == north) && (east == west)) {
@@ -1028,6 +1097,17 @@ public class Entry implements Cloneable {
         }
 
         return false;
+    }
+
+    /**
+     * _more_
+     */
+    public void normalizeLongitude() {
+        if (east > 180) {
+            double delta = (east % 180);
+            east -= delta;
+            west -= delta;
+        }
     }
 
     /**
@@ -1094,10 +1174,10 @@ public class Entry implements Cloneable {
      * @param that  the other Entry
      */
     public void setLocation(Entry that) {
-        this.north          = that.north;
-        this.south          = that.south;
-        this.east           = that.east;
-        this.west           = that.west;
+        setNorth(that.north);
+        setSouth(that.south);
+        setEast(that.east);
+        setWest(that.west);
         this.altitudeTop    = that.altitudeTop;
         this.altitudeBottom = that.altitudeBottom;
     }
@@ -1110,11 +1190,22 @@ public class Entry implements Cloneable {
      * @param lon  the longitude
      * @param alt  the altitude
      */
+    public void setLocation(double lat, double lon) {
+        setLocation(lat, lon, Double.NaN);
+    }
+
+    /**
+     * _more_
+     *
+     * @param lat _more_
+     * @param lon _more_
+     * @param alt _more_
+     */
     public void setLocation(double lat, double lon, double alt) {
-        this.north          = lat;
-        this.south          = lat;
-        this.east           = lon;
-        this.west           = lon;
+        setNorth(lat);
+        setSouth(lat);
+        setEast(lon);
+        setWest(lon);
         this.altitudeTop    = alt;
         this.altitudeBottom = alt;
     }
@@ -1139,6 +1230,24 @@ public class Entry implements Cloneable {
                 ? south
                 : NONGEO);
     }
+
+    /**
+     * Set the Bounds property.
+     *
+     * @param bounds _more_
+     */
+    public void setBounds(Bounds bounds) {
+        if (bounds != null) {
+            setNorth(bounds.getNorth());
+            setWest(bounds.getWest());
+            setSouth(bounds.getSouth());
+            setEast(bounds.getEast());
+
+        }
+    }
+
+
+
 
     /**
      * Set the North property.
@@ -1166,8 +1275,8 @@ public class Entry implements Cloneable {
      * @param value the Latitude Property
      */
     public void setLatitude(double value) {
-        north = value;
-        south = value;
+        setNorth(value);
+        setSouth(value);
     }
 
     /**
@@ -1822,6 +1931,27 @@ public class Entry implements Cloneable {
     }
 
     /**
+     * Set the Snippet property.
+     *
+     * @param value The new value for Snippet
+     */
+    public void setSnippet(String value) {
+        snippet = value;
+    }
+
+    /**
+     * Get the Snippet property.
+     *
+     * @return The Snippet
+     */
+    public String getSnippet() {
+        return snippet;
+    }
+
+
+
+
+    /**
      * Set the Id property.
      *
      * @param value The new value for Id
@@ -1880,17 +2010,6 @@ public class Entry implements Cloneable {
 
 
     /**
-     * Add metadata
-     *
-     * @param value the new Metadata
-     *
-     * @return  true if successful
-     */
-    public boolean addMetadata(Metadata value) {
-        return addMetadata(value, false);
-    }
-
-    /**
      * Does this have any metaddata like value
      *
      * @param value  the metadata to check
@@ -1925,27 +2044,6 @@ public class Entry implements Cloneable {
         return false;
     }
 
-
-
-    /**
-     * _more_
-     *
-     * @param value _more_
-     * @param checkUnique _more_
-     *
-     * @return _more_
-     */
-    public boolean addMetadata(Metadata value, boolean checkUnique) {
-        if (metadata == null) {
-            metadata = new ArrayList<Metadata>();
-        }
-        if (checkUnique && metadata.contains(value)) {
-            return false;
-        }
-        metadata.add(value);
-
-        return true;
-    }
 
 
     /**

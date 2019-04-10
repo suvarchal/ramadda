@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -95,6 +95,9 @@ public abstract class RecordFile {
     private Hashtable properties;
 
     /** _more_ */
+    private Hashtable requestProperties;
+
+    /** _more_ */
     private Object[] fileMetadata;
 
     /** _more_ */
@@ -122,7 +125,6 @@ public abstract class RecordFile {
     /** _more_ */
     private SimpleDateFormat[] mySdfs;
 
-
     /** _more_ */
     private static SimpleDateFormat[][] SDFS = {
         { makeDateFormat("yyyy") },
@@ -133,6 +135,12 @@ public abstract class RecordFile {
         { makeDateFormat("yyyy-MM-dd-HH-mm-ss") },
     };
 
+
+    /** _more_          */
+    private RecordFileContext context;
+
+    /** _more_          */
+    private File cacheFile;
 
     /**
      * ctor
@@ -175,6 +183,61 @@ public abstract class RecordFile {
     /**
      * _more_
      *
+     * @param filename _more_
+     * @param context _more_
+     * @param properties _more_
+     */
+    public RecordFile(String filename, RecordFileContext context,
+                      Hashtable properties) {
+        this.filename   = filename;
+        this.properties = properties;
+        this.context    = context;
+    }
+
+    /**
+     * Set the CacheFile property.
+     *
+     * @param value The new value for CacheFile
+     */
+    public void setCacheFile(File value) {
+        cacheFile = value;
+    }
+
+    /**
+     * Get the CacheFile property.
+     *
+     * @return The CacheFile
+     */
+    public File getCacheFile() {
+        return cacheFile;
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param field _more_
+     * @param key _more_
+     * @param dflt _more_
+     *
+     * @return _more_
+     */
+    public String getContextProperty(RecordField field, String key,
+                                     String dflt) {
+        if (context == null) {
+            return dflt;
+        }
+        String v = context.getFieldProperty(field.getName(), key);
+        if (v == null) {
+            return dflt;
+        }
+
+        return v;
+    }
+
+    /**
+     * _more_
+     *
      * @return _more_
      */
     public Object[] getFileMetadata() {
@@ -205,17 +268,20 @@ public abstract class RecordFile {
      *
      * @param filename _more_
      * @param properties _more_
+     * @param requestProperties _more_
      *
      * @return _more_
      *
      * @throws CloneNotSupportedException On badness
      * @throws Exception _more_
      */
-    public RecordFile cloneMe(String filename, Hashtable properties)
+    public RecordFile cloneMe(String filename, Hashtable properties,
+                              Hashtable requestProperties)
             throws CloneNotSupportedException, Exception {
         RecordFile that = cloneMe();
         that.initAfterClone();
         that.setFilename(filename);
+        this.requestProperties = requestProperties;
         if (properties == null) {
             properties = getPropertiesForFile(filename,
                     that.getPropertiesFileName());
@@ -474,6 +540,9 @@ public abstract class RecordFile {
         }
         if (value == null) {
             value = (String) getProperty(prop, (String) null);
+        }
+        if (value == null) {
+            value = getContextProperty(field, prop, dflt);
         }
 
 
@@ -1340,7 +1409,7 @@ public abstract class RecordFile {
     public boolean isMissingValue(Record record, RecordField field,
                                   double v) {
         double missing = field.getMissingValue();
-
+        //        System.err.println("isMissing:" + v +" " + missing);
         return missing == v;
     }
 

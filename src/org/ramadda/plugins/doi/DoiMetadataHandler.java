@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -24,12 +24,12 @@ import org.ramadda.repository.auth.*;
 import org.ramadda.repository.metadata.*;
 
 import org.ramadda.repository.metadata.*;
-
-
-
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
+
+
+
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -134,7 +134,7 @@ public class DoiMetadataHandler extends MetadataHandler {
 
     //http://n2t.net/ark:/99999/fk47h23wj
     //ark:/99999/fk47h23wj
-    //http://dx.doi.org/
+    //https://doi.org/
 
     /**
      * _more_
@@ -145,7 +145,7 @@ public class DoiMetadataHandler extends MetadataHandler {
      */
     public static String getUrl(String id) {
         if (id.startsWith("doi:")) {
-            return id.replace("doi:", "http://dx.doi.org/");
+            return id.replace("doi:", "https://doi.org/");
         }
 
         return id.replace("ark:", "http://n2t.net/ark:");

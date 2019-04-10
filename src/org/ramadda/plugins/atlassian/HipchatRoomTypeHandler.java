@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ public class HipchatRoomTypeHandler extends ExtensibleGroupTypeHandler {
             (String) groupEntry.getValue(HipchatGroupTypeHandler.IDX_TOKEN);
 
 
-        List<Entry> children = getWikiManager().getEntries(request,
+        List<Entry> children = getWikiManager().getEntries(request, null,
                                    originalEntry, entry, props);
         StringBuilder sb = new StringBuilder();
         /*
@@ -151,7 +151,7 @@ public class HipchatRoomTypeHandler extends ExtensibleGroupTypeHandler {
             String icon = HtmlUtils.href(
                               entryUrl,
                               HtmlUtils.img(
-                                  getRepository().iconUrl(
+                                  getRepository().getIconUrl(
                                       "/hipchat/hipchat.png")));
 
             sb.append(

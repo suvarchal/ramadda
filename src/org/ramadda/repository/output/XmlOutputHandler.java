@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -200,13 +200,13 @@ public class XmlOutputHandler extends OutputHandler {
              ? entry.getParentEntryId()
              : ""), ATTR_TYPE, entry.getTypeHandler().getType(),
             ATTR_ISGROUP, "" + entry.isGroup(), ATTR_FROMDATE,
-            getPageHandler().formatDate(new Date(entry.getStartDate())),
+            getDateHandler().formatDate(new Date(entry.getStartDate())),
             ATTR_TODATE,
-            getPageHandler().formatDate(new Date(entry.getEndDate())),
+            getDateHandler().formatDate(new Date(entry.getEndDate())),
             ATTR_CREATEDATE,
-            getPageHandler().formatDate(new Date(entry.getCreateDate())),
+            getDateHandler().formatDate(new Date(entry.getCreateDate())),
             ATTR_CHANGEDATE,
-            getPageHandler().formatDate(new Date(entry.getChangeDate())),
+            getDateHandler().formatDate(new Date(entry.getChangeDate())),
             ATTR_PATH, entry.getFullName(false)
         });
 

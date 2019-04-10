@@ -72,6 +72,10 @@ public class NCLModelPlotDataService extends NCLDataService {
     private final static String ARG_INCLUDE_STAT = ARG_NCL_PREFIX
                                                    + "plot_stat";
 
+    /** argument for plotting means on PDFs */
+    private final static String ARG_LATLONLINES = ARG_NCL_PREFIX
+                                                  + "latlonlines";
+
     /**
      * Create a new map process
      *
@@ -312,6 +316,13 @@ public class NCLModelPlotDataService extends NCLDataService {
         sb.append(HtmlUtils.hidden(ARG_NCL_IMAGEFORMAT, "gif"));
 
         addDataMaskWidget(request, sb);
+        sb.append(HtmlUtils.formEntry(Repository.msgLabel("Overlays"),
+                                      HtmlUtils.labeledCheckbox(
+                                          ARG_LATLONLINES,
+                                          "true",
+                                          request.get(ARG_LATLONLINES,
+                                                  false),
+                                          "Lat/Lon Lines")));
 
         sb.append(HtmlUtils.formTableClose());
 
@@ -870,6 +881,9 @@ public class NCLModelPlotDataService extends NCLDataService {
                                false)));
             envMap.put("cfill", Boolean.toString(request.get(ARG_NCL_CFILL,
                     false)));
+            envMap.put("latlonlines",
+                       Boolean.toString(request.get(ARG_LATLONLINES,
+                               false)));
             envMap.put("anom", Boolean.toString(haveAnom || isCorrelation));
             envMap.put(
                 "annotation",
@@ -922,8 +936,7 @@ public class NCLModelPlotDataService extends NCLDataService {
      * @param request the request
      * @param input   the input
      * @param argPrefix  the argument prefix
-     * @param entryCollection  the collection of entries
-     * @param inputEntry
+     * @param inputEntry  input Entry
      *
      * @return the output
      *

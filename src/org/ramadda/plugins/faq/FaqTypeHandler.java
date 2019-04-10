@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -78,19 +78,24 @@ public class FaqTypeHandler extends ExtensibleGroupTypeHandler {
         }
 
         StringBuffer sb = new StringBuffer();
-
+        getPageHandler().entrySectionOpen(request, group, sb, null);
         boolean canAdd = getAccessManager().canDoAction(request, group,
                              Permission.ACTION_NEW);
 
         if (canAdd) {
-            sb.append(HtmlUtils
-                .href(HtmlUtils
-                    .url(request
-                        .entryUrlWithArg(getRepository().URL_ENTRY_FORM,
-                            group, ARG_GROUP), ARG_TYPE,
-                                FaqEntryTypeHandler.TYPE_FAQENTRY), HtmlUtils
-                                    .img(getRepository().iconUrl(ICON_NEW),
-                                        msg("New FAQ Question"))));
+            sb.append(
+                HtmlUtils
+                    .href(HtmlUtils
+                        .url(request
+                            .entryUrlWithArg(
+                                getRepository().URL_ENTRY_FORM, group,
+                                    ARG_GROUP), ARG_TYPE,
+                                        FaqEntryTypeHandler
+                                            .TYPE_FAQENTRY), HtmlUtils
+                                                .img(getRepository()
+                                                    .getIconUrl(
+                                                        ICON_NEW), msg(
+                                                            "New FAQ Question"))));
         }
 
 
@@ -129,7 +134,7 @@ public class FaqTypeHandler extends ExtensibleGroupTypeHandler {
                 String link = HtmlUtils.href(
                                   getEntryManager().getEntryURL(
                                       request, entry), HtmlUtils.img(
-                                      getRepository().iconUrl(ICON_ENTRY),
+                                      getRepository().getIconUrl(ICON_ENTRY),
                                       msg("View entry details")));
                 //            catQuestionSB.append(" ");
                 catQuestionSB.append(link);
@@ -176,6 +181,8 @@ public class FaqTypeHandler extends ExtensibleGroupTypeHandler {
 
             sb.append(catAnswerSB);
         }
+
+        getPageHandler().entrySectionClose(request, group, sb);
 
         return new Result(msg("FAQ"), sb);
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -18,8 +18,7 @@ package org.ramadda.repository;
 
 
 import org.ramadda.util.HtmlUtils;
-
-import java.text.SimpleDateFormat;
+import org.ramadda.util.Utils;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -105,6 +104,10 @@ public class RepositoryBase implements Constants, RepositorySource {
     /** _more_ */
     public final RequestUrl URL_ENTRY_IMPORT = new RequestUrl(this,
                                                    "/entry/import");
+
+    /** _more_ */
+    public final RequestUrl URL_ENTRY_ACTION = new RequestUrl(this,
+                                                   "/entry/action");
 
     /** _more_ */
     public final RequestUrl URL_ENTRY_EXPORT = new RequestUrl(this,
@@ -302,6 +305,8 @@ public class RepositoryBase implements Constants, RepositorySource {
     /** _more_ */
     private String urlBase = "/repository";
 
+    /** _more_ */
+    private boolean isMinified;
 
     /** _more_ */
     private String hostname = "";
@@ -318,40 +323,6 @@ public class RepositoryBase implements Constants, RepositorySource {
     /** _more_ */
     private boolean clientMode = false;
 
-
-
-    /** _more_ */
-    public static final String DEFAULT_TIME_FORMAT = "yyyy-MM-dd HH:mm z";
-
-    /** _more_ */
-    public static final String DEFAULT_TIME_SHORTFORMAT =
-        "yyyy/MM/dd HH:mm z";
-
-    /** _more_ */
-    public static final String DEFAULT_TIME_THISYEARFORMAT =
-        "yyyy/MM/dd HH:mm z";
-
-
-    /** _more_ */
-    protected SimpleDateFormat sdf;
-
-    /** _more_ */
-    protected SimpleDateFormat displaySdf;
-
-    /** _more_ */
-    protected SimpleDateFormat thisYearSdf;
-
-
-    /** _more_ */
-    protected SimpleDateFormat dateSdf =
-        RepositoryUtil.makeDateFormat("yyyy-MM-dd");
-
-    /** _more_ */
-    protected SimpleDateFormat timeSdf =
-        RepositoryUtil.makeDateFormat("HH:mm:ss z");
-
-    /** _more_ */
-    protected List<SimpleDateFormat> formats;
 
     /**
      * _more_
@@ -372,18 +343,6 @@ public class RepositoryBase implements Constants, RepositorySource {
 
 
 
-    /**
-     * _more_
-     *
-     * @param date _more_
-     *
-     * @return _more_
-     */
-    public String formatYYYYMMDD(Date date) {
-        synchronized (dateSdf) {
-            return dateSdf.format(date);
-        }
-    }
 
     /**
      *     _more_
@@ -416,7 +375,7 @@ public class RepositoryBase implements Constants, RepositorySource {
      */
     public String absoluteUrl(String url) {
         int port = getPort();
-        if (port == 80) {
+        if ((port == 80) || (port == 0)) {
             return getHttpProtocol() + "://" + getHostname() + url;
         } else {
             return getHttpProtocol() + "://" + getHostname() + ":" + port
@@ -603,12 +562,12 @@ public class RepositoryBase implements Constants, RepositorySource {
     public String getMessage(String h, String icon, boolean showClose) {
         String html =
             HtmlUtils.jsLink(HtmlUtils.onMouseClick("hide('messageblock')"),
-                             HtmlUtils.img(iconUrl(Constants.ICON_CLOSE)));
+                             HtmlUtils.img(getIconUrl(Constants.ICON_CLOSE)));
         if ( !showClose) {
             html = "&nbsp;";
         }
         h = "<div class=\"innernote\"><table cellspacing=\"0\" cellpadding=\"0\" border=\"0\"><tr><td valign=\"top\">"
-            + HtmlUtils.img(iconUrl(icon)) + HtmlUtils.space(2)
+            + HtmlUtils.img(getIconUrl(icon)) + HtmlUtils.space(2)
             + "</td><td valign=\"bottom\"><span class=\"notetext\">" + h
             + "</span></td></tr></table></div>";
 
@@ -626,8 +585,8 @@ public class RepositoryBase implements Constants, RepositorySource {
      *
      * @return _more_
      */
-    public String fileUrl(String f) {
-        return HtmlUtils.concat(urlBase, f);
+    public String getFileUrl(String f) {
+        return Utils.concatString(urlBase, f);
     }
 
     /**
@@ -637,8 +596,8 @@ public class RepositoryBase implements Constants, RepositorySource {
      *
      * @return _more_
      */
-    public String htdocsUrl(String f) {
-        return fileUrl(RepositoryUtil.HTDOCS_VERSION_SLASH + f);
+    public String getHtdocsUrl(String f) {
+        return getFileUrl(RepositoryUtil.getHtdocsVersionSlash() + f);
     }
 
     /**
@@ -648,13 +607,12 @@ public class RepositoryBase implements Constants, RepositorySource {
      *
      * @return _more_
      */
-    public String iconUrl(String f) {
+    public String getIconUrl(String f) {
         if (f == null) {
             return null;
         }
-        String path = getProperty(f, f);
 
-        return urlBase + path;
+        return urlBase + f;
     }
 
 
@@ -676,6 +634,24 @@ public class RepositoryBase implements Constants, RepositorySource {
         return urlBase;
     }
 
+
+    /**
+     * Set the IsMinified property.
+     *
+     * @param value The new value for IsMinified
+     */
+    public void setIsMinified(boolean value) {
+        isMinified = value;
+    }
+
+    /**
+     * Get the IsMinified property.
+     *
+     * @return The IsMinified
+     */
+    public boolean getIsMinified() {
+        return isMinified;
+    }
 
     /**
      * _more_

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -19,6 +19,9 @@
  */
 
 package org.ramadda.util;
+
+
+import org.ramadda.util.Utils;
 
 
 import org.w3c.dom.CDATASection;
@@ -106,9 +109,10 @@ public class KmlUtil {
     public static final String TAG_SCREENXY = "screenXY";
     public static final String TAG_SIMPLEDATA = "SimpleData";
     public static final String TAG_SIMPLEFIELD = "SimpleField";
-	private static final String TAG_SIZE = "size";
+    public static final String TAG_SIZE = "size";
     public static final String TAG_SNIPPET = "Snippet";
     public static final String TAG_SOUTH = "south";
+    public static final String TAG_STROKEWIDTH = "strokeWidth";
     public static final String TAG_STYLE = "Style";
     public static final String TAG_STYLEMAP = "StyleMap";
     public static final String TAG_STYLEURL = "styleUrl";
@@ -674,11 +678,17 @@ public class KmlUtil {
      *
      * @param parent  the parent node
      * @param coordinates  comma separated list of coordinates (lon1,lat1,alt1,lon2,lat2,alt2,....lonN,latN,altN)
+     * @param skip _more_
      *
      * @return  the LineString element
      */
-    public static Element polygon(Element parent, float[][] coordinates) {
-        return polygon(parent, coordinates, false);
+    public static Element polygon(Element parent, float[][] coordinates,
+                                  int... skip) {
+        return polygon(parent, coordinates, false, (skip.length > 0)
+                ? skip[0]
+                : 0, (skip.length > 1)
+                     ? skip[1]
+                     : -1);
     }
 
     /**
@@ -687,15 +697,21 @@ public class KmlUtil {
      * @param parent  the parent node
      * @param coordinates  comma separated list of coordinates (lon1,lat1,alt1,lon2,lat2,alt2,....lonN,latN,altN)
      * @param isXY true if coordinates are in XY (lon,lat) order
+     * @param skip _more_
      *
      * @return  the LineString element
      */
     public static Element polygon(Element parent, float[][] coordinates,
-                                  boolean isXY) {
+                                  boolean isXY, int... skip) {
         Element node       = makeElement(parent, TAG_POLYGON);
         Element outerIS    = makeElement(node, TAG_OUTERBOUNDARYIS);
         Element linearring = makeElement(outerIS, TAG_LINEARRING);
-        coordinates(linearring, coordsString(coordinates, isXY));
+        coordinates(linearring,
+                    coordsString(coordinates, isXY, (skip.length > 0)
+                ? skip[0]
+                : 0, (skip.length > 1)
+                     ? skip[1]
+                     : -1));
 
         return node;
     }
@@ -707,12 +723,19 @@ public class KmlUtil {
      * @param extrude  true to extrude
      * @param tesselate  true to tesselate
      * @param coords   array of coordinates (coords[lon,lat] or coords[lon,lat,alt])
+     * @param skip _more_
      *
      * @return  the LineString element
      */
     public static Element linestring(Element parent, boolean extrude,
-                                     boolean tesselate, float[][] coords) {
-        return linestring(parent, extrude, tesselate, coords, false);
+                                     boolean tesselate, float[][] coords,
+                                     int... skip) {
+        return linestring(parent, extrude, tesselate, coords, false,
+                          (skip.length > 0)
+                          ? skip[0]
+                          : 0, (skip.length > 1)
+                               ? skip[1]
+                               : -1);
     }
 
 
@@ -724,39 +747,58 @@ public class KmlUtil {
      * @param tesselate  true to tesselate
      * @param coords   array of coordinates (coords[lon,lat] or coords[lon,lat,alt])
      * @param isXY _more_
+     * @param skip _more_
      *
      * @return  the LineString element
      */
     public static Element linestring(Element parent, boolean extrude,
                                      boolean tesselate, float[][] coords,
-                                     boolean isXY) {
+                                     boolean isXY, int... skip) {
 
         return linestring(parent, extrude, tesselate,
-                          coordsString(coords, isXY));
+                          coordsString(coords, isXY, (skip.length > 0)
+                ? skip[0]
+                : 0, (skip.length > 1)
+                     ? skip[1]
+                     : -1));
     }
 
     /**
      * Create the string representation of the coordinates
      * @param coords
+     * @param skip _more_
      * @return a string representation
      */
-    public static String coordsString(float[][] coords) {
-        return coordsString(coords, false);
+    public static String coordsString(float[][] coords, int... skip) {
+        return coordsString(coords, false, (skip.length > 0)
+                                           ? skip[0]
+                                           : 0, (skip.length > 1)
+                ? skip[1]
+                : -1);
     }
 
     /**
      * Create the string representation of the coordinates
      * @param coords
      * @param isXY  true if the coordinates are in xy (lon,lat) order
+     * @param extra _more_
      * @return a string representation
      */
-    public static String coordsString(float[][] coords, boolean isXY) {
+    public static String coordsString(float[][] coords, boolean isXY,
+                                      int... extra) {
 
-        StringBuffer sb     = new StringBuffer();
-        int          latIdx = isXY
-                              ? 1
-                              : 0;
-        int          lonIdx = 1 - latIdx;
+
+        int          skip      = (extra.length > 0)
+                                 ? extra[0]
+                                 : 0;
+        int          threshold = (extra.length > 1)
+                                 ? extra[1]
+                                 : -1;
+        StringBuffer sb        = new StringBuffer();
+        int          latIdx    = isXY
+                                 ? 1
+                                 : 0;
+        int          lonIdx    = 1 - latIdx;
         for (int i = 0; i < coords[0].length; i++) {
             sb.append(coords[lonIdx][i]);
             sb.append(",");
@@ -867,8 +909,12 @@ public class KmlUtil {
     public static Element placemark(Element parent, String name,
                                     String description) {
         Element node = makeElement(parent, TAG_PLACEMARK);
-        name(node, name);
-        description(node, description);
+        if (Utils.stringDefined(name)) {
+            name(node, name);
+        }
+        if (Utils.stringDefined(description)) {
+            description(node, description);
+        }
 
         return node;
     }

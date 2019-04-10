@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ public class SpreadsheetTypeHandler extends GenericTypeHandler {
                 request.url(
                     getRepository().URL_ENTRY_SHOW, ARG_ENTRYID,
                     entry.getId(), ARG_SLIDESHOW_SHOW,
-                    "true"), getRepository().iconUrl(ICON_SLIDESHOW),
+                    "true"), getRepository().getIconUrl(ICON_SLIDESHOW),
                              "View Slideshow", OutputType.TYPE_VIEW));
         */
     }

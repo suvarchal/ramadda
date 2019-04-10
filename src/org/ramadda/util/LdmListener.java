@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ public class LdmListener {
 
 
     /** _more_ */
-    private String fileUrlTemplate =
+    private String getFileUrlTemplate =
         "http://localhost:8080/repository/harvester/processfile?file=${file}&type=${type}";
 
     /** _more_ */
@@ -350,7 +350,7 @@ public class LdmListener {
                 }
             }
 
-            String urlString = fileUrlTemplate.replace("${file}",
+            String urlString = getFileUrlTemplate.replace("${file}",
                                    f.toString());
             urlString = urlString.replace("${type}", type);
             try {

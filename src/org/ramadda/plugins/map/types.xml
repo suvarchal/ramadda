@@ -3,15 +3,16 @@
 
   <type name="geo_kml"  description="KML/KMZ File"   handler="org.ramadda.plugins.map.KmlTypeHandler" pattern="(.*\.kml$|.*\.kmz$)">
      <property name="icon" value="/icons/kml.png"/>
+     <column name="showmap" label="Show Map" type="boolean" showinhtml="false" default="true"/>
    </type>
 
 
-  <type name="latlonimage"  description="WMS Image" datatype="latlonimage"  handler="org.ramadda.plugins.map.LatLonImageTypeHandler">
+  <type name="latlonimage"  description="Lat-Lon Image" datatype="latlonimage"  handler="org.ramadda.plugins.map.LatLonImageTypeHandler">
      <property name="icon" value="/icons/map.png"/>
-     <column name="map_width" label="Map Width" type="int" showinhtml="false" default="800"/>
+     <column name="map_width" label="Map Width" type="int" showinhtml="false" default="-100"/>
      <column name="map_height" label="Map Height" type="int" showinhtml="false" default="600"/>
      <wiki><![CDATA[
-+section title="WMS Image: {{name}}"
++section title="{{name}}"
 {{description}}
 {{map width="-100" height="450" details="true" listentries="true" showCheckbox="true"}}
 {{resource includeicon="true"}}
@@ -32,14 +33,20 @@
      <column name="elevation_loss" label="Elevation Loss" type="double" cansearch="true" showinhtml="true"  databaseDefault="-1"/>
 <wiki>
 <![CDATA[
-+section class="ramadda-section-map" title={{name}}
++section title={{name}}
 {{description wikify="true"}}
 <center>
 {{gpx.stats}}
 </center>
 <p>
-  {{mapentry  width="-100" height="400" details="true" layer="esri.topo" mapVar="gpxMap" }}
-  {{group showMenu="true" mapVar="gpxMap"}}
+  {{group showMenu="true" xmapVar="gpxMap${entryid}"}}
++row
+:col-2
++col-8
+  {{display type="map"  showMenu="false" layoutHere="true" showBounds="false" isTrajectory="true" width="-100" height="400" details="true" defaultMapLayer="esri.topo" 
+  mapVar="gpxMap${entryid}" }}
+-col
+-row
   {{display type="linechart" showTitle="false" layoutHere="true" showMenu="true" fields="point_altitude,speed"  errorMessage=" "  }}
 
 ----
@@ -52,22 +59,27 @@
    </type>
 
 
-  <type name="geo_shapefile"  description="Shapefile"   handler="org.ramadda.plugins.map.ShapefileTypeHandler" pattern="(.*\.shp$|.*shp.*\.zip)">
+  <type name="geo_shapefile"  description="Shapefile"   handler="org.ramadda.plugins.map.ShapefileTypeHandler" pattern="(.*\.shp$|.*shp.*\.zip)" metadata="shapefile_display,shapefile_color,map_displaymap">
      <property name="icon" value="/icons/map.png"/>
      <property name="upload.zip" value="true"/>
+     <column name="num_points" label="Number of Points" type="int" canedit="false" showinhtml="false" databaseDefault="-1"/>
 
 
 <wiki>
+<![CDATA[
 +section title={{name}}
+{{description wikify="true"}}
 +row
-+col-md-2
--col
 +col-md-8
-{{map width="100%" height="450" details="true"}}
+{{map width="100%" height="450" viewBounds="<bounds>" details="true" displayDiv="mapDisplay" showSearch="true" }}
+-col
++col-md-4
+<div style="padding-top:20px;"></div>
+<div id="mapDisplay" style="max-height:450px; overflow-y:auto;"></div>
 -col
 -row
-{{information}}
 -section
+]]>
 </wiki>
    </type>
 
@@ -117,6 +129,10 @@
 
 -->
 
+  <type name="geo_shapefile_fips"  description="Shapefile with FIPS Code"   super="geo_shapefile"  metadata="shapefile_display,shapefile_color,map_displaymap" handler="org.ramadda.repository.type.GenericTypeHandler">
+     <column name="fips" label="FIPS Code" canedit="true" showinhtml="true"/>
+</type>
+
   <type name="map_googlemap"  
         description="Google Map URL" 
         handler="org.ramadda.plugins.map.GoogleMapsTypeHandler" 
@@ -133,6 +149,25 @@
 </type>
 
 
+  <type name="geo_geojson"  description="GeoJson File"   handler="org.ramadda.plugins.map.GeoJsonTypeHandler" pattern="(.*\.geojson$)" metadata="map_style">
+     <property name="icon" value="/icons/map.png"/>
+<wiki>
+<![CDATA[
++section title={{name}}
+{{description wikify="true"}}
++row
++col-md-8
+{{map width="100%" height="450" viewBounds="<bounds>" details="true" displayDiv="mapDisplay" showSearch="true" }}
+-col
++col-md-4
+<div style="padding-top:20px;"></div>
+<div id="mapDisplay" style="max-height:450px; overflow-y:auto;"></div>
+-col
+-row
+-section
+]]>
+</wiki>
+   </type>
 
 
 </types>

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -23,15 +23,16 @@ import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.output.*;
 import org.ramadda.repository.type.*;
 
-import org.ramadda.sql.Clause;
-
-
-import org.ramadda.sql.SqlUtil;
-import org.ramadda.sql.SqlUtil;
-
 import org.ramadda.util.HtmlUtils;
 
 import org.ramadda.util.Utils;
+
+import org.ramadda.util.sql.Clause;
+import javax.imageio.ImageIO;
+
+
+import org.ramadda.util.sql.SqlUtil;
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -46,6 +47,7 @@ import ucar.unidata.util.WikiUtil;
 import ucar.unidata.xml.XmlUtil;
 
 import java.awt.Dimension;
+import java.io.FileInputStream;
 
 
 import java.awt.Image;
@@ -139,8 +141,7 @@ public class BeforeAfterTypeHandler extends GenericTypeHandler {
 
         String desc = group.getDescription();
         if ((desc != null) && (desc.length() > 0)) {
-            sb.append(desc);
-            sb.append(HtmlUtils.br());
+            sb.append(getWikiManager().wikifyEntry(request, group,desc));
         }
         StringBuffer divs = new StringBuffer();
         int          col  = 1;
@@ -168,7 +169,7 @@ public class BeforeAfterTypeHandler extends GenericTypeHandler {
             Dimension dim    = dimensions.get(entry1.getId());
 
             if (dim == null) {
-                Image image = Utils.readImage(entry1.getResource().getPath());
+                Image image = ImageIO.read(new FileInputStream(entry1.getFile()));
                 dim = new Dimension(image.getWidth(null),
                                     image.getHeight(null));
                 if ((dim.width > 0) && (dim.height > 0)) {
@@ -180,8 +181,13 @@ public class BeforeAfterTypeHandler extends GenericTypeHandler {
             int height = 366;
 
             if ((dim.width > 0) && (dim.height > 0)) {
-                width  = Math.max(width, dim.width);
-                height = (int) (dim.height * width / (float) dim.width);
+                if(dim.height> dim.width) {
+                    height =   600;
+                    width = height*dim.width/dim.height;
+                } else {
+                    width  = Math.max(width, dim.width);
+                    height = (int) (dim.height * width / (float) dim.width);
+                }
             }
 
 

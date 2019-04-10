@@ -8,6 +8,7 @@ body {
 
 
 
+
 body.popup {
 	background-color: #ffffcc;
 }
@@ -61,6 +62,11 @@ A.faq-question-link {
 
 A.faq-question-link:hover {
     text-decoration: underline;
+}
+
+.ramadda-wiki-tag {
+    margin-left:20px;
+    font-style:italic;
 }
 
 .faq-category-title {
@@ -206,17 +212,16 @@ code.link {
 }
 
 .childlist-level {
-    font-weigt:bold;
+    font-weight:bold;
     font-size: 14pt;
-    color: #8080C0;
-    margin-top: 10;
-    margin-bottom: 5;
 }
 
 .childlist {
-    margin: 10;
-    margin-left: 30;
 }
+.childlist a {
+     text-decoration:none;
+}
+
 
 
 

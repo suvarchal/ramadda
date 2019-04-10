@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ public class NdnpSearchProvider extends OpenSearchProvider {
 
     /** _more_ */
     public static final String URL =
-        "http://chroniclingamerica.loc.gov/search/pages/results/?andtext=${searchterms}&format=atom";
+        "https://chroniclingamerica.loc.gov/search/pages/results/?andtext=${searchterms}&format=atom";
 
 
     /**
@@ -76,7 +76,15 @@ public class NdnpSearchProvider extends OpenSearchProvider {
     }
 
 
-
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
+    @Override
+    public String getSearchProviderIconUrl() {
+        return "${root}/favicon.png";
+    }
 
     /**
      * _more_
@@ -98,7 +106,7 @@ public class NdnpSearchProvider extends OpenSearchProvider {
             new Metadata(getRepository().getGUID(), newEntry.getId(),
                          ContentMetadataHandler.TYPE_THUMBNAIL, false, img,
                          null, null, null, null);
-        newEntry.addMetadata(thumbnailMetadata);
+        getMetadataManager().addMetadata(newEntry, thumbnailMetadata);
     }
 
 

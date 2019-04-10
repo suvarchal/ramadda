@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -75,64 +75,12 @@ public class PageHandler extends RepositoryManager {
 
 
     /** _more_ */
-    public static final String DEFAULT_TEMPLATE = "aodnStyle";
-
-
+    public static final String DEFAULT_TEMPLATE = "fixedmapheader";
 
     /** _more_ */
-    public static final String DEFAULT_TIME_FORMAT = "yyyy-MM-dd HH:mm:ss z";
-
-    /** _more_ */
-    public static final String DEFAULT_TIME_SHORTFORMAT =
-    //        "yyyy/MM/dd HH:mm z";
-    "yyyy/MM/dd";
-
-    /** _more_ */
-    public static final String DEFAULT_TIME_THISYEARFORMAT =
-        "yyyy/MM/dd HH:mm z";
-
-
-    /** _more_ */
-    public static final TimeZone TIMEZONE_UTC = TimeZone.getTimeZone("UTC");
-
-    /** _more_ */
-    public static final TimeZone TIMEZONE_GMT = TimeZone.getTimeZone("GMT");
-
-
-
-    /** _more_ */
-    public static final GregorianCalendar calendar =
-        new GregorianCalendar(TIMEZONE_UTC);
-
-
-
-    /** _more_ */
-    /*
-    public static final String REGISTER_MESSAGE =
-        "<div class=\"ramadda-register-outer\"><div class=\"ramadda-register\">Powered by <a href=\"http://geodesystems.com\">Geode Systems RAMADDA</a>&nbsp;-&nbsp;<a target=register href=\"https://geodesystems.com/repository/alias/ramadda_registration\">Register and purchase</a></div></div>";
-    */
-
     public static final String REGISTER_MESSAGE =
         "<div class=\"ramadda-register-outer\"><div class=\"ramadda-register\">Powered by <a href=\"http://geodesystems.com\">Geode Systems RAMADDA</a></div></div>";
 
-
-    /** _more_ */
-    protected SimpleDateFormat sdf;
-
-    /** _more_ */
-    protected SimpleDateFormat displaySdf;
-
-    /** _more_ */
-    protected SimpleDateFormat thisYearSdf;
-
-
-    /** _more_ */
-    protected SimpleDateFormat dateSdf =
-        RepositoryUtil.makeDateFormat("yyyy-MM-dd");
-
-    /** _more_ */
-    protected SimpleDateFormat timeSdf =
-        RepositoryUtil.makeDateFormat("HH:mm:ss z");
 
 
     /** _more_ */
@@ -142,14 +90,6 @@ public class PageHandler extends RepositoryManager {
     /** _more_ */
     private List<MapRegion> mapRegions = new ArrayList<MapRegion>();
 
-
-    /** _more_ */
-    public static final String PROP_LANGUAGE_DEFAULT =
-        "ramadda.language.default";
-
-    /** _more_ */
-    public static final String PROP_ENTRY_TABLE_SHOW_CREATEDATE =
-        "ramadda.entry.table.show.createdate";
 
 
     /** _more_ */
@@ -225,6 +165,9 @@ public class PageHandler extends RepositoryManager {
     /** _more_ */
     private List<HtmlTemplate> htmlTemplates;
 
+    /** _more_          */
+    private Hashtable<String, HtmlTemplate> templateMap;
+
     /** _more_ */
     private HtmlTemplate mobileTemplate;
 
@@ -271,6 +214,53 @@ public class PageHandler extends RepositoryManager {
     /** _more_ */
     private String headerIcon;
 
+    /** _more_ */
+    private Hashtable<String, String> typeToWikiTemplate =
+        new Hashtable<String, String>();
+
+    /** _more_ */
+    public static final String TEMPLATE_DEFAULT = "default";
+
+    /** _more_ */
+    public static final String TEMPLATE_CONTENT = "content";
+
+
+    /** _more_ */
+    private boolean showCreateDate;
+
+    /** _more_ */
+    private boolean showSearch;
+
+    /** _more_ */
+    private String shortDateFormat;
+
+    /** _more_ */
+    private String createdDisplayMode;
+
+    /** _more_ */
+    private String myLogoImage;
+
+    /** _more_ */
+    private String footer;
+
+    /** _more_ */
+    private boolean cacheTemplates;
+
+
+    /** _more_ */
+    TimeZone defaultTimeZone;
+
+
+    /** _more_ */
+    private Hashtable<String, SimpleDateFormat> dateFormats =
+        new Hashtable<String, SimpleDateFormat>();
+
+
+    /** _more_ */
+    protected List<SimpleDateFormat> parseFormats;
+
+
+
     /**
      * _more_
      *
@@ -281,6 +271,31 @@ public class PageHandler extends RepositoryManager {
     }
 
 
+
+    /**
+     * _more_
+     */
+    @Override
+    public void initAttributes() {
+        super.initAttributes();
+        //Clear out any loaded templates
+        clearCache();
+        showCreateDate =
+            getRepository().getProperty(PROP_ENTRY_TABLE_SHOW_CREATEDATE,
+                                        false);
+
+        showSearch = getRepository().getProperty("ramadda.showsearch", true);
+        createdDisplayMode =
+            getRepository().getProperty(PROP_CREATED_DISPLAY_MODE,
+                                        "none").trim();
+        footer      = repository.getProperty(PROP_HTML_FOOTER, BLANK);
+        myLogoImage = getRepository().getProperty(PROP_LOGO_IMAGE, null);
+        cacheTemplates =
+            getRepository().getProperty("ramadda.cachetemplates", true);
+    }
+
+
+
     /**
      * _more_
      *
@@ -288,22 +303,12 @@ public class PageHandler extends RepositoryManager {
      */
     public String getHeaderIcon() {
         if (headerIcon == null) {
-            headerIcon = iconUrl(ICON_HEADER);
+            headerIcon = getIconUrl(ICON_HEADER);
         }
 
         return headerIcon;
     }
 
-    /**
-     * _more_
-     */
-    public void initDateStuff() {
-        sdf = RepositoryUtil.makeDateFormat(
-            getRepository().getProperty(
-                PROP_DATEFORMAT, DEFAULT_TIME_FORMAT));
-        defaultTimeZone = TimeZone.getDefault();
-        TimeZone.setDefault(RepositoryUtil.TIMEZONE_DEFAULT);
-    }
 
     /**
      * _more_
@@ -348,8 +353,6 @@ public class PageHandler extends RepositoryManager {
 
         String       jsContent     = getTemplateJavascriptContent();
 
-
-
         String entryHeader = (String) result.getProperty(PROP_ENTRY_HEADER,
                                  "");
         String entryFooter = (String) result.getProperty(PROP_ENTRY_FOOTER,
@@ -366,10 +369,10 @@ public class PageHandler extends RepositoryManager {
         }
 
         String registerMessage = "";
-        if (!getAdmin().isRegistered()
-                 &&
-            getAdmin().getInstallationComplete()) {
-            if(!getRepository().getProperty("ramadda.hidepoweredby",false)) {
+        if ( !getAdmin().isRegistered()
+                && getAdmin().getInstallationComplete()) {
+            if ( !getRepository().getProperty("ramadda.hidepoweredby",
+                    false)) {
                 if ( !htmlTemplate.hasMacro(MACRO_REGISTER)) {
                     contents.append(REGISTER_MESSAGE);
                 } else {
@@ -378,8 +381,7 @@ public class PageHandler extends RepositoryManager {
             }
         }
 
-        contents.append(result.getStringContent());
-        contents.append(jsContent);
+        Utils.append(contents, result.getStringContent(), jsContent);
         String content = contents.toString();
 
         String head    = (String) result.getProperty(PROP_HTML_HEAD);
@@ -394,13 +396,15 @@ public class PageHandler extends RepositoryManager {
         if ( !Utils.stringDefined(logoUrl)) {
             logoUrl = getRepository().getProperty(PROP_LOGO_URL, "");
         }
+        if ( !Utils.stringDefined(logoUrl)) {
+            logoUrl = getRepository().getUrlBase();
+        }
         logoUrl = applyBaseMacros(logoUrl);
 
 
         String pageTitle = (String) result.getProperty(PROP_REPOSITORY_NAME);
         if (pageTitle == null) {
-            pageTitle = repository.getProperty(PROP_REPOSITORY_NAME,
-                    "Repository");
+            pageTitle = repository.getRepositoryName();
         }
 
         if (pageTitle.equals("none")) {
@@ -423,6 +427,16 @@ public class PageHandler extends RepositoryManager {
         String userLinkTemplate =
             "<div onClick=\"document.location=\'${url}\'\"  class=\"ramadda-user-link\">${label}</div>";
         List<String> allLinks = new ArrayList<String>();
+        String searchImg = HtmlUtils.img(getIconUrl("/icons/magnifier.png"),
+                                         "Search", " id='searchlink' ");
+
+
+
+
+
+
+
+
         List<String> navLinks = getNavLinks(request, userLinkTemplate);
         List<String> userLinks = getUserLinks(request, userLinkTemplate,
                                      extra, true);
@@ -431,7 +445,7 @@ public class PageHandler extends RepositoryManager {
         allLinks.addAll(userLinks);
 
         String popupImage =
-            HtmlUtils.img(iconUrl(ICON_USERLINKS),
+            HtmlUtils.img(getIconUrl(ICON_USERLINKS),
                           msg("Login, user settings, help"),
                           HtmlUtils.cssClass("ramadda-user-menu-image"));
 
@@ -440,8 +454,14 @@ public class PageHandler extends RepositoryManager {
                           HtmlUtils.cssClass("ramadda-user-menu"));
 
 
+        if (showSearch) {
+            String searchLink =
+                HtmlUtils.mouseClickHref("ramaddaSearchPopup('searchlink');",
+                                         searchImg, "");
+            extra.append(searchLink);
+            extra.append(HtmlUtils.space(2));
+        }
         extra.append(makePopupLink(popupImage, menuHtml, false, true));
-
         menuHtml = extra.toString();
         long     t1     = System.currentTimeMillis();
 
@@ -449,18 +469,16 @@ public class PageHandler extends RepositoryManager {
             MACRO_LOGO_URL, logoUrl, MACRO_LOGO_IMAGE, logoImage,
             MACRO_HEADER_IMAGE, getHeaderIcon(), MACRO_HEADER_TITLE,
             pageTitle, MACRO_LINKS, menuHtml, MACRO_REPOSITORY_NAME,
-            repository.getProperty(PROP_REPOSITORY_NAME, "Repository"),
-            MACRO_FOOTER, repository.getProperty(PROP_HTML_FOOTER, BLANK),
-            MACRO_TITLE, result.getTitle(), MACRO_BOTTOM,
-            result.getBottomHtml(), MACRO_SEARCH_URL,
-            getSearchManager().getSearchUrl(request), MACRO_CONTENT, content,
-            MACRO_ENTRY_HEADER, entryHeader, MACRO_HEADER, header,
-            MACRO_ENTRY_FOOTER, entryFooter, MACRO_ENTRY_BREADCRUMBS,
-            entryBreadcrumbs, MACRO_REGISTER, registerMessage,
-            MACRO_HEADFINAL, head, MACRO_ROOT, repository.getUrlBase(), "", ""
+            repository.getRepositoryName(), MACRO_FOOTER, footer, MACRO_TITLE,
+            result.getTitle(), MACRO_BOTTOM, result.getBottomHtml(),
+            MACRO_SEARCH_URL, getSearchManager().getSearchUrl(request),
+            MACRO_CONTENT, content, MACRO_ENTRY_HEADER, entryHeader,
+            MACRO_HEADER, header, MACRO_ENTRY_FOOTER, entryFooter,
+            MACRO_ENTRY_BREADCRUMBS, entryBreadcrumbs, MACRO_REGISTER,
+            registerMessage, MACRO_HEADFINAL, head, MACRO_ROOT,
+            repository.getUrlBase(), "", ""
         };
 
-        //        System.err.println(htmlTemplate.getName() +" " + htmlTemplate.getTemplate());
 
         long                      t2     = System.currentTimeMillis();
         String                    html   = template;
@@ -469,15 +487,13 @@ public class PageHandler extends RepositoryManager {
             values.put(macros[i], macros[i + 1]);
         }
         for (String property : htmlTemplate.getPropertyIds()) {
-            values.put("${" + property + "}",
+            values.put(Utils.concatString("${", property, "}"),
                        getRepository().getProperty(property, ""));
         }
 
         if (htmlTemplate.hasMacro(MACRO_FAVORITES)) {
             values.put(MACRO_FAVORITES, getFavorites(request, htmlTemplate));
         }
-
-
 
         StringBuilder sb = new StringBuilder();
         //Toks are [html,macro,html,macro,...,html]
@@ -490,7 +506,6 @@ public class PageHandler extends RepositoryManager {
                 String macroValue = values.get(v);
                 if (macroValue == null) {
                     System.err.println("Whoa, no macro value:" + v);
-                    sb.append(v);
                 } else {
                     sb.append(macroValue);
                 }
@@ -562,6 +577,7 @@ public class PageHandler extends RepositoryManager {
                     favoriteLinks.add("<nobr>" + link + "</nobr>");
                 }
             }
+            favoritesTemplate = applyBaseMacros(favoritesTemplate);
             favorites.append(favoritesTemplate.replace("${entries}",
                     StringUtil.join(favoritesSeparator, favoriteLinks)));
         }
@@ -604,7 +620,7 @@ public class PageHandler extends RepositoryManager {
             logoImage = (String) result.getProperty(PROP_LOGO_IMAGE);
         }
         if (logoImage == null) {
-            logoImage = getRepository().getProperty(PROP_LOGO_IMAGE, null);
+            logoImage = myLogoImage;
         }
         if (logoImage == null) {
             logoImage = "${root}/images/logo.png";
@@ -628,16 +644,14 @@ public class PageHandler extends RepositoryManager {
     public String getTemplateJavascriptContent() {
         if (templateJavascriptContent == null) {
             StringBuilder js = new StringBuilder();
-            js.append(HtmlUtils.call("Utils.initPage"));
+            js.append(
+                "$( document ).ready(function() {Utils.initPage(); });");
 
             //j-
             StringBuilder sb = new StringBuilder();
             HtmlUtils.div(sb, "",
-                          HtmlUtils.attrs("id", "ramadda-tooltipdiv",
-                                          "class", "tooltip-outer"));
-            HtmlUtils.div(sb, "",
-                          HtmlUtils.attrs("id", "ramadda-dialog", "class",
-                                          "ramadda-dialog"));
+                          HtmlUtils.attrs("id", "ramadda-popupdiv", "class",
+                                          "ramadda-popup"));
             HtmlUtils.div(sb, "",
                           HtmlUtils.attrs("id", "ramadda-selectdiv", "class",
                                           "ramadda-selectdiv"));
@@ -714,13 +728,12 @@ public class PageHandler extends RepositoryManager {
         String     language = request.getLanguage();
         Properties tmpMap;
         Properties map = (Properties) languageMap.get(
-                             getRepository().getProperty(
-                                 PROP_LANGUAGE_DEFAULT, "default"));
+                             getRepository().getLanguageDefault());
+
         if (map == null) {
             map = new Properties();
         }
-        tmpMap = (Properties) languageMap.get(
-            getRepository().getProperty(PROP_LANGUAGE, BLANK));
+        tmpMap = (Properties) languageMap.get(getRepository().getLanguage());
         if (tmpMap != null) {
             map.putAll(tmpMap);
         }
@@ -965,37 +978,13 @@ public class PageHandler extends RepositoryManager {
     }
 
 
-
-
-    /**
-     * _more_
-     *
-     * @param request The request
-     *
-     * @return _more_
-     */
-    public HtmlTemplate getHtmlTemplate(Request request) {
-        return null;
-    }
-
     /**
      * _more_
      *
      * @return _more_
      */
     public HtmlTemplate getMobileTemplate() {
-        if ( !getRepository().cacheResources()) {
-            mobileTemplate = null;
-        }
-        if (mobileTemplate == null) {
-            for (HtmlTemplate htmlTemplate : getTemplates()) {
-                if (htmlTemplate.getId().equals("mobile")) {
-                    mobileTemplate = htmlTemplate;
-
-                    break;
-                }
-            }
-        }
+        getTemplates();
 
         return mobileTemplate;
     }
@@ -1004,12 +993,26 @@ public class PageHandler extends RepositoryManager {
     /**
      * _more_
      *
+     * @param url _more_
+     *
+     * @return _more_
+     */
+    public String makeHtdocsUrl(String url) {
+        return getRepository().getUrlBase() + "/"
+               + RepositoryUtil.getHtdocsVersion() + url;
+    }
+
+    /**
+     * _more_
+     *
      * @return _more_
      */
     public List<HtmlTemplate> getTemplates() {
+
         List<HtmlTemplate> theTemplates = htmlTemplates;
-        if (theTemplates == null) {
-            //            System.err.println ("Loading templates");
+        if ( !cacheTemplates || (theTemplates == null)) {
+            defaultTemplate = null;
+            mobileTemplate  = null;
             String imports = "";
             try {
                 imports = getStorageManager().readSystemResource(
@@ -1018,16 +1021,13 @@ public class PageHandler extends RepositoryManager {
                 throw new RuntimeException(exc);
             }
 
-            imports = applyBaseMacros(imports);
-            imports = imports.replace("${htdocs_version}",
-                                      RepositoryUtil.HTDOCS_VERSION);
-
+            imports      = applyBaseMacros(imports);
             theTemplates = new ArrayList<HtmlTemplate>();
+            templateMap  = new Hashtable<String, HtmlTemplate>();
 
             String defaultId =
                 getRepository().getProperty(PROP_HTML_TEMPLATE_DEFAULT,
                                             DEFAULT_TEMPLATE);
-
             List<String> templatePaths =
                 new ArrayList<String>(
                     getRepository().getPluginManager().getTemplateFiles());
@@ -1075,6 +1075,7 @@ public class PageHandler extends RepositoryManager {
 
                         continue;
                     }
+                    templateMap.put(template.getId(), template);
                     theTemplates.add(template);
 
                     if ((mapTemplate == null)
@@ -1082,6 +1083,11 @@ public class PageHandler extends RepositoryManager {
                         mapTemplate = template;
                     }
 
+                    if (mobileTemplate == null) {
+                        if (template.getId().equals("mobile")) {
+                            mobileTemplate = template;
+                        }
+                    }
                     if (defaultTemplate == null) {
                         if (defaultId == null) {
                             defaultTemplate = template;
@@ -1096,12 +1102,19 @@ public class PageHandler extends RepositoryManager {
                     //noop
                 }
             }
-            if (getRepository().cacheResources()) {
+            if (defaultTemplate == null) {
+                defaultTemplate = theTemplates.get(0);
+            }
+            if (mobileTemplate == null) {
+                mobileTemplate = defaultTemplate;
+            }
+            if (getRepository().getCacheResources()) {
                 htmlTemplates = theTemplates;
             }
         }
 
         return theTemplates;
+
     }
 
 
@@ -1129,7 +1142,7 @@ public class PageHandler extends RepositoryManager {
             String include = html.substring(0, idx1);
             include = include.substring("<include".length());
             include = include.replace(">", "");
-            Hashtable props = StringUtil.parseHtmlProperties(include);
+            Hashtable props = HtmlUtils.parseHtmlProperties(include);
             String    url   = (String) props.get("href");
             if (url != null) {
                 String includedContent =
@@ -1407,30 +1420,26 @@ public class PageHandler extends RepositoryManager {
      * @return _more_
      */
     private HtmlTemplate getTemplateInner(Request request, Entry entry) {
+        //this forces the possible reload of the templates
+        getTemplates();
+        if (request == null) {
+            return defaultTemplate;
+        }
         if (request.isMobile()) {
             return getMobileTemplate();
         }
 
-
-        List<HtmlTemplate> theTemplates = getTemplates();
-
-        /*
-          code to run through all of the templates
-        if(request.template == null) {
-            request.template =  theTemplates.get(tcnt++);
-            return request.template;
-        }
-        if(true)return request.template;
-        */
-
-
-        if ((request == null) && (defaultTemplate != null)) {
-            return defaultTemplate;
-        }
-
+        //Check for template=... url arg
         String templateId = request.getHtmlTemplateId();
-        if (((templateId == null) || (templateId.length() == 0))
-                && (entry != null)) {
+        if (Utils.stringDefined(templateId)) {
+            HtmlTemplate template = templateMap.get(templateId);
+            if (template != null) {
+                return template;
+            }
+        }
+
+        //Check for metadata template definition
+        if ( !Utils.stringDefined(templateId) && (entry != null)) {
             try {
                 List<Metadata> metadataList =
                     getMetadataManager().findMetadata(request, entry,
@@ -1450,65 +1459,18 @@ public class PageHandler extends RepositoryManager {
 
 
         User user = request.getUser();
-
-        if ((templateId == null) && user.getAnonymous()) {
+        if ((templateId == null) && (user != null) && !user.getAnonymous()) {
             templateId = user.getTemplate();
         }
 
         if (templateId != null) {
-            for (HtmlTemplate template : theTemplates) {
-                if (Misc.equals(template.getId(), templateId)) {
-                    return template;
-                }
-            }
-        }
-
-        if (user.getAnonymous()) {
-            if (defaultTemplate != null) {
-                return defaultTemplate;
-            }
-
-            return theTemplates.get(0);
-        }
-
-        for (HtmlTemplate template : theTemplates) {
-            if (request == null) {
-                return template;
-            }
-            if (isTemplateFor(request, template)) {
+            HtmlTemplate template = templateMap.get(templateId);
+            if (template != null) {
                 return template;
             }
         }
-        if (defaultTemplate != null) {
-            return defaultTemplate;
-        }
 
-        return theTemplates.get(0);
-    }
-
-
-
-    /**
-     * _more_
-     *
-     * @param request _more_
-     * @param template _more_
-     *
-     * @return _more_
-     */
-    public boolean isTemplateFor(Request request, HtmlTemplate template) {
-        if (request.getUser() == null) {
-            return false;
-        }
-        String templateId = request.getUser().getTemplate();
-        if (templateId == null) {
-            return false;
-        }
-        if (Misc.equals(template.getId(), templateId)) {
-            return true;
-        }
-
-        return false;
+        return defaultTemplate;
     }
 
 
@@ -1532,7 +1494,7 @@ public class PageHandler extends RepositoryManager {
 
         }
 
-        return HtmlUtils.concat(MSG_PREFIX, msg, MSG_SUFFIX);
+        return Utils.concatString(MSG_PREFIX, msg, MSG_SUFFIX);
     }
 
     /**
@@ -1550,7 +1512,7 @@ public class PageHandler extends RepositoryManager {
             return msg;
         }
 
-        return HtmlUtils.concat(msg(msg), ":", HtmlUtils.space(1));
+        return Utils.concatString(msg(msg), ":", HtmlUtils.space(1));
     }
 
     /**
@@ -1710,123 +1672,6 @@ public class PageHandler extends RepositoryManager {
     }
 
 
-
-    /**
-     * _more_
-     *
-     * @param request The request
-     * @param name _more_
-     * @param formName _more_
-     * @param date _more_
-     *
-     * @return _more_
-     */
-    public String makeDateInput(Request request, String name,
-                                String formName, Date date) {
-        return makeDateInput(request, name, formName, date, null);
-    }
-
-    /**
-     * _more_
-     *
-     * @param request The request
-     * @param name _more_
-     * @param formName _more_
-     * @param date _more_
-     * @param timezone _more_
-     *
-     * @return _more_
-     */
-    public String makeDateInput(Request request, String name,
-                                String formName, Date date, String timezone) {
-        return makeDateInput(request, name, formName, date, timezone, true);
-    }
-
-    /**
-     * Make the HTML for a date input widget
-     *
-     * @param request The request
-     * @param name    the name
-     * @param formName  the form name
-     * @param date      the default date
-     * @param timezone  the timezone
-     * @param includeTime  true to include a time box
-     *
-     * @return  the widget html
-     */
-    public String makeDateInput(Request request, String name,
-                                String formName, Date date, String timezone,
-                                boolean includeTime) {
-        return makeDateInput(request, name, formName, date, timezone,
-                             includeTime, null);
-    }
-
-    /**
-     * Make the HTML for a date input widget
-     *
-     * @param request The request
-     * @param name    the name
-     * @param formName  the form name
-     * @param date      the default date
-     * @param timezone  the timezone
-     * @param includeTime  true to include a time box
-     * @param dates _more_
-     *
-     * @return  the widget html
-     */
-    public String makeDateInput(Request request, String name,
-                                String formName, Date date, String timezone,
-                                boolean includeTime, List dates) {
-        String dateHelp = "e.g., yyyy-mm-dd,  now, -1 week, +3 days, etc.";
-        String           timeHelp   = "hh:mm:ss Z, e.g. 20:15:00 MST";
-
-        String           dateArg    = request.getString(name, "");
-        String           timeArg    = request.getString(name + ".time", "");
-        String           dateString = ((date == null)
-                                       ? dateArg
-                                       : dateSdf.format(date));
-        SimpleDateFormat timeFormat = ((timezone == null)
-                                       ? timeSdf
-                                       : getSDF("HH:mm:ss z", timezone));
-        String           timeString = ((date == null)
-                                       ? timeArg
-                                       : timeFormat.format(date));
-
-        String           inputId    = HtmlUtils.getUniqueId("dateinput");
-        String           minDate    = null;
-        String           maxDate    = null;
-        if ((dates != null) && !dates.isEmpty()) {
-            minDate = dateSdf.format((Date) dates.get(0));
-            maxDate = dateSdf.format((Date) dates.get(dates.size() - 1));
-        }
-
-        StringBuilder jsBuf =
-            new StringBuilder("<script>jQuery(function() {$( ");
-        HtmlUtils.squote(jsBuf, "#" + inputId);
-        jsBuf.append(
-            " ).datepicker({ dateFormat: 'yy-mm-dd',changeMonth: true, changeYear: true,constrainInput:false, yearRange: '1900:2100' ");
-        if ((minDate != null) && (maxDate != null)) {
-            jsBuf.append(", minDate: '" + minDate + "', maxDate: '" + maxDate
-                         + "'");
-        }
-        jsBuf.append(" });});</script>");
-        String extra = "";
-        if (includeTime) {
-            extra = " T:"
-                    + HtmlUtils.input(name + ".time", timeString,
-                                      HtmlUtils.sizeAttr(6)
-                                      + HtmlUtils.attr(HtmlUtils.ATTR_TITLE,
-                                          timeHelp));
-        }
-
-        return jsBuf.toString() + "\n"
-               + HtmlUtils.input(name, dateString,
-                                 HtmlUtils.SIZE_10 + HtmlUtils.id(inputId)
-                                 + HtmlUtils.title(dateHelp)) + extra;
-    }
-
-
-
     /**
      * _more_
      *
@@ -1852,7 +1697,9 @@ public class PageHandler extends RepositoryManager {
      */
     public String makePopupLink(String link, String menuContents,
                                 boolean makeClose, boolean alignLeft) {
-        return makePopupLink(link, menuContents, "", makeClose, alignLeft);
+        return makePopupLink(link, menuContents,
+                             " class=\"ramadda-popup-link\" ", makeClose,
+                             alignLeft);
     }
 
 
@@ -1977,7 +1824,7 @@ public class PageHandler extends RepositoryManager {
                                HtmlUtils.call(
                                    "hideElementById",
                                    HtmlUtils.squote(compId))), HtmlUtils.img(
-                                       iconUrl(ICON_CLOSE), "Close",
+                                       getIconUrl(ICON_CLOSE), "Close",
                                        HtmlUtils.cssClass(
                                            "ramadda-popup-close")), "");
         contents = cLink + HtmlUtils.br() + contents;
@@ -2008,7 +1855,7 @@ public class PageHandler extends RepositoryManager {
             String cLink = HtmlUtils.jsLink(
                                HtmlUtils.onMouseClick("hidePopupObject();"),
                                HtmlUtils.img(
-                                   iconUrl(ICON_CLOSE), "Close",
+                                   getIconUrl(ICON_CLOSE), "Close",
                                    HtmlUtils.cssClass(
                                        "ramadda-popup-close")), "");
             contents = cLink + HtmlUtils.br() + contents;
@@ -2049,268 +1896,6 @@ public class PageHandler extends RepositoryManager {
     }
 
 
-    /** _more_ */
-    private Hashtable<String, SimpleDateFormat> dateFormats =
-        new Hashtable<String, SimpleDateFormat>();
-
-    /** _more_ */
-    TimeZone defaultTimeZone;
-
-
-    /** _more_ */
-    protected List<SimpleDateFormat> formats;
-
-
-
-
-
-    /**
-     * _more_
-     *
-     * @param format _more_
-     * @param timezone _more_
-     *
-     * @return _more_
-     */
-    protected SimpleDateFormat getSDF(String format, String timezone) {
-        String key;
-        if (timezone != null) {
-            key = format + "-" + timezone;
-        } else {
-            key = format;
-        }
-        SimpleDateFormat sdf = dateFormats.get(key);
-        if (sdf == null) {
-            sdf = new SimpleDateFormat();
-            sdf.applyPattern(format);
-            if (timezone == null) {
-                sdf.setTimeZone(TIMEZONE_UTC);
-            } else {
-                if ((defaultTimeZone != null)
-                        && (timezone.equals("")
-                            || timezone.equals("default"))) {
-                    sdf.setTimeZone(defaultTimeZone);
-                } else {
-                    sdf.setTimeZone(TimeZone.getTimeZone(timezone));
-                }
-            }
-            dateFormats.put(key, sdf);
-        }
-
-        return sdf;
-    }
-
-
-    /**
-     * _more_
-     *
-     * @param format _more_
-     *
-     * @return _more_
-     */
-    public SimpleDateFormat makeSDF(String format) {
-        return getSDF(format, null);
-    }
-
-    /**
-     * _more_
-     *
-     * @param d _more_
-     *
-     * @return _more_
-     */
-    public String formatDate(Date d) {
-        return formatDate(d, null);
-    }
-
-    /**
-     * _more_
-     *
-     * @param d _more_
-     * @param timezone _more_
-     *
-     * @return _more_
-     */
-    public String formatDate(Date d, String timezone) {
-        if (sdf == null) {
-            sdf = makeSDF(getRepository().getProperty(PROP_DATE_FORMAT,
-                    DEFAULT_TIME_FORMAT));
-        }
-        SimpleDateFormat dateFormat = ((timezone == null)
-                                       ? sdf
-                                       : getSDF(
-                                           getRepository().getProperty(
-                                               PROP_DATE_FORMAT,
-                                               DEFAULT_TIME_FORMAT), timezone));
-        if (d == null) {
-            return BLANK;
-        }
-        synchronized (dateFormat) {
-            return dateFormat.format(d);
-        }
-    }
-
-
-    /**
-     * _more_
-     *
-     * @param request The request
-     * @param ms _more_
-     *
-     * @return _more_
-     */
-    public String formatDate(Request request, long ms) {
-        return formatDate(new Date(ms));
-    }
-
-
-    /**
-     * _more_
-     *
-     * @param request The request
-     * @param ms _more_
-     * @param timezone _more_
-     *
-     * @return _more_
-     */
-    public String formatDate(Request request, long ms, String timezone) {
-        return formatDate(new Date(ms), timezone);
-    }
-
-    /**
-     * _more_
-     *
-     * @param request The request
-     * @param d _more_
-     *
-     * @return _more_
-     */
-    public String formatDate(Request request, Date d) {
-        return formatDate(d);
-    }
-
-
-    /**
-     * _more_
-     *
-     * @param request The request
-     * @param d _more_
-     * @param timezone _more_
-     *
-     * @return _more_
-     */
-    public String formatDate(Request request, Date d, String timezone) {
-        return formatDate(d, timezone);
-    }
-
-
-
-
-    /**
-     * _more_
-     *
-     * @param request The request
-     * @param d _more_
-     * @param timezone _more_
-     *
-     * @return _more_
-     */
-    public String formatDateShort(Request request, Date d, String timezone) {
-        return formatDateShort(request, d, timezone, "");
-    }
-
-    /**
-     * _more_
-     *
-     * @param request The request
-     * @param d _more_
-     * @param timezone _more_
-     * @param extraAlt _more_
-     *
-     * @return _more_
-     */
-    public String formatDateShort(Request request, Date d, String timezone,
-                                  String extraAlt) {
-        if (d == null) {
-            return BLANK;
-        }
-
-        String fmt = getRepository().getProperty(PROP_DATE_SHORTFORMAT,
-                         DEFAULT_TIME_SHORTFORMAT);
-        SimpleDateFormat sdf      = getSDF(fmt, timezone);
-
-
-
-        Date             now      = new Date();
-        long             diff     = now.getTime() - d.getTime();
-        double           minutes  = DateUtil.millisToMinutes(diff);
-        String           fullDate = formatDate(d, timezone);
-        String           result;
-        if ((minutes > 0) && (minutes < 65) && (minutes > 55)) {
-            result = "about an hour ago";
-        } else if ((diff > 0) && (diff < DateUtil.minutesToMillis(1))) {
-            result = (int) (diff / (1000)) + " seconds ago";
-        } else if ((diff > 0) && (diff < DateUtil.hoursToMillis(1))) {
-            int value = (int) DateUtil.millisToMinutes(diff);
-            result = value + " minute" + ((value > 1)
-                                          ? "s"
-                                          : "") + " ago";
-        } else if ((diff > 0) && (diff < DateUtil.hoursToMillis(24))) {
-            int value = (int) (diff / (1000 * 60 * 60));
-            result = value + " hour" + ((value > 1)
-                                        ? "s"
-                                        : "") + " ago";
-        } else if ((diff > 0) && (diff < DateUtil.daysToMillis(6))) {
-            int value = (int) (diff / (1000 * 60 * 60 * 24));
-            result = value + " day" + ((value > 1)
-                                       ? "s"
-                                       : "") + " ago";
-        } else {
-            result = sdf.format(d);
-        }
-
-        return HtmlUtils.span(result,
-                              HtmlUtils.cssClass(CSS_CLASS_DATETIME)
-                              + HtmlUtils.attr(HtmlUtils.ATTR_TITLE,
-                                  fullDate + extraAlt));
-    }
-
-
-
-
-
-    /**
-     * _more_
-     *
-     * @param dttm _more_
-     *
-     * @return _more_
-     *
-     * @throws java.text.ParseException _more_
-     */
-    public Date parseDate(String dttm) throws java.text.ParseException {
-        if ( !Utils.stringDefined(dttm)) {
-            return null;
-        }
-        if (formats == null) {
-            formats = new ArrayList<SimpleDateFormat>();
-            formats.add(makeSDF("yyyy-MM-dd HH:mm:ss z"));
-            formats.add(makeSDF("yyyy-MM-dd HH:mm:ss"));
-            formats.add(makeSDF("yyyy-MM-dd HH:mm"));
-            formats.add(makeSDF("yyyy-MM-dd"));
-        }
-
-
-        for (SimpleDateFormat fmt : formats) {
-            try {
-                synchronized (fmt) {
-                    return fmt.parse(dttm);
-                }
-            } catch (Exception noop) {}
-        }
-
-        throw new IllegalArgumentException("Unable to parse date:" + dttm);
-    }
 
 
     /**
@@ -2359,32 +1944,31 @@ public class PageHandler extends RepositoryManager {
                 }
 
                 urls.add(url);
-                labels.add(HtmlUtils.img(iconUrl("/icons/connect.png")) + " "
-                           + msg("Login"));
+                labels.add(HtmlUtils.img(getIconUrl("/icons/connect.png"))
+                           + " " + msg("Login"));
                 tips.add(msg("Login"));
             }
 
             if (getUserManager().isCartEnabled()) {
                 extras.add("");
                 urls.add(request.makeUrl(getRepositoryBase().URL_USER_CART));
-                //        labels.add(HtmlUtils.img(getRepository().iconUrl(ICON_CART),
-                //                                msg("Data Cart")));
-                labels.add(HtmlUtils.img(iconUrl("/icons/cart.png")) + " "
+                //        labels.add(HtmlUtils.img(getRepository().getIconUrl(ICON_CART),
+                labels.add(HtmlUtils.img(getIconUrl("/icons/cart.png")) + " "
                            + msg("Data Cart"));
                 tips.add(msg("View data cart"));
             }
         } else {
             extras.add("");
             urls.add(request.makeUrl(getRepositoryBase().URL_USER_LOGOUT));
-            labels.add(HtmlUtils.img(iconUrl("/icons/disconnect.png")) + " "
-                       + msg("Logout"));
+            labels.add(HtmlUtils.img(getIconUrl("/icons/disconnect.png"))
+                       + " " + msg("Logout"));
             tips.add(msg("Logout"));
 
             String label = user.getLabel().replace(" ", "&nbsp;");
-            String userIcon = HtmlUtils.img(iconUrl("/icons/user.png"),
+            String userIcon = HtmlUtils.img(getIconUrl("/icons/user.png"),
                                             "Settings for " + label);
             String settingsUrl =
-                request.makeUrl(getRepositoryBase().URL_USER_HOME);
+                request.makeUrl(getRepositoryBase().URL_USER_FORM);
 
             if (makePopup) {
                 prefix.append(
@@ -2406,7 +1990,7 @@ public class PageHandler extends RepositoryManager {
                         .getPluginManager().getDocUrls().size() > 0)) {
             urls.add(request.makeUrl(getRepositoryBase().URL_HELP));
             extras.add("");
-            labels.add(HtmlUtils.img(iconUrl("/icons/help.png")) + " "
+            labels.add(HtmlUtils.img(getIconUrl("/icons/help.png")) + " "
                        + msg("Help"));
             tips.add(msg("View Help"));
         }
@@ -2459,13 +2043,13 @@ public class PageHandler extends RepositoryManager {
             String icon  = apiMethod.getIcon();
             String url;
             if (apiMethod == homeApi) {
-                url = fileUrl(apiMethod.getRequest());
+                url = getFileUrl(apiMethod.getRequest());
             } else {
                 url = request.makeUrl(apiMethod.getUrl());
             }
 
             if (icon != null) {
-                label = HtmlUtils.img(iconUrl(icon)) + " " + label;
+                label = HtmlUtils.img(getIconUrl(icon)) + " " + label;
             }
 
             String html = template.replace("${url}", url);
@@ -2589,7 +2173,21 @@ public class PageHandler extends RepositoryManager {
      * @return _more_
      */
     public String showDialogError(String h) {
-        h = getDialogString(h);
+        return showDialogError(h, true);
+    }
+
+    /**
+     * _more_
+     *
+     * @param h _more_
+     * @param cleanString _more_
+     *
+     * @return _more_
+     */
+    public String showDialogError(String h, boolean cleanString) {
+        if (cleanString) {
+            h = getDialogString(h);
+        }
 
         return getMessage(h, Constants.ICON_ERROR, false);
     }
@@ -2629,17 +2227,19 @@ public class PageHandler extends RepositoryManager {
      * @return _more_
      */
     public String getMessage(String h, String icon, boolean showClose) {
+        h = h.replaceAll("\n","<br>");
+        h = h.replaceAll("&#10;","<br>");
         String html = showClose
                       ? HtmlUtils.jsLink(
                           HtmlUtils.onMouseClick("hide('messageblock')"),
-                          HtmlUtils.img(iconUrl(Constants.ICON_CLOSE)))
+                          HtmlUtils.img(getIconUrl(Constants.ICON_CLOSE)))
                       : "&nbsp;";
         StringBuilder sb = new StringBuilder();
         sb.append(HtmlUtils.open(HtmlUtils.TAG_DIV, "class",
                                  "ramadda-message", "id", "messageblock"));
         sb.append(
             "<table><tr valign=top><td><div class=\"ramadda-message-link\">");
-        sb.append(HtmlUtils.img(iconUrl(icon)));
+        sb.append(HtmlUtils.img(getIconUrl(icon)));
         sb.append("</div></td><td><div class=\"ramadda-message-inner\">");
         sb.append(h);
         sb.append("</div></td>");
@@ -3075,7 +2675,7 @@ public class PageHandler extends RepositoryManager {
                                   getRepository().URL_ENTRY_SHOW, entry,
                                   ARG_OUTPUT,
                                   output.toString()), HtmlUtils.img(
-                                      iconUrl(output.getIcon()),
+                                      getIconUrl(output.getIcon()),
                                       output.getLabel()));
 
 
@@ -3316,17 +2916,17 @@ public class PageHandler extends RepositoryManager {
             throws Exception {
 
         if (entry.getIcon() != null) {
-            return iconUrl(entry.getIcon());
+            return getIconUrl(entry.getIcon());
         }
         if (getEntryManager().isAnonymousUpload(entry)) {
-            return iconUrl(ICON_ENTRY_UPLOAD);
+            return getIconUrl(ICON_ENTRY_UPLOAD);
         }
         if (request.defined(ARG_ICON)) {
-            return iconUrl(request.getString(ARG_ICON, ""));
+            return getIconUrl(request.getString(ARG_ICON, ""));
         }
 
 
-        return entry.getTypeHandler().getIconUrl(request, entry);
+        return entry.getTypeHandler().getEntryIconUrl(request, entry);
     }
 
 
@@ -3346,7 +2946,8 @@ public class PageHandler extends RepositoryManager {
         String iconPath = getIconUrlInner(request, entry);
 
         if (iconPath == null) {
-            return null;
+            return getIconUrl(ICON_BLANK);
+            //            return null;
         }
 
         return iconPath;
@@ -3387,7 +2988,7 @@ public class PageHandler extends RepositoryManager {
             Link link = new Link(
                             request.entryUrl(
                                 getRepository().URL_COMMENTS_SHOW,
-                                entry), getRepository().iconUrl(
+                                entry), getRepository().getIconUrl(
                                     ICON_COMMENTS), "Add/View Comments",
                                         OutputType.TYPE_TOOLBAR);
 
@@ -3507,7 +3108,7 @@ public class PageHandler extends RepositoryManager {
                                       entry.getId(), ARG_AUTHTOKEN,
                                       getRepository().getAuthToken(request.getSessionId()),
                                       ARG_COMMENT_ID,
-                                      comment.getId()), HtmlUtils.img(iconUrl(ICON_DELETE),
+                                      comment.getId()), HtmlUtils.img(getIconUrl(ICON_DELETE),
                                           msg("Delete comment"))));
             if (canEdit) {
                 //                sb.append(HtmlUtils.formEntry(BLANK, deleteLink));
@@ -3527,7 +3128,7 @@ public class PageHandler extends RepositoryManager {
                                 HtmlUtils.cssClass(
                                     CSS_CLASS_COMMENT_COMMENTER)) + " @ "
                                         + HtmlUtils.span(
-                                            getPageHandler().formatDate(
+                                            getDateHandler().formatDate(
                                                 request,
                                                 comment.getDate()), HtmlUtils.cssClass(
                                                     CSS_CLASS_COMMENT_DATE)) + HtmlUtils.space(
@@ -3552,17 +3153,6 @@ public class PageHandler extends RepositoryManager {
     }
 
 
-    /** _more_ */
-    private Hashtable<String, String> typeToWikiTemplate =
-        new Hashtable<String, String>();
-
-    /** _more_ */
-    public static final String TEMPLATE_DEFAULT = "default";
-
-    /** _more_ */
-    public static final String TEMPLATE_CONTENT = "content";
-
-
 
     /**
      * _more_
@@ -3572,6 +3162,7 @@ public class PageHandler extends RepositoryManager {
         super.clearCache();
         templateJavascriptContent = null;
         htmlTemplates             = null;
+        mobileTemplate            = null;
         defaultTemplate           = null;
         typeToWikiTemplate        = new Hashtable<String, String>();
     }
@@ -3650,7 +3241,7 @@ public class PageHandler extends RepositoryManager {
                     colCnt = 1;
                 }
 
-                sb.append("<td>");
+                sb.append("<td width='25%'>");
                 sb.append(HtmlUtils.b(msg(cat)));
                 sb.append(
                     "<div style=\"solid black; max-height: 150px; overflow-y: auto\";>");
@@ -3667,14 +3258,24 @@ public class PageHandler extends RepositoryManager {
         }
     }
 
+
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
+    public String getCreatedDisplayMode() {
+        return createdDisplayMode;
+    }
+
+
     /**
      * _more_
      *
      * @return _more_
      */
     public boolean showEntryTableCreateDate() {
-        return getRepository().getProperty(PROP_ENTRY_TABLE_SHOW_CREATEDATE,
-                                           false);
+        return showCreateDate;
     }
 
 
@@ -3731,8 +3332,9 @@ public class PageHandler extends RepositoryManager {
 
         mapInfo.addRightSide(
             getPageHandler().makeStickyPopup(
-                HtmlUtils.img(getRepository().fileUrl("/icons/map_go.png")),
-                rightSide.toString(), null));
+                HtmlUtils.img(
+                    getRepository().getFileUrl(
+                        "/icons/map_go.png")), rightSide.toString(), null));
         //        mapInfo.addRightSide(HtmlUtils.makeShowHideBlock("", rightSide.toString(),false));
         //        mapInfo.addRightSide(HtmlUtils.makeShowHideBlock("", rightSide.toString(),false));
 
@@ -3791,6 +3393,62 @@ public class PageHandler extends RepositoryManager {
             throws Exception {
         entrySectionOpen(request, entry, sb, title, false);
     }
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param title _more_
+     * @param text _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public Result makeEntryHeaderResult(Request request, Entry entry,
+                                        String title, String text)
+            throws Exception {
+        Appendable sb = new StringBuilder();
+        entrySectionOpen(request, entry, sb, title, false);
+        sb.append(text);
+        entrySectionClose(request, entry, sb);
+
+        return new Result("", sb);
+    }
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param sb _more_
+     * @param title _more_
+     * @param showLine _more_
+     *
+     * @throws Exception _more_
+     */
+    public void sectionOpen(Request request, Appendable sb, String title,
+                            boolean showLine)
+            throws Exception {
+        sb.append(HtmlUtils.sectionOpen(null, showLine));
+        if (title != null) {
+            HtmlUtils.sectionTitle(sb, title);
+        }
+    }
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param sb _more_
+     *
+     * @throws Exception _more_
+     */
+    public void sectionClose(Request request, Appendable sb)
+            throws Exception {
+        sb.append(HtmlUtils.sectionClose());
+    }
+
 
     /**
      * _more_
@@ -3967,6 +3625,10 @@ Time:14625 cnt:7000
         return stripped.toString();
     }
 
+    /** _more_ */
+    private static final String CDN =
+        "https://cdn.jsdelivr.net/gh/geodesystems/ramadda/src/org/ramadda/repository/htdocs";
+
 
     /**
      * _more_
@@ -3976,8 +3638,43 @@ Time:14625 cnt:7000
      * @return _more_
      */
     public String applyBaseMacros(String s) {
-        return s.replace(MACRO_URLROOT, getRepository().getUrlBase()).replace(
-            "${baseentry}", getEntryManager().getRootEntry().getId());
+
+        String dotmini = getRepository().getMinifiedOk()
+                         ? ".min"
+                         : "";
+        String mini    = getRepository().getMinifiedOk()
+                         ? "min/"
+                         : "";
+        //        System.err.println(mini +" " + getRepository().getMinifiedOk());
+        String path;
+        if (getRepository().getCdnOk()) {
+            path = CDN;
+        } else {
+            path = getRepository().getUrlBase() + "/"
+                   + RepositoryUtil.getHtdocsVersion();
+        }
+
+        
+        String htdocsBase =  makeHtdocsUrl("");
+        return s.replace("${htdocs}", htdocsBase).replace("${cdnpath}", path).replace(
+                                                     "${root}", getRepository().getUrlBase()).replace(
+            "${baseentry}", getEntryManager().getRootEntry().getId()).replace(
+            "${min}", mini).replace("${dotmin}", dotmini);
+    }
+
+    /**
+     * _more_
+     *
+     * @param path _more_
+     *
+     * @return _more_
+     */
+    public String getCdnPath(String path) {
+        if (getRepository().getCdnOk()) {
+            return CDN + path;
+        } else {
+            return getRepository().getHtdocsUrl(path);
+        }
     }
 
     /**
@@ -4026,6 +3723,17 @@ Time:14625 cnt:7000
      */
     public String getEntryHref(Request request, Entry entry, String... args)
             throws Exception {
+        /*
+        List<Metadata> metadataList =
+            getMetadataManager().findMetadata(request, entry,
+                                              ContentMetadataHandler.TYPE_ALIAS,false);
+        String url;
+        if(metadataList.size()>0) {
+            url = request.entryUrl(getRepository().URL_ENTRY_SHOW, entry);
+        } else {
+            url = request.entryUrl(getRepository().URL_ENTRY_SHOW, entry);
+        }
+        */
         String url = request.entryUrl(getRepository().URL_ENTRY_SHOW, entry);
 
         return HtmlUtils.href(url, (args.length > 0)

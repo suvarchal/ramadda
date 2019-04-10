@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -72,6 +72,8 @@ public class MetadataType extends MetadataTypeBase {
 
     /** _more_ */
     public static final String ATTR_METADATATYPE = "metadatatype";
+
+
 
     /** _more_ */
     public static final String ATTR_CLASS = "class";
@@ -159,6 +161,9 @@ public class MetadataType extends MetadataTypeBase {
 
     /** _more_ */
     private String entryType = null;
+
+    /** _more_ */
+    private String help = "";
 
     /**
      * _more_
@@ -264,6 +269,11 @@ public class MetadataType extends MetadataTypeBase {
 
                 continue;
             }
+
+            if (node.getTagName().equals(ATTR_HELP)) {
+                continue;
+            }
+
             if ( !node.getTagName().equals(TAG_TYPE)) {
                 manager.logError("Unknown metadata xml tag:"
                                  + XmlUtil.toString(node), null);
@@ -273,10 +283,13 @@ public class MetadataType extends MetadataTypeBase {
                           ATTR_CLASS,
                           "org.ramadda.repository.metadata.MetadataHandler"));
 
+
+
             String          id           = XmlUtil.getAttribute(node,
                                                ATTR_ID);
             MetadataHandler handler      = manager.getHandler(c);
             MetadataType    metadataType = new MetadataType(id, handler);
+            metadataType.help = Utils.getAttributeOrTag(node, ATTR_HELP, "");
             metadataType.init(node);
             handler.addMetadataType(metadataType);
             types.add(metadataType);
@@ -791,6 +804,28 @@ public class MetadataType extends MetadataTypeBase {
         return null;
     }
 
+    public MetadataElement getDisplayImageElement(Request request, Entry entry,
+                                     Metadata metadata, String filter)
+            throws Exception {
+        for (MetadataElement element : getChildren()) {
+            if ( !element.getDataType().equals(element.DATATYPE_FILE)) {
+                continue;
+            }
+            if ( !element.showAsAttachment()) {
+                continue;
+            }
+            if (element.getThumbnail()) {
+                //???                continue;
+            }
+            String url = getImageUrl(request, entry, metadata, filter);
+            if (url != null) {
+                return element;
+            }
+        }
+
+        return null;
+    }
+
 
 
     /**
@@ -811,6 +846,11 @@ public class MetadataType extends MetadataTypeBase {
             return new Result("", "Cannot process view");
         }
         MetadataElement element = getChildren().get(elementIndex);
+        return processView(request, entry, metadata,  element);
+    }
+
+    public Result processView(Request request, Entry entry, Metadata metadata,MetadataElement element)
+        throws Exception {
         if ( !element.getDataType().equals(element.DATATYPE_FILE)) {
             return new Result("", "Cannot process view");
         }
@@ -1080,6 +1120,15 @@ public class MetadataType extends MetadataTypeBase {
         return template;
     }
 
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
+    public String getHelp() {
+        return help;
+    }
+
 
     /**
      * _more_
@@ -1108,9 +1157,12 @@ public class MetadataType extends MetadataTypeBase {
         String submit = HtmlUtils.submit(msg("Add") + HtmlUtils.space(1)
                                          + getName());
         String        cancel = HtmlUtils.submit(msg("Cancel"), ARG_CANCEL);
-
-
         StringBuilder sb     = new StringBuilder();
+        if (Utils.stringDefined(help)) {
+            sb.append(HtmlUtils.row(HtmlUtils.colspan(HtmlUtils.note(help),
+                    3)));
+            sb.append("\n");
+        }
 
         if ( !forEdit) {
             //            sb.append(header(msgLabel("Add") + getName()));
@@ -1143,12 +1195,12 @@ public class MetadataType extends MetadataTypeBase {
                 if (suffixLabel == null) {
                     suffixLabel = "";
                 }
-
-                sb.append(HtmlUtils.formEntry(elementLbl,
-                        widget + suffixLabel));
+                sb.append(HtmlUtils.formEntryTop(elementLbl, "\n" + widget,
+                        suffixLabel));
             }
         }
 
+        sb.append("\n");
         sb.append(
             HtmlUtils.formEntry(
                 msgLabel("Inherited"),
@@ -1164,6 +1216,7 @@ public class MetadataType extends MetadataTypeBase {
                   + HtmlUtils.hidden(argid, metadata.getId()));
 
         if ( !forEdit && (entry != null)) {
+            sb.append("\n");
             sb.append(HtmlUtils.formEntry("",
                                           submit + HtmlUtils.buttonSpace()
                                           + cancel));

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -22,13 +22,13 @@ import org.ramadda.repository.*;
 import org.ramadda.repository.database.*;
 
 import org.ramadda.repository.output.*;
-
-import org.ramadda.sql.Clause;
-
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.FormInfo;
 import org.ramadda.util.HtmlUtils;
+
+import org.ramadda.util.sql.Clause;
+
+
+import org.ramadda.util.sql.SqlUtil;
 
 import org.w3c.dom.*;
 
@@ -129,22 +129,6 @@ public class GenericTypeHandler extends TypeHandler {
     }
 
 
-    /**
-     * _more_
-     *
-     *
-     * @param request _more_
-     * @param entry _more_
-     *
-     * @return _more_
-     *
-     * @throws Exception on badness
-     */
-    public String xxxgetIconUrl(Request request, Entry entry)
-            throws Exception {
-        return super.getIconUrl(request, entry);
-    }
-
 
     /**
      * _more_
@@ -153,7 +137,7 @@ public class GenericTypeHandler extends TypeHandler {
      *
      * @throws Exception on badness
      */
-    private void initGenericTypeHandler(Element entryNode) throws Exception {
+    public void initGenericTypeHandler(Element entryNode) throws Exception {
         if (getType().indexOf(".") >= 0) {
             //Were screwed - too may types had a . in them
             //            throw new IllegalArgumentException ("Cannot have a '.' in the type name: "+ getType());
@@ -167,7 +151,7 @@ public class GenericTypeHandler extends TypeHandler {
         if (columnNodes.size() == 0) {
             return;
         }
-        init((List<Element>) columnNodes);
+        initColumns((List<Element>) columnNodes);
     }
 
 
@@ -195,7 +179,7 @@ public class GenericTypeHandler extends TypeHandler {
      *
      * @throws Exception on badness
      */
-    public void init(List<Element> columnNodes) throws Exception {
+    public void initColumns(List<Element> columnNodes) throws Exception {
         Statement statement = getDatabaseManager().createStatement();
         colNames.add(COL_ID);
         StringBuilder tableDef = new StringBuilder("CREATE TABLE "
@@ -775,12 +759,14 @@ public class GenericTypeHandler extends TypeHandler {
 
         int originalSize = where.size();
         for (Column column : getMyColumns()) {
+
             /**
-               For now always check every column as cansearch is used to not show the search field to the user
-               but may be used internally
-            if ( !column.getCanSearch()) {
-                continue;
-                }**/
+             *  For now always check every column as cansearch is used to not show the search field to the user
+             *  but may be used internally
+             * if ( !column.getCanSearch()) {
+             *   continue;
+             *   }
+             */
             column.assembleWhereClause(request, where, searchCriteria);
         }
         //If I added any here then also add a join on the column "id"
@@ -860,8 +846,8 @@ public class GenericTypeHandler extends TypeHandler {
                             PreparedStatement stmt, boolean isNew)
             throws Exception {
 
-        //        System.err.println("setStatement:" + values.length +" " + values[0]);
-
+        //        System.err.println("setStatement:" + values.length);
+        //        for(Object o: values)   System.err.println("  value::" + o);
         int stmtIdx = 1;
         stmt.setString(stmtIdx++, entry.getId());
         if (values != null) {
@@ -1008,7 +994,7 @@ public class GenericTypeHandler extends TypeHandler {
                                       Column column, Appendable tmpSb,
                                       Object[] values)
             throws Exception {
-        column.formatValue(entry, tmpSb, Column.OUTPUT_HTML, values);
+        column.formatValue(entry, tmpSb, Column.OUTPUT_HTML, values, false);
     }
 
 
@@ -1194,7 +1180,7 @@ public class GenericTypeHandler extends TypeHandler {
         if (values != null) {
             for (Column column : getMyColumns()) {
                 StringBuilder tmpSb = new StringBuilder();
-                column.formatValue(entry, tmpSb, Column.OUTPUT_HTML, values);
+                column.formatValue(entry, tmpSb, Column.OUTPUT_HTML, values, false);
                 html = html.replace("${" + column.getName() + ".content}",
                                     tmpSb.toString());
                 html = html.replace("${" + column.getName() + ".label}",
@@ -1385,7 +1371,7 @@ public class GenericTypeHandler extends TypeHandler {
 
         if ((entry != null) && hasValue && !column.getEditable()) {
             StringBuilder tmpSb = new StringBuilder();
-            column.formatValue(entry, tmpSb, Column.OUTPUT_HTML, values);
+            column.formatValue(entry, tmpSb, Column.OUTPUT_HTML, values, false);
             formBuffer.append(HtmlUtils.formEntry(column.getLabel() + ":",
                     tmpSb.toString()));
         } else {

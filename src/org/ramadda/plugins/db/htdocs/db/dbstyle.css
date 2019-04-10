@@ -1,11 +1,21 @@
 
 .dbtableheader {
-  background-color:#c3d9ff;
+  background-color:#efefef;
   color: #000;
   font-weight: bold;
   padding-top:5px;
   padding-left:5px;
   padding-right:5px;
+  text-align:center;
+}
+
+.dbrow:hover {
+      background-color:#edf5ff;
+}
+
+.dbtableheader_inner {
+  color: #000;
+  font-weight: bold;
   text-align:center;
 }
 
@@ -36,7 +46,7 @@
 .dbtable td {
     padding:4px;
     padding-bottom:1px;
-    border-color: #666;
+    border-color: #ccc;
     border-width: 1px 1px 0 0;
     border-style: solid;
     margin: 0;
@@ -51,8 +61,19 @@
 //      border:  1px #888888 solid;
 }
 
+.db-map-list-entry {
+  margin-left:3px;
+  margin-top:2px;
+}
+
 .db-map-table { 
-      border:  1px #888888 solid;
+//    border:  1px #888888 solid;
+//    border:  1px #ccc solid;
+}
+
+.db-map-column { 
+//    border:  1px #888888 solid;
+    border:  1px #ccc solid;
 }
 
 .db-map-table #ramadda-map-latlonreadout {

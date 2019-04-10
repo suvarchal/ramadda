@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -214,6 +214,23 @@ public class User {
      */
     public Object getProperty(String key) {
         return properties.get(key);
+    }
+
+    /**
+     * _more_
+     *
+     * @param key _more_
+     * @param dflt _more_
+     *
+     * @return _more_
+     */
+    public Object getProperty(String key, Object dflt) {
+        Object o = properties.get(key);
+        if (o == null) {
+            return dflt;
+        }
+
+        return o;
     }
 
     /**

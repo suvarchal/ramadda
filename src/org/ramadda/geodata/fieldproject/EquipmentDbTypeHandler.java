@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -46,11 +46,10 @@ public class EquipmentDbTypeHandler extends DbTypeHandler {
      *
      * @throws Exception _more_
      */
-    public EquipmentDbTypeHandler(DbAdminHandler dbAdmin,
-                                  Repository repository, String tableName,
+    public EquipmentDbTypeHandler(Repository repository, String tableName,
                                   Element tableNode, String desc)
             throws Exception {
-        super(dbAdmin, repository, tableName, tableNode, desc);
+        super(repository, tableName, tableNode, desc);
     }
 
     /**

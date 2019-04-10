@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -201,7 +201,6 @@ public class AcsFile extends CsvFile {
 
             try {
                 PrintWriter   writer     = new PrintWriter(bbos);
-
                 JSONArray     obj = new JSONArray(new JSONTokener(json));
                 long          t3         = System.currentTimeMillis();
                 JSONArray     headerJson = obj.getJSONArray(0);
@@ -216,7 +215,7 @@ public class AcsFile extends CsvFile {
                 for (int i = 0; i < headerJson.length(); i++) {
                     String         value = headerJson.getString(i);
                     CensusVariable var   = getVariable(value);
-                    String         type  = "numeric";
+                    String         type  = RecordField.TYPE_DOUBLE;
                     numeric[i] = true;
                     depends[i] = -1;
                     special[i] = isNameSpecial(value);

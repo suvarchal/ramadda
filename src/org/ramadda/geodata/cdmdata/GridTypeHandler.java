@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -79,11 +79,13 @@ public class GridTypeHandler extends TypeHandler {
      * @param request _more_
      * @param entry _more_
      * @param tag _more_
+     * @param props _more_
      *
      * @return _more_
      */
     @Override
-    public String getUrlForWiki(Request request, Entry entry, String tag) {
+    public String getUrlForWiki(Request request, Entry entry, String tag,
+                                Hashtable props) {
         if (tag.equals(WikiConstants.WIKI_TAG_CHART)
                 || tag.equals(WikiConstants.WIKI_TAG_DISPLAY)) {
             StringBuilder jsonbuf = new StringBuilder();
@@ -103,9 +105,11 @@ public class GridTypeHandler extends TypeHandler {
                 lonArg = request.getString(ARG_LOCATION_LONGITUDE, lonArg);
             }
             jsonbuf.append("&");
-            jsonbuf.append(HtmlUtils.arg(ARG_LOCATION_LATITUDE, latArg));
+            jsonbuf.append(HtmlUtils.arg(ARG_LOCATION_LATITUDE, latArg,
+                                         false));
             jsonbuf.append("&");
-            jsonbuf.append(HtmlUtils.arg(ARG_LOCATION_LONGITUDE, lonArg));
+            jsonbuf.append(HtmlUtils.arg(ARG_LOCATION_LONGITUDE, lonArg,
+                                         false));
 
             // add in the list of selected variables as well
             String    VAR_PREFIX = Constants.ARG_VARIABLE + ".";
@@ -137,7 +141,7 @@ public class GridTypeHandler extends TypeHandler {
             return jsonbuf.toString();
         }
 
-        return super.getUrlForWiki(request, entry, tag);
+        return super.getUrlForWiki(request, entry, tag, props);
     }
 
 

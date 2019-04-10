@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -174,9 +174,9 @@ public class IsoOutputHandler extends OutputHandler {
         tag(DifUtil.TAG_Summary, root, entry.getDescription());
         parent = tag(DifUtil.TAG_Temporal_Coverage, root, null);
         tag(DifUtil.TAG_Start_Date, parent,
-            getRepository().formatYYYYMMDD(new Date(entry.getStartDate())));
+        getDateHandler().formatYYYYMMDD(new Date(entry.getStartDate())));
         tag(DifUtil.TAG_Stop_Date, parent,
-            getRepository().formatYYYYMMDD(new Date(entry.getEndDate())));
+        getDateHandler().formatYYYYMMDD(new Date(entry.getEndDate())));
         if (entry.hasAreaDefined()) {
             parent = tag(DifUtil.TAG_Spatial_Coverage, root, null);
             tag(DifUtil.TAG_Northernmost_Latitude, parent,
@@ -195,14 +195,12 @@ public class IsoOutputHandler extends OutputHandler {
         List<MetadataHandler> metadataHandlers =
             repository.getMetadataManager().getMetadataHandlers();
         for (Metadata metadata : metadataList) {
-            for (MetadataHandler metadataHandler : metadataHandlers) {
-                if (metadataHandler.canHandle(metadata)) {
-                    metadataHandler.addMetadataToXml(request,
-                            MetadataTypeBase.TEMPLATETYPE_ISO, entry,
-                            metadata, doc, root);
-
-                    break;
-                }
+            MetadataHandler metadataHandler =
+                getMetadataManager().findMetadataHandler(metadata);
+            if (metadataHandler != null) {
+                metadataHandler.addMetadataToXml(request,
+                        MetadataTypeBase.TEMPLATETYPE_ISO, entry, metadata,
+                        doc, root);
             }
         }
 

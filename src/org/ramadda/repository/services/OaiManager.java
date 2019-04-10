@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -25,11 +25,11 @@ import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.output.*;
 import org.ramadda.repository.type.*;
 
-import org.ramadda.sql.Clause;
-
-import org.ramadda.sql.SqlUtil;
-
 import org.ramadda.util.HtmlUtils;
+
+import org.ramadda.util.sql.Clause;
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -630,8 +630,7 @@ public class OaiManager extends RepositoryManager {
             throws Exception {
         Element id = XmlUtil.create(TAG_IDENTIFY, root);
         XmlUtil.create(TAG_REPOSITORYNAME, id,
-                       getRepository().getProperty(PROP_REPOSITORY_NAME,
-                           "Repository"));
+                       repository.getRepositoryName());
         String url = request.getAbsoluteUrl(request.getUrl());
         XmlUtil.create(TAG_BASEURL, id, url);
         XmlUtil.create(TAG_PROTOCOLVERSION, id, "2.0");
@@ -992,14 +991,12 @@ public class OaiManager extends RepositoryManager {
         List<MetadataHandler> metadataHandlers =
             repository.getMetadataManager().getMetadataHandlers();
         for (Metadata metadata : metadataList) {
-            for (MetadataHandler metadataHandler : metadataHandlers) {
-                if (metadataHandler.canHandle(metadata)) {
-                    metadataHandler.addMetadataToXml(request,
-                            MetadataTypeBase.TEMPLATETYPE_OAIDC, entry,
-                            metadata, node.getOwnerDocument(), node);
-
-                    break;
-                }
+            MetadataHandler metadataHandler =
+                getMetadataManager().findMetadataHandler(metadata);
+            if (metadataHandler != null) {
+                metadataHandler.addMetadataToXml(request,
+                        MetadataTypeBase.TEMPLATETYPE_OAIDC, entry, metadata,
+                        node.getOwnerDocument(), node);
             }
         }
     }

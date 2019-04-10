@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -24,14 +24,15 @@ import org.apache.ftpserver.usermanager.*;
 import org.apache.ftpserver.usermanager.impl.*;
 import org.apache.log4j.config.PropertyPrinter;
 
+
 import org.ramadda.repository.Constants;
 import org.ramadda.repository.Entry;
 import org.ramadda.repository.EntryManager;
 
 
 
-
 import org.ramadda.repository.Repository;
+import org.ramadda.repository.RepositoryUtil;
 import org.ramadda.repository.Request;
 import org.ramadda.repository.Resource;
 import org.ramadda.repository.Result;
@@ -190,7 +191,7 @@ public class RepositoryFtplet extends DefaultFtplet {
      */
     public RepositoryFtplet(FtpManager ftpManager) {
         this.ftpManager = ftpManager;
-        sdf = getRepository().getPageHandler().makeSDF("MMM dd HH:mm");
+        sdf             = RepositoryUtil.makeDateFormat("MMM dd HH:mm");
     }
 
     /**

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import org.w3c.dom.Element;
 import ucar.unidata.util.IOUtil;
 
 import java.util.Date;
+import java.util.Hashtable;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -43,7 +44,7 @@ public class ClimateModelFileTypeHandler extends GranuleTypeHandler {
 
     /** the default file regex */
     public static final String FILE_REGEX =
-        "([^_]+)_([^_]+)_(.*)_(ens..|mean|sprd|clim)(_([^_]+))?.nc";
+        "([^_]+)_([^_]+)_(.*)_(ens\\d{2,3}|mean|sprd|clim)(_([^_]+))?.nc";
 
     /** local regex */
     private String myRegex = null;
@@ -163,21 +164,23 @@ public class ClimateModelFileTypeHandler extends GranuleTypeHandler {
      * @param request The request
      * @param entry The entry
      * @param tag The wiki tag being used
+     * @param props _more_
      *
      * @return The point time series url
      */
     @Override
-    public String getUrlForWiki(Request request, Entry entry, String tag) {
+    public String getUrlForWiki(Request request, Entry entry, String tag,
+                                Hashtable props) {
         try {
             TypeHandler gridType = getRepository().getTypeHandler("cdm_grid");
             if (gridType != null) {
-                return gridType.getUrlForWiki(request, entry, tag);
+                return gridType.getUrlForWiki(request, entry, tag, props);
             }
         } catch (Exception exc) {
             throw new RuntimeException(exc);
         }
 
-        return super.getUrlForWiki(request, entry, tag);
+        return super.getUrlForWiki(request, entry, tag, props);
 
     }
 

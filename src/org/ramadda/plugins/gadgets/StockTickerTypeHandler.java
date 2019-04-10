@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -60,9 +60,6 @@ public class StockTickerTypeHandler extends GenericTypeHandler {
      * _more_
      *
      * @param request _more_
-     * @param group _more_
-     * @param subGroups _more_
-     * @param entries _more_
      * @param entry _more_
      *
      * @return _more_

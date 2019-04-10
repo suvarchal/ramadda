@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ public class Filter extends Converter {
     @Override
     public Row processRow(TextReader info, Row row, String line)
             throws Exception {
-        if (rowOk(info, row)) {
+        if (rowOk(info, row, line)) {
             return row;
         } else {
             return null;
@@ -86,29 +86,13 @@ public class Filter extends Converter {
      *
      * @param info _more_
      * @param row _more_
-     *
-     * @return _more_
-     */
-    public boolean rowOk(TextReader info, Row row) {
-        return true;
-    }
-
-    /**
-     * _more_
-     *
-     * @param info _more_
      * @param line _more_
      *
      * @return _more_
      */
-    public boolean lineOk(TextReader info, String line) {
-        if ((commentPrefix != null) && line.startsWith(commentPrefix)) {
-            return false;
-        }
-
+    public boolean rowOk(TextReader info, Row row, String line) {
         return true;
     }
-
 
 
     /**
@@ -243,16 +227,17 @@ public class Filter extends Converter {
          *
          * @param info _more_
          * @param row _more_
+         * @param line _more_
          *
          * @return _more_
          */
         @Override
-        public boolean rowOk(TextReader info, Row row) {
+        public boolean rowOk(TextReader info, Row row, String line) {
             if (filters.size() == 0) {
                 return true;
             }
             for (Filter filter : filters) {
-                if ( !filter.rowOk(info, row)) {
+                if ( !filter.rowOk(info, row, line)) {
                     if (andLogic) {
                         return false;
                     }
@@ -284,10 +269,19 @@ public class Filter extends Converter {
     public static class PatternFilter extends ColumnFilter {
 
         /** _more_ */
+        String spattern;
+
+        /** _more_ */
         Pattern pattern;
 
         /** _more_ */
         boolean not = false;
+
+        /** _more_ */
+        boolean isTemplate = false;
+
+        /** _more_          */
+        boolean debug = false;
 
         /**
          *
@@ -332,13 +326,27 @@ public class Filter extends Converter {
          * @param pattern _more_
          */
         public void setPattern(String pattern) {
+            pattern = pattern.replaceAll("_dollar_", "\\$");
+            pattern =
+                pattern.replaceAll("_leftbracket_",
+                                   "\\\\[").replaceAll("_rightbracket_",
+                                       "\\\\]");
+            pattern = pattern.replaceAll("_leftcurly_",
+                                         "\\{").replaceAll("_rightcurly_",
+                                             "\\}");
+            spattern = pattern;
             if (pattern.startsWith("!")) {
                 pattern = pattern.substring(1);
                 not     = true;
             }
-            this.pattern = Pattern.compile(pattern);
-
-            this.pattern = Pattern.compile(pattern);
+            if (pattern.indexOf("${") >= 0) {
+                isTemplate = true;
+            } else {
+                isTemplate = false;
+                //                if(pattern.equals("1996")) debug = true;
+                //                System.err.println("p:" + pattern);
+                this.pattern = Pattern.compile(pattern);
+            }
         }
 
 
@@ -348,11 +356,12 @@ public class Filter extends Converter {
          *
          * @param info _more_
          * @param row _more_
+         * @param line _more_
          *
          * @return _more_
          */
         @Override
-        public boolean rowOk(TextReader info, Row row) {
+        public boolean rowOk(TextReader info, Row row, String line) {
             if (cnt++ == 0) {
                 return true;
             }
@@ -360,6 +369,16 @@ public class Filter extends Converter {
             if (idx >= row.size()) {
                 return doNegate(false);
             }
+            Pattern pattern = this.pattern;
+            if (isTemplate) {
+                String tmp = spattern;
+                for (int i = 0; i < row.size(); i++) {
+                    tmp = tmp.replace("${" + i + "}", (String) row.get(i));
+                }
+                //                System.out.println("tmp:" + tmp);
+                pattern = Pattern.compile(tmp);
+            }
+
             if (idx < 0) {
                 for (int i = 0; i < row.size(); i++) {
                     String v = row.getString(i);
@@ -375,10 +394,75 @@ public class Filter extends Converter {
             //            System.out.println("v:" + v);
             if (pattern.matcher(v).find()) {
                 //                System.out.println("OK");
+                if (debug) {
+                    System.err.println("R3:" + doNegate(true) + " " + row);
+                }
+
                 return doNegate(true);
             }
 
+            //            if(debug) System.err.println ("R4:" + doNegate(false) +" " +row);
             return doNegate(false);
+        }
+
+    }
+
+
+    /**
+     * Class description
+     *
+     *
+     * @version        $version$, Wed, Jan 23, '19
+     * @author         Enter your name here...
+     */
+    public static class CountValue extends ColumnFilter {
+
+        /** _more_ */
+        int count;
+
+        /** _more_ */
+        Hashtable<Object, Integer> map = new Hashtable<Object, Integer>();
+
+        /**
+         * _more_
+         *
+         * @param col _more_
+         * @param count _more_
+         */
+        public CountValue(String col, int count) {
+            super(col);
+            this.count = count;
+        }
+
+
+        /**
+         * _more_
+         *
+         *
+         * @param info _more_
+         * @param row _more_
+         * @param line _more_
+         *
+         * @return _more_
+         */
+        @Override
+        public boolean rowOk(TextReader info, Row row, String line) {
+            if (cnt++ == 0) {
+                return true;
+            }
+            int     idx   = getIndex(info);
+            String  v     = row.getString(idx);
+            Integer count = map.get(v);
+            if (count == null) {
+                count = new Integer(0);
+                map.put(v, count);
+            }
+            if (count.intValue() >= this.count) {
+                return false;
+            }
+            map.put(v, new Integer(count.intValue() + 1));
+
+            return true;
         }
 
     }
@@ -393,21 +477,22 @@ public class Filter extends Converter {
     public static class Decimate extends Filter {
 
         /** _more_ */
+        private int start;
+
+        /** _more_ */
         private int skip;
 
 
         /**
          * _more_
          *
-         * @param col _more_
-         * @param pattern _more_
-         *
+         * @param start _more_
          * @param skip _more_
          */
-        public Decimate(int skip) {
-            this.skip = skip;
+        public Decimate(int start, int skip) {
+            this.start = start;
+            this.skip  = skip;
         }
-
 
 
 
@@ -417,16 +502,224 @@ public class Filter extends Converter {
          *
          * @param info _more_
          * @param row _more_
+         * @param line _more_
          *
          * @return _more_
          */
         @Override
-        public boolean rowOk(TextReader info, Row row) {
+        public boolean rowOk(TextReader info, Row row, String line) {
+            if (start > 0) {
+                start--;
+
+                return true;
+            }
             if ((cnt++) % skip == 0) {
                 return true;
             }
 
             return false;
+        }
+    }
+
+    /**
+     * Class description
+     *
+     *
+     * @version        $version$, Fri, Mar 22, '19
+     * @author         Enter your name here...    
+     */
+    public static class Stop extends Filter {
+
+        /** _more_ */
+        private String pattern;
+
+        /** _more_ */
+        private boolean seenStop;
+
+
+        /**
+         * _more_
+         *
+         * @param start _more_
+         * @param skip _more_
+         *
+         * @param pattern _more_
+         */
+        public Stop(String pattern) {
+            this.pattern  = pattern;
+            this.seenStop = false;
+        }
+
+
+
+        /**
+         * _more_
+         *
+         *
+         * @param info _more_
+         * @param row _more_
+         * @param line _more_
+         *
+         * @return _more_
+         */
+        @Override
+        public boolean rowOk(TextReader info, Row row, String line) {
+            if (seenStop) {
+                return false;
+            }
+            if (line.matches(pattern)) {
+                seenStop = true;
+                info.stopRunning();
+
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+
+    /**
+     * Class description
+     *
+     *
+     * @version        $version$, Fri, Mar 22, '19
+     * @author         Enter your name here...    
+     */
+    public static class Start extends Filter {
+
+        /** _more_ */
+        private String pattern;
+
+        /** _more_ */
+        private boolean seenStart;
+
+
+        /**
+         * _more_
+         *
+         * @param start _more_
+         * @param skip _more_
+         *
+         * @param pattern _more_
+         */
+        public Start(String pattern) {
+            this.pattern   = pattern;
+            this.seenStart = false;
+        }
+
+
+
+        /**
+         * _more_
+         *
+         *
+         * @param info _more_
+         * @param row _more_
+         * @param line _more_
+         *
+         * @return _more_
+         */
+        @Override
+        public boolean rowOk(TextReader info, Row row, String line) {
+            if (seenStart) {
+                return true;
+            }
+            if (line.matches(pattern)) {
+                seenStart = true;
+                return false;
+            }
+            return false;
+        }
+    }
+
+
+
+    /**
+     * Class description
+     *
+     *
+     * @version        $version$, Fri, Mar 22, '19
+     * @author         Enter your name here...    
+     */
+    public static class MinColumns extends Filter {
+
+        /** _more_ */
+        private int cnt;
+
+
+        /**
+         * _more_
+         *
+         * @param start _more_
+         * @param skip _more_
+         *
+         * @param pattern _more_
+         */
+        public MinColumns(int cnt) {
+            this.cnt = cnt;
+        }
+
+
+
+        /**
+         * _more_
+         *
+         *
+         * @param info _more_
+         * @param row _more_
+         * @param line _more_
+         *
+         * @return _more_
+         */
+        @Override
+        public boolean rowOk(TextReader info, Row row, String line) {
+            if(row.size()<cnt) return false;
+            return true;
+        }
+    }
+
+    /**
+     * Class description
+     *
+     *
+     * @version        $version$, Fri, Mar 22, '19
+     * @author         Enter your name here...    
+     */
+    public static class MaxColumns extends Filter {
+
+        /** _more_ */
+        private int cnt;
+
+
+        /**
+         * _more_
+         *
+         * @param start _more_
+         * @param skip _more_
+         *
+         * @param pattern _more_
+         */
+        public MaxColumns(int cnt) {
+            this.cnt = cnt;
+        }
+
+
+
+        /**
+         * _more_
+         *
+         *
+         * @param info _more_
+         * @param row _more_
+         * @param line _more_
+         *
+         * @return _more_
+         */
+        @Override
+        public boolean rowOk(TextReader info, Row row, String line) {
+            if(row.size()>cnt) return false;
+            return true;
         }
     }
 
@@ -533,11 +826,12 @@ public class Filter extends Converter {
          *
          * @param info _more_
          * @param row _more_
+         * @param line _more_
          *
          * @return _more_
          */
         @Override
-        public boolean rowOk(TextReader info, Row row) {
+        public boolean rowOk(TextReader info, Row row, String line) {
             if (cnt++ == 0) {
                 return true;
             }
@@ -596,28 +890,20 @@ public class Filter extends Converter {
 
         /**
          * _more_
-         *
-         *
-         * @param start _more_
-         * @param end _more_
-         *
-         * @param toks _more_
+         * @param rows _more_
          */
-        public Cutter(List<String> toks) {
-            this.rows = Utils.toInt(toks);
+        public Cutter(List<Integer> rows) {
+            this.rows = rows;
         }
 
         /**
          * _more_
          *
-         * @param start _more_
-         * @param end _more_
-         *
-         * @param toks _more_
+         * @param rows _more_
          * @param cut _more_
          */
-        public Cutter(List<String> toks, boolean cut) {
-            this(toks);
+        public Cutter(List<Integer> rows, boolean cut) {
+            this(rows);
             this.cut = cut;
         }
 
@@ -626,11 +912,12 @@ public class Filter extends Converter {
          *
          * @param info _more_
          * @param row _more_
+         * @param line _more_
          *
          * @return _more_
          */
         @Override
-        public boolean rowOk(TextReader info, Row row) {
+        public boolean rowOk(TextReader info, Row row, String line) {
             boolean inRange = false;
             for (int rowIdx : rows) {
                 if ((rowIdx == -1) && cutOne) {
@@ -644,7 +931,6 @@ public class Filter extends Converter {
                     break;
                 }
             }
-            //            System.err.println ("row cnt:" + rowCnt + " in range:" + inRange +" " + cut +" " + rows + " " +(rowCnt<3?row.getValues():(Object)""));
             rowCnt++;
             boolean rowOk = true;
             if (cut) {
@@ -682,10 +968,6 @@ public class Filter extends Converter {
         /**
          * _more_
          *
-         *
-         * @param start _more_
-         * @param end _more_
-         *
          * @param toks _more_
          */
         public Unique(List<String> toks) {
@@ -698,11 +980,12 @@ public class Filter extends Converter {
          *
          * @param info _more_
          * @param row _more_
+         * @param line _more_
          *
          * @return _more_
          */
         @Override
-        public boolean rowOk(TextReader info, Row row) {
+        public boolean rowOk(TextReader info, Row row, String line) {
             boolean       inRange = false;
             StringBuilder sb      = new StringBuilder();
             for (int i : cols) {

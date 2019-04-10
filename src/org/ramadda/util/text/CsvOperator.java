@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -63,16 +63,18 @@ public abstract class CsvOperator {
     protected int index = -1;
 
     /** _more_ */
-    List<String> sindices;
+    protected List<String> sindices;
 
     /** _more_ */
     List<Integer> indices;
 
-    /** _more_          */
+    /** _more_ */
     HashSet<Integer> indexMap;
 
+    /** _more_ */
+    HashSet<Integer> colsSeen = new HashSet<Integer>();
 
-    /** _more_          */
+    /** _more_ */
     private List header;
 
     /** _more_ */
@@ -145,6 +147,38 @@ public abstract class CsvOperator {
     }
 
 
+    /** _more_ */
+    public static final String[] FILE_PREFIXES = { "/org/ramadda/repository/resources/geo" };
+
+    /**
+     * _more_
+     *
+     * @param filename _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static InputStream getInputStream(String filename)
+            throws Exception {
+        try {
+            return new FileInputStream(filename);
+        } catch (Exception exc) {
+            try {
+                return IOUtil.getInputStream(filename, CsvOperator.class);
+            } catch (Exception exc2) {
+                for (String prefix : FILE_PREFIXES) {
+                    try {
+                        return IOUtil.getInputStream(prefix + "/" + filename,
+                                CsvOperator.class);
+                    } catch (Exception exc3) {}
+                }
+            }
+        }
+
+        throw new IllegalArgumentException("Could not open file:" + filename);
+    }
+
 
     /**
      * _more_
@@ -155,6 +189,7 @@ public abstract class CsvOperator {
      *
      */
     public void getColumnIndex(List<Integer> indices, String s) {
+        s = s.toLowerCase();
         List<String> toks  = StringUtil.splitUpTo(s, "-", 2);
         int          start = -1;
         int          end   = -1;
@@ -178,7 +213,33 @@ public abstract class CsvOperator {
                 }
             }
             if (toks.size() == 1) {
-                Integer iv = columnMap.get(toks.get(0));
+                String tok = toks.get(0);
+                if (tok.equals("*")) {
+                    for (int i = 0; i < header.size(); i++) {
+                        if ( !colsSeen.contains(i)) {
+                            colsSeen.add(i);
+                            indices.add(i);
+                        }
+                    }
+
+                    return;
+                }
+                if (StringUtil.containsRegExp(tok)) {
+                    for (int i = 0; i < header.size(); i++) {
+                        if ( !colsSeen.contains(i)) {
+                            String colName = (String) header.get(i);
+                            if(colName.matches(tok)) {
+                                colsSeen.add(i);
+                                indices.add(i);
+                            }
+                        }
+                    }
+
+                    return;
+                }
+
+
+                Integer iv = columnMap.get(tok);
                 if (iv != null) {
                     start = end = iv;
                 }
@@ -193,6 +254,7 @@ public abstract class CsvOperator {
         }
         if (start >= 0) {
             for (int i = start; i <= end; i++) {
+                colsSeen.add(i);
                 indices.add(i);
             }
         }
@@ -218,10 +280,23 @@ public abstract class CsvOperator {
      */
     public List<Integer> getIndices(TextReader info) {
         if (indices == null) {
-            indices = new ArrayList<Integer>();
-            for (String s : sindices) {
-                getColumnIndex(indices, s);
-            }
+            indices = getIndices(sindices);
+        }
+
+        return indices;
+    }
+
+    /**
+     * _more_
+     *
+     * @param cols _more_
+     *
+     * @return _more_
+     */
+    public List<Integer> getIndices(List<String> cols) {
+        List<Integer> indices = new ArrayList<Integer>();
+        for (String s : cols) {
+            getColumnIndex(indices, s);
         }
 
         return indices;

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -24,10 +24,10 @@ import org.ramadda.repository.metadata.JpegMetadataHandler;
 import org.ramadda.repository.metadata.Metadata;
 import org.ramadda.repository.metadata.MetadataHandler;
 import org.ramadda.repository.type.*;
-
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
+
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -57,7 +57,7 @@ import java.util.zip.*;
  * @author RAMADDA Development Team
  * @version $Revision: 1.3 $
  */
-public class MapOutputHandler extends OutputHandler {
+public class MapOutputHandler extends OutputHandler implements WikiConstants {
 
 
     /** Map output type */
@@ -84,12 +84,9 @@ public class MapOutputHandler extends OutputHandler {
     public MapOutputHandler(Repository repository, Element element)
             throws Exception {
         super(repository, element);
-        if (getMapManager().showMaps()) {
-            addType(OUTPUT_MAP);
-            addType(OUTPUT_GEMAP);
-        }
+        addType(OUTPUT_MAP);
+        addType(OUTPUT_GEMAP);
     }
-
 
 
     /**
@@ -120,9 +117,11 @@ public class MapOutputHandler extends OutputHandler {
         }
         if (ok) {
             links.add(makeLink(request, state.getEntry(), OUTPUT_MAP));
+            /*
             if (getMapManager().isGoogleEarthEnabled(request)) {
                 links.add(makeLink(request, state.getEntry(), OUTPUT_GEMAP));
             }
+            */
 
         }
     }
@@ -160,9 +159,11 @@ public class MapOutputHandler extends OutputHandler {
                                    + entry.getName(), sb, new State(entry));
         }
 
-        MapInfo map = getMapManager().getMap(request, entriesToUse, sb, 700,
-                                             500, null, "detailed", "true",
-                                             "listEntries", "false");
+        Hashtable props = new Hashtable();
+        props.put(ATTR_DETAILS, "true");
+        props.put(ATTR_LISTENTRIES, "false");
+        MapInfo map = getMapManager().getMap(request, entry, entriesToUse,
+                                             sb, 700, 500, null, props);
 
         getPageHandler().entrySectionClose(request, entry, sb);
 
@@ -217,9 +218,11 @@ public class MapOutputHandler extends OutputHandler {
         }
 
 
-        MapInfo map = getMapManager().getMap(request, entriesToUse, sb, -100,
-                                             500, null, "detailed", "false",
-                                             "listEntries", "true");
+        Hashtable props = new Hashtable();
+        props.put(ATTR_DETAILS, "false");
+        props.put(ATTR_LISTENTRIES, "true");
+        MapInfo map = getMapManager().getMap(request, group, entriesToUse,
+                                             sb, -100, 500, null, props);
 
         getPageHandler().entrySectionClose(request, group, sb);
 

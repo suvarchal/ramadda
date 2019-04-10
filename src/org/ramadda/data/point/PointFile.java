@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package org.ramadda.data.point;
 import org.ramadda.data.record.*;
 import org.ramadda.data.record.filter.*;
 import org.ramadda.util.GeoUtils;
+import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.Station;
 import org.ramadda.util.Utils;
 
@@ -214,6 +215,11 @@ public abstract class PointFile extends RecordFile implements Cloneable,
         super(filename, properties);
     }
 
+
+
+    public PointFile(String filename, RecordFileContext context, Hashtable properties) {
+        super(filename, context, properties);
+    }
 
 
     /**
@@ -473,6 +479,11 @@ public abstract class PointFile extends RecordFile implements Cloneable,
      * @throws Exception _more_
      */
     public static void main(String[] args) throws Exception {
+        String s = "label=\"Height\" type=double missing=99999";
+        System.err.println(parseAttributes(s));
+
+        if(true) return;
+
 
         String epsg = "32610";
         epsg = "2955";
@@ -861,6 +872,12 @@ public abstract class PointFile extends RecordFile implements Cloneable,
     public static final String ATTR_OFFSET = "offset";
 
     /** _more_ */
+    public static final String ATTR_OFFSET1 = "offset1";
+
+    /** _more_ */
+    public static final String ATTR_OFFSET2 = "offset2";
+
+    /** _more_ */
     public static final String ATTR_VALUE = "value";
 
     /** _more_ */
@@ -909,7 +926,12 @@ public abstract class PointFile extends RecordFile implements Cloneable,
                 attrs = attrs.substring(0, attrs.length() - 1);
             }
             Hashtable properties = parseAttributes(attrs);
-            //            System.err.println ("props:" + properties);
+            /*
+            if(name.equals("latitude")) {
+                System.err.println ("attrs:" + attrs);
+                System.err.println ("props:" + properties);
+            }
+            */
             RecordField field = new RecordField(name, name, "", paramId++,
                                     getProperty(properties, ATTR_UNIT, ""));
 
@@ -919,8 +941,16 @@ public abstract class PointFile extends RecordFile implements Cloneable,
                     "index", "-1")).intValue());
             field.setScale(Double.parseDouble(getProperty(field, properties,
                     ATTR_SCALE, "1.0")));
-            field.setOffset(Double.parseDouble(getProperty(field, properties,
-                    ATTR_OFFSET, "0.0")));
+            field.setOffset1(Double.parseDouble(getProperty(field,
+                    properties, ATTR_OFFSET1, "0.0")));
+            field.setOffset2(Double.parseDouble(getProperty(field,
+                    properties, ATTR_OFFSET2, "0.0")));
+            String offset = getProperty(field, properties, ATTR_OFFSET,
+                                        (String) null);
+
+            if (offset != null) {
+                field.setOffset2(Double.parseDouble(offset));
+            }
 
             field.setIsDate(getProperty(field, properties,
                                         RecordField.PROP_ISDATE,
@@ -1028,9 +1058,12 @@ public abstract class PointFile extends RecordFile implements Cloneable,
                     field.setDefaultDoubleValue(Double.parseDouble(value));
                 }
             }
-            if (getProperty(field, properties, "chartable",
-                            "false").equals("true")) {
+            String chartable = getProperty(field, properties, "chartable",
+                                           "NA");
+            if (chartable.equals("true")) {
                 field.setChartable(true);
+            } else if (chartable.equals("false")) {
+                field.setChartable(false);
             }
             if (getProperty(field, properties, "skip",
                             "false").equals("true")) {
@@ -1050,18 +1083,25 @@ public abstract class PointFile extends RecordFile implements Cloneable,
             }
             String label = getProperty(field, properties, ATTR_LABEL,
                                        (String) null);
+            String desc = getProperty(field, properties, "description",
+                                      (String) null);
+            if(desc !=null)
+                desc = desc.replaceAll("_comma_",",");
             if (label == null) {
-                label = getProperty(field, properties, "description",
-                                    (String) null);
+                label = desc;
             }
             if (label != null) {
                 field.setLabel(label);
+            }
+            if (desc != null) {
+                field.setDescription(desc);
             }
             DataRecord.initField(field);
             fields.add(field);
         }
 
         return fields;
+
 
 
     }
@@ -1075,9 +1115,11 @@ public abstract class PointFile extends RecordFile implements Cloneable,
      * @return _more_
      */
     public static Hashtable parseAttributes(String attrs) {
+        if(true)
+            return HtmlUtils.parseHtmlProperties(attrs);
+        Hashtable ht                    = new Hashtable();
         String    attrName              = "";
         String    attrValue             = "";
-        Hashtable ht                    = new Hashtable();
         final int STATE_LOOKINGFORNAME  = 0;
         final int STATE_INNAME          = 1;
         final int STATE_LOOKINGFORVALUE = 2;
@@ -1088,7 +1130,6 @@ public abstract class PointFile extends RecordFile implements Cloneable,
         boolean gotDblQuote    = false;
         boolean gotSingleQuote = false;
         boolean gotEquals      = false;
-
 
         for (int i = 0; i < chars.length; i++) {
             char c = chars[i];

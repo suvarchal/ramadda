@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -65,6 +65,9 @@ public class RecordOutputHandler extends OutputHandler implements RecordConstant
 
     /** _more_ */
     public static final String ARG_PARAMETER = "parameter";
+
+    /** _more_ */
+    public static final String ARG_DIVISOR = "divisor";
 
     /** _more_ */
     public static final String ARG_FIELD_USE = "field_use";
@@ -179,6 +182,7 @@ public class RecordOutputHandler extends OutputHandler implements RecordConstant
 
     public boolean isEntryOk(Entry entry) {
         System.err.println("ROH.canhandle");
+
         return false;
     }
 
@@ -819,8 +823,8 @@ public class RecordOutputHandler extends OutputHandler implements RecordConstant
      *
      * @return _more_
      */
-    public String getIconUrl(Request request, String icon) {
-        return request.getAbsoluteUrl(getRepository().iconUrl(icon));
+    public String getAbsoluteIconUrl(Request request, String icon) {
+        return request.getAbsoluteUrl(getRepository().getIconUrl(icon));
     }
 
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -25,14 +25,15 @@ import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
 import org.eclipse.jetty.server.SecureRequestCustomizer;
 
-
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.SslConnectionFactory;
 import org.eclipse.jetty.server.SslConnectionFactory;
+import org.eclipse.jetty.server.handler.gzip.GzipHandler;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.servlets.GzipFilter;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 
 
@@ -96,6 +97,10 @@ public class JettyServer implements Constants {
         server  = new Server(port);
         context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath("/");
+        GzipHandler gzipHandler = new GzipHandler();
+        //        gzipHandler.addIncludedMimeTypes("application/vnd.google-earth.kml+xml","application/vnd.google-earth.kmz");
+        gzipHandler.addIncludedMethods("GET", "POST");
+        context.setGzipHandler(gzipHandler);
         server.setHandler(context);
         baseServlet = addServlet();
         context.addServlet(new ServletHolder(baseServlet), "/");
@@ -189,8 +194,8 @@ public class JettyServer implements Constants {
         if ( !keystore.exists()) {
             keystore =
                 new File(repository.getPropertyValue(PROP_SSL_KEYSTORE,
-                                                     repository.getStorageManager().getRepositoryDir()
-                                                     + "/keystore", false));
+                    repository.getStorageManager().getRepositoryDir()
+                    + "/keystore", false));
         }
 
 

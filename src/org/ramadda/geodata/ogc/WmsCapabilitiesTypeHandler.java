@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -468,10 +468,12 @@ public class WmsCapabilitiesTypeHandler extends ExtensibleGroupTypeHandler {
                           WmsUtils.TAG_CONTACTELECTRONICMAILADDRESS), "");
 
         if (person != null) {
-            entry.addMetadata(new Metadata(getRepository().getGUID(),
-                                           entry.getId(), "project_person",
-                                           true, person, position, org,
-                                           email, ""));
+            getMetadataManager().addMetadata(
+                entry,
+                new Metadata(
+                    getRepository().getGUID(), entry.getId(),
+                    "project_person", true, person, position, org, email,
+                    ""));
         }
     }
 
@@ -493,9 +495,10 @@ public class WmsCapabilitiesTypeHandler extends ExtensibleGroupTypeHandler {
                                 WmsUtils.TAG_KEYWORD);
             for (int i = 0; i < children.size(); i++) {
                 String text = XmlUtil.getChildText((Element) children.get(i));
-                entry.addMetadata(new Metadata(getRepository().getGUID(),
-                        entry.getId(), "content.keyword", true, text, "", "",
-                        "", ""));
+                getMetadataManager().addMetadata(entry,
+                        new Metadata(getRepository().getGUID(),
+                                     entry.getId(), "content.keyword", true,
+                                     text, "", "", "", ""));
 
             }
         }

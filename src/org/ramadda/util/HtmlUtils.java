@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ import ucar.unidata.xml.XmlUtil;
 import java.awt.Color;
 
 import java.io.IOException;
+import java.io.StringWriter;
 
 import java.lang.reflect.*;
 
@@ -42,6 +43,7 @@ import java.net.URL;
 
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
@@ -407,6 +409,9 @@ public class HtmlUtils {
     public static final String CLASS_FORMLABEL = "formlabel";
 
     /** _more_ */
+    public static final String CLASS_FORMCONTENTS = "formcontents";
+
+    /** _more_ */
     public static final String CLASS_FORMLABEL_TOP = "formlabeltop";
 
     /** _more_ */
@@ -577,16 +582,16 @@ public class HtmlUtils {
      * _more_
      *
      * @param sb _more_
-     * @param comp _more_
+     * @param tag _more_
      * @param attrs _more_
      *
      * @return _more_
      */
-    public static Appendable open(Appendable sb, String comp,
+    public static Appendable open(Appendable sb, String tag,
                                   String... attrs) {
         try {
             sb.append("<");
-            sb.append(comp);
+            sb.append(tag);
             if (attrs.length == 1) {
                 sb.append(" ");
                 sb.append(attrs[0]);
@@ -635,13 +640,16 @@ public class HtmlUtils {
     /**
      * _more_
      *
-     * @param comp _more_
+     *
+     * @param args _more_
      *
      * @return _more_
      */
-    public static String close(String comp) {
+    public static String close(String... args) {
         StringBuilder sb = new StringBuilder();
-        close(sb, comp);
+        for (String comp : args) {
+            close(sb, comp);
+        }
 
         return sb.toString();
     }
@@ -650,15 +658,17 @@ public class HtmlUtils {
      * _more_
      *
      * @param sb _more_
-     * @param comp _more_
+     * @param args _more_
      *
      * @return _more_
      */
-    public static Appendable close(Appendable sb, String comp) {
+    public static Appendable close(Appendable sb, String... args) {
         try {
-            sb.append("</");
-            sb.append(comp);
-            sb.append(">");
+            for (String comp : args) {
+                sb.append("</");
+                sb.append(comp);
+                sb.append(">");
+            }
         } catch (IOException ioe) {
             throw new RuntimeException(ioe);
         }
@@ -686,14 +696,14 @@ public class HtmlUtils {
      * _more_
      *
      * @param sb _more_
-     * @param comp _more_
+     * @param tag _more_
      *
      * @return _more_
      */
-    public static Appendable tag(Appendable sb, String comp) {
+    public static Appendable tag(Appendable sb, String tag) {
         try {
             sb.append("<");
-            sb.append(comp);
+            sb.append(tag);
             sb.append("/>");
         } catch (IOException ioe) {
             throw new RuntimeException(ioe);
@@ -1076,6 +1086,17 @@ public class HtmlUtils {
     /**
      * _more_
      *
+     * @param html _more_
+     *
+     * @return _more_
+     */
+    public static String button(String html) {
+        return span(html, cssClass("ramadda-button"));
+    }
+
+    /**
+     * _more_
+     *
      * @param args _more_
      *
      * @return _more_
@@ -1176,6 +1197,7 @@ public class HtmlUtils {
     public static Appendable quote(Appendable sb, String s) {
         try {
             sb.append("\"");
+            s = s.replaceAll("\"", "\\\"");
             sb.append(s);
             sb.append("\"");
         } catch (IOException ioe) {
@@ -1274,6 +1296,21 @@ public class HtmlUtils {
      */
     public static String cssClass(String c) {
         return attr(ATTR_CLASS, c);
+    }
+
+    /**
+     * _more_
+     *
+     * @param c _more_
+     *
+     * @return _more_
+     */
+    public static String clazz(String c) {
+        return attr(ATTR_CLASS, c);
+    }
+
+    public static void clazz(Appendable sb, String c) {
+        attr(sb, ATTR_CLASS, c);
     }
 
     /**
@@ -1404,30 +1441,6 @@ public class HtmlUtils {
 
 
 
-    /**
-     * _more_
-     *
-     * @param v1 _more_
-     *
-     * @return _more_
-     */
-    public static String th(String v1) {
-        return th(v1, "");
-    }
-
-    /**
-     * _more_
-     *
-     * @param v1 _more_
-     * @param attr _more_
-     *
-     * @return _more_
-     */
-    public static String th(String v1, String attr) {
-        return tag(TAG_TH, " " + attr + " ", v1);
-    }
-
-
 
     /**
      * _more_
@@ -1468,6 +1481,163 @@ public class HtmlUtils {
 
         return sb;
     }
+
+
+    /**
+     * _more_
+     *
+     * @param s _more_
+     *
+     * @return _more_
+     */
+    public static Hashtable parseHtmlProperties(String s) {
+
+        boolean   debug      = false;
+        Hashtable properties = new Hashtable();
+        if (debug) {
+            System.err.println("Source:" + s);
+        }
+        // single title=foo full --- name=bar
+        s = s.trim();
+        int           length             = s.length();
+        int           MODE_START         = 0;
+        int           MODE_NAME          = 1;
+        int           MODE_EQUALS        = 2;
+        int           MODE_OPEN_QUOTE    = 3;
+        int           MODE_VALUE         = 4;
+        int           MODE_VALUE_QUOTE   = 5;
+        int           MODE_VALUE_NOQUOTE = 6;
+        int           mode               = MODE_START;
+        StringBuilder nb                 = new StringBuilder();
+        StringBuilder vb                 = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            char c = s.charAt(i);
+            //        System.err.println(mode +" c:" + c);
+            if (mode == MODE_START) {
+                if (c == ' ') {
+                    continue;
+                }
+                if (c == '=') {
+                    mode = MODE_VALUE;
+
+                    continue;
+                }
+                nb.append(c);
+                if (debug) {
+                    System.err.println("start:" + nb);
+                }
+                mode = MODE_NAME;
+
+                continue;
+            }
+
+            if (mode == MODE_NAME) {
+                if (c == ' ') {
+                    mode = MODE_EQUALS;
+
+                    continue;
+                }
+                if (c == '=') {
+                    mode = MODE_VALUE;
+
+                    continue;
+                }
+                nb.append(c);
+                if (debug) {
+                    System.err.println("name:" + nb);
+                }
+
+                continue;
+            }
+            if (mode == MODE_EQUALS) {
+                if (c == '=') {
+                    mode = MODE_VALUE;
+
+                    continue;
+                }
+                String name = nb.toString().trim();
+                if (name.length() > 0) {
+                    properties.put(name, "");
+                }
+                nb = new StringBuilder();
+                nb.append(c);
+                if (debug) {
+                    System.err.println("=:" + nb);
+                }
+                mode = MODE_START;
+
+                continue;
+            }
+            if (mode == MODE_VALUE) {
+                if (c == ' ') {
+                    continue;
+                }
+                if (c == '"') {
+                    mode = MODE_VALUE_QUOTE;
+
+                    continue;
+                }
+                mode = MODE_VALUE_NOQUOTE;
+                vb.append(c);
+
+                continue;
+            }
+            if (mode == MODE_VALUE_QUOTE) {
+                if (c == '"') {
+                    mode = MODE_START;
+                    String name = nb.toString().trim();
+                    if (name.length() > 0) {
+                        properties.put(name, vb.toString());
+                    }
+                    nb = new StringBuilder();
+                    vb = new StringBuilder();
+
+                    continue;
+                }
+                vb.append(c);
+                if (debug) {
+                    System.err.println("quote:" + vb);
+                }
+
+                continue;
+            }
+
+            if (mode == MODE_VALUE_NOQUOTE) {
+                if (c == ' ') {
+                    mode = MODE_START;
+                    String name = nb.toString();
+                    if (name.length() > 0) {
+                        properties.put(name, vb.toString());
+                    }
+                    nb = new StringBuilder();
+                    vb = new StringBuilder();
+
+                    continue;
+                }
+                vb.append(c);
+                if (debug) {
+                    System.err.println("no quote:" + vb);
+                }
+
+                continue;
+            }
+
+
+        }
+        String name = nb.toString();
+        if (name.length() > 0) {
+            properties.put(name, vb.toString());
+        }
+        if (debug) {
+            System.err.println("props:" + properties);
+        }
+
+
+        return properties;
+
+    }
+
+
 
 
     /**
@@ -1695,6 +1865,17 @@ public class HtmlUtils {
      * _more_
      *
      * @param content _more_
+     *
+     * @return _more_
+     */
+    public static String td(String content) {
+        return td(content, "");
+    }
+
+    /**
+     * _more_
+     *
+     * @param content _more_
      * @param extra _more_
      *
      * @return _more_
@@ -1708,12 +1889,76 @@ public class HtmlUtils {
      *
      * @param sb _more_
      * @param content _more_
+     *
+     * @return _more_
+     */
+    public static Appendable td(Appendable sb, String content) {
+        return td(sb, content, "");
+    }
+
+    /**
+     * _more_
+     *
+     * @param sb _more_
+     * @param content _more_
      * @param extra _more_
      *
      * @return _more_
      */
     public static Appendable td(Appendable sb, String content, String extra) {
         tag(sb, TAG_TD, extra, content);
+
+        return sb;
+    }
+
+
+
+    /**
+     * _more_
+     *
+     * @param content _more_
+     *
+     * @return _more_
+     */
+    public static String th(String content) {
+        return th(content, "");
+    }
+
+    /**
+     * _more_
+     *
+     * @param content _more_
+     * @param extra _more_
+     *
+     * @return _more_
+     */
+    public static String th(String content, String extra) {
+        return tag(TAG_TH, extra, content);
+    }
+
+    /**
+     * _more_
+     *
+     * @param sb _more_
+     * @param content _more_
+     *
+     * @return _more_
+     */
+    public static Appendable th(Appendable sb, String content) {
+        return th(sb, content, "");
+    }
+
+    /**
+     * _more_
+     *
+     * @param sb _more_
+     * @param content _more_
+     * @param extra _more_
+     *
+     * @return _more_
+     */
+    public static Appendable th(Appendable sb, String content, String extra) {
+        tag(sb, TAG_TH, extra, content);
 
         return sb;
     }
@@ -1787,6 +2032,18 @@ public class HtmlUtils {
      */
     public static String pre(String content) {
         return pre(content, "");
+    }
+
+    /**
+     * _more_
+     *
+     * @param sb _more_
+     * @param content _more_
+     *
+     * @throws Exception _more_
+     */
+    public static void pre(Appendable sb, String content) throws Exception {
+        tag(sb, TAG_PRE, "", content);
     }
 
 
@@ -2333,11 +2590,28 @@ public class HtmlUtils {
      * @return _more_
      */
     public static String radio(String name, String value, boolean checked) {
+        return radio(name, value, checked, "");
+    }
+
+    /**
+     * _more_
+     *
+     * @param name _more_
+     * @param value _more_
+     * @param checked _more_
+     * @param attrs _more_
+     *
+     * @return _more_
+     */
+    public static String radio(String name, String value, boolean checked,
+                               String attrs) {
         return tag(TAG_INPUT,
-                   attrs( /*ATTR_CLASS, CLASS_RADIO,*/ATTR_TYPE, TYPE_RADIO,
-                       ATTR_NAME, name, ATTR_VALUE, value) + (checked
-                ? " checked "
-                : ""));
+                   attrs
+                   + attrs( /*ATTR_CLASS, CLASS_RADIO,*/ATTR_TYPE,
+                       TYPE_RADIO, ATTR_NAME, name, ATTR_VALUE,
+                       value) + (checked
+                                 ? " checked "
+                                 : ""));
     }
 
     /**
@@ -2352,12 +2626,11 @@ public class HtmlUtils {
      */
     public static String labeledRadio(String name, String value,
                                       boolean checked, String label) {
-        return concat(tag(TAG_INPUT,
-                          attrs( /*ATTR_CLASS, CLASS_RADIO,*/ATTR_TYPE,
-                              TYPE_RADIO, ATTR_NAME, name, ATTR_VALUE,
-                              value) + (checked
-                                        ? " checked "
-                                        : "")), "&nbsp;", label);
+        return Utils.concatString(tag(TAG_INPUT, attrs(  /*ATTR_CLASS, CLASS_RADIO,*/
+            ATTR_TYPE, TYPE_RADIO, ATTR_NAME, name, ATTR_VALUE,
+            value) + (checked
+                      ? " checked "
+                      : "")), "&nbsp;", label);
     }
 
 
@@ -2556,7 +2829,8 @@ public class HtmlUtils {
      * @return _more_
      */
     public static String href(String url, String label, String extra) {
-        return tag(TAG_A, concat(attrs(ATTR_HREF, url), extra), label);
+        return tag(TAG_A, Utils.concatString(attrs(ATTR_HREF, url), extra),
+                   label);
     }
 
 
@@ -2570,7 +2844,8 @@ public class HtmlUtils {
      */
     public static void href(Appendable sb, String url, String label,
                             String extra) {
-        tag(sb, TAG_A, concat(attrs(ATTR_HREF, url), extra), label);
+        tag(sb, TAG_A, Utils.concatString(attrs(ATTR_HREF, url), extra),
+            label);
     }
 
 
@@ -2663,9 +2938,24 @@ public class HtmlUtils {
      */
     public static String textArea(String name, String value, int rows,
                                   int columns) {
-
         return textArea(name, value, rows, columns, "");
     }
+
+    /**
+     * _more_
+     *
+     * @param name _more_
+     * @param value _more_
+     * @param rows _more_
+     * @param attr _more_
+     *
+     * @return _more_
+     */
+    public static String textArea(String name, String value, int rows,
+                                  String attr) {
+        return textArea(name, value, rows, 0, attr);
+    }
+
 
     /**
      * _more_
@@ -2680,10 +2970,13 @@ public class HtmlUtils {
      */
     public static String textArea(String name, String value, int rows,
                                   int columns, String extra) {
+        String width = (columns > 0)
+                       ? attr(ATTR_COLS, "" + columns)
+                       : style("width:100%");
+
         return tag(TAG_TEXTAREA,
                    attrs(ATTR_NAME, name, ATTR_CLASS, CLASS_TEXTAREA)
-                   + attrs(ATTR_ROWS, "" + rows, ATTR_COLS, "" + columns)
-                   + extra, value);
+                   + attrs(ATTR_ROWS, "" + rows) + width + extra, value);
     }
 
     /**
@@ -3045,6 +3338,15 @@ public class HtmlUtils {
         /**
          * _more_
          *
+         * @return _more_
+         */
+        public String toString() {
+            return this.label;
+        }
+
+        /**
+         * _more_
+         *
          * @param s _more_
          */
         public void setAttr(String s) {
@@ -3173,7 +3475,8 @@ public class HtmlUtils {
 
             attrSB.append(selectedAttr);
             attrSB.append(extraAttr);
-            attrSB.append(attrs(ATTR_TITLE, value, ATTR_VALUE, value));
+            //attrs(attrSB, ATTR_TITLE, value, ATTR_VALUE, value);
+            attrs(attrSB, ATTR_VALUE, value);
             sb.append(tag(TAG_OPTION, attrSB.toString(), label));
             sb.append("\n");
         }
@@ -3260,6 +3563,20 @@ public class HtmlUtils {
     public static String insetDiv(String html, int top, int left, int bottom,
                                   int right) {
         return div(html, style(insetStyle(top, left, bottom, right)));
+    }
+
+    /**
+     * _more_
+     *
+     * @param top _more_
+     * @param left _more_
+     * @param bottom _more_
+     * @param right _more_
+     *
+     * @return _more_
+     */
+    public static String openInset(int top, int left, int bottom, int right) {
+        return open("div", style(insetStyle(top, left, bottom, right)));
     }
 
 
@@ -3437,8 +3754,8 @@ public class HtmlUtils {
      */
     public static String leftRight(String left, String right, String attrs) {
         return tag(TAG_TABLE,
-                   attrs(ATTR_WIDTH, "100%", ATTR_CELLPADDING, "0",
-                         ATTR_CELLSPACING,
+                   attrs(ATTR_CLASS, "left_right_table", ATTR_WIDTH, "100%",
+                         ATTR_CELLPADDING, "0", ATTR_CELLSPACING,
                          "0") + attrs, row(col(left)
                          + col(right,
                                attr(ATTR_ALIGN,
@@ -3609,25 +3926,26 @@ public class HtmlUtils {
      * @return _more_
      */
     public static String formTable() {
-        return open(TAG_TABLE,
-                    cssClass("formtable")
-                    + attrs(ATTR_CELLPADDING, "0", ATTR_CELLSPACING, "0"));
+        return formTable((String) null);
     }
-
-
 
     /**
      * _more_
      *
-     * @param extra _more_
+     * @param clazz _more_
      *
      * @return _more_
      */
-    public static String formTable(String extra) {
-        return open(TAG_TABLE,
-                    attrs(ATTR_CELLPADDING, "5", ATTR_CELLSPACING, "5") + " "
-                    + extra);
+    public static String formTable(String clazz) {
+        return open(TAG_TABLE, cssClass(((clazz != null)
+                                         ? clazz
+                                         : "") + " formtable") + attrs(
+                                             ATTR_CELLPADDING, "0",
+                                             ATTR_CELLSPACING, "0"));
     }
+
+
+
 
     /**
      * _more_
@@ -3669,8 +3987,10 @@ public class HtmlUtils {
         return tag(TAG_TR, "",
                    tag(TAG_TD,
                        attrs(ATTR_ALIGN, VALUE_RIGHT, ATTR_CLASS,
-                             CLASS_FORMLABEL), left) + tag(TAG_TD, "",
+                             CLASS_FORMLABEL), left) + tag(TAG_TD,
+                                 attrs(ATTR_CLASS, CLASS_FORMCONTENTS),
                                  right)) + "\n";
+
 
     }
 
@@ -3727,8 +4047,9 @@ public class HtmlUtils {
         sb.append(tag(TAG_TD,
                       attrs(ATTR_ALIGN, VALUE_RIGHT, ATTR_CLASS,
                             CLASS_FORMLABEL), left));
+        String clazz = attrs(ATTR_CLASS, CLASS_FORMCONTENTS);
         for (String col : cols) {
-            sb.append(tag(TAG_TD, "", col));
+            sb.append(tag(TAG_TD, clazz, col));
         }
 
         return tag(TAG_TR, "", sb.toString());
@@ -3781,11 +4102,14 @@ public class HtmlUtils {
      */
     public static String formEntryTop(String label, String col1,
                                       String col2) {
-        return tag(TAG_TR, attrs(ATTR_VALIGN, VALUE_TOP),
-                col(label,
-                    attrs(ATTR_ALIGN, VALUE_RIGHT, ATTR_CLASS,
-                        CLASS_FORMLABEL_TOP)) + col(col1,
-                            "" /*attrs(ATTR_ALIGN, VALUE_RIGHT, ATTR_CLASS, CLASS_FORMLABEL_TOP)*/) + col(col2));
+        return tag(
+            TAG_TR, attrs(ATTR_VALIGN, VALUE_TOP),
+            col(
+            label,
+            attrs(ATTR_ALIGN, VALUE_RIGHT, ATTR_CLASS,
+                CLASS_FORMLABEL_TOP)) + "\n"
+                    + col(col1,
+                        "" /*attrs(ATTR_ALIGN, VALUE_RIGHT, ATTR_CLASS, CLASS_FORMLABEL_TOP)*/) + "\n" + col(col2));
     }
 
 
@@ -3819,39 +4143,6 @@ public class HtmlUtils {
             sb.append("=");
             quote(sb, value);
             sb.append(" ");
-        } catch (IOException ioe) {
-            throw new RuntimeException(ioe);
-        }
-    }
-
-
-
-    /**
-     * _more_
-     *
-     * @param args _more_
-     *
-     * @return _more_
-     */
-    public static String concat(String... args) {
-        //        if(args.length ==2) return args[0]+args[1];
-        StringBuilder sb = new StringBuilder("");
-        concat(sb, args);
-
-        return sb.toString();
-    }
-
-    /**
-     * _more_
-     *
-     * @param sb _more_
-     * @param args _more_
-     */
-    public static void concat(Appendable sb, String... args) {
-        try {
-            for (String s : args) {
-                sb.append(s);
-            }
         } catch (IOException ioe) {
             throw new RuntimeException(ioe);
         }
@@ -4123,6 +4414,32 @@ public class HtmlUtils {
     }
 
 
+    /**
+     * _more_
+     *
+     * @param js _more_
+     * @param args _more_
+     */
+    public static void commentJS(Appendable js, String... args) {
+        try {
+            js.append("\n");
+            if (args.length == 1) {
+                Utils.append(js, "//", args[0]);
+            } else {
+                js.append("/*");
+                for (String s : args) {
+                    Utils.append(js, "*", s, "\n");
+                }
+                js.append("*/");
+            }
+            js.append("\n");
+        } catch (IOException ioe) {
+            throw new RuntimeException(ioe);
+        }
+
+    }
+
+
 
 
 
@@ -4180,7 +4497,7 @@ public class HtmlUtils {
      * @return _more_
      */
     public static String callln(String function, String args) {
-        return concat(function, "(", args, ");\n");
+        return Utils.concatString(function, "(", args, ");\n");
     }
 
 
@@ -4192,7 +4509,7 @@ public class HtmlUtils {
      * @param args _more_
      */
     public static void callln(Appendable sb, String function, String args) {
-        concat(sb, function, "(", args, ");\n");
+        Utils.concatBuff(sb, function, "(", args, ");\n");
     }
 
     /**
@@ -4240,6 +4557,20 @@ public class HtmlUtils {
                          "text/css"));
     }
 
+    /**
+     * _more_
+     *
+     * @param sb _more_
+     * @param url _more_
+     *
+     * @throws Exception _more_
+     */
+    public static void cssLink(Appendable sb, String url) throws Exception {
+        tag(sb, TAG_LINK,
+            attrs(ATTR_HREF, url, ATTR_REL, "stylesheet", ATTR_TYPE,
+                  "text/css"));
+    }
+
 
     /**
      * _more_
@@ -4260,7 +4591,7 @@ public class HtmlUtils {
      * @return _more_
      */
     public static String importCss(String css) {
-        return tag(TAG_STYLE, "", css);
+        return tag(TAG_STYLE, " type='text/css' ", css);
     }
 
 
@@ -4507,8 +4838,9 @@ public class HtmlUtils {
         StringBuilder sb  = contentSB;
         String        img = "";
         String js = HtmlUtils.onMouseClick(call("toggleBlockVisibility",
-                        concat(squote(id), ",", squote(id + "img"), ",",
-                               squote(""), ",", squote(""))));
+                        Utils.concatString(squote(id), ",",
+                                           squote(id + "img"), ",",
+                                           squote(""), ",", squote(""))));
 
         open(sb, TAG_DIV, HtmlUtils.cssClass("hideshowblock"),
              HtmlUtils.id(id),
@@ -4576,11 +4908,12 @@ public class HtmlUtils {
             }
             String link = HtmlUtils.jsLink(
                               HtmlUtils.onMouseClick(
-                                  concat("toggleInlineVisibility('", id,
-                                         "','", id, "img','", hideImg, "','",
-                                         showImg, "')")), img + label,
-                                             HtmlUtils.cssClass(
-                                                 "toggleblocklabellink"));
+                                  Utils.concatString(
+                                      "toggleInlineVisibility('", id, "','",
+                                      id, "img','", hideImg, "','", showImg,
+                                      "')")), img + label,
+                                          HtmlUtils.cssClass(
+                                              "toggleblocklabellink"));
 
             //        sb.append(RepositoryManager.tableSubHeader(link));
             sb.append(link);
@@ -4683,6 +5016,25 @@ public class HtmlUtils {
     }
 
 
+    /**
+     * _more_
+     *
+     * @param s _more_
+     *
+     * @return _more_
+     */
+    public static String urlDecode(String s) {
+        try {
+            return java.net.URLDecoder.decode(s, "UTF-8");
+        } catch (Exception exc) {
+            System.err.println("error decoding:" + s + " " + exc);
+            exc.printStackTrace();
+
+            return "";
+        }
+    }
+
+
 
     /**
      * _more_
@@ -4776,6 +5128,24 @@ public class HtmlUtils {
      * @throws Exception _more_
      */
     public static void main(String[] args) throws Exception {
+        System.err.println(decodeColor("rgb(1,2,3)", null));
+        System.err.println(decodeColor("#000", null));
+
+        if (true) {
+            return;
+        }
+
+        System.err.println(parseHtmlProperties("single"));
+        System.err.println(parseHtmlProperties("single1 single2"));
+        System.err.println(parseHtmlProperties("flag1=foo flag2=bar"));
+        System.err.println(parseHtmlProperties("flag1=foo flag2=\"bar\" "));
+        System.err.println(
+            parseHtmlProperties("title=foo full --- name=bar xxx=\"\" "));
+        if (true) {
+            return;
+        }
+
+
         List<HtmlUtils.Link> links = HtmlUtils.extractLinks(new URL(args[0]),
                                          (args.length > 1)
                                          ? args[1]
@@ -4846,11 +5216,32 @@ public class HtmlUtils {
                                      String contents, String wrapperClass,
                                      String headerClass)
             throws Exception {
+        makeAccordian(sb, title, contents, true, wrapperClass, headerClass);
+    }
+
+    /**
+     * _more_
+     *
+     * @param sb _more_
+     * @param title _more_
+     * @param contents _more_
+     * @param collapse _more_
+     * @param wrapperClass _more_
+     * @param headerClass _more_
+     *
+     * @throws Exception _more_
+     */
+    public static void makeAccordian(Appendable sb, String title,
+                                     String contents, boolean collapse,
+                                     String wrapperClass, String headerClass)
+            throws Exception {
+
+
         List<String> titles = new ArrayList<String>();
         List<String> tabs   = new ArrayList<String>();
         titles.add(title);
         tabs.add(contents);
-        makeAccordian(sb, titles, tabs, true, wrapperClass, headerClass);
+        makeAccordian(sb, titles, tabs, collapse, wrapperClass, headerClass);
     }
 
     /**
@@ -4927,7 +5318,6 @@ public class HtmlUtils {
             sb.append(HtmlUtils.div(content));
         }
         sb.append("</div>");
-
         String args =
             "{autoHeight: false, navigation: true, collapsible: true";
         if (collapse) {
@@ -4937,7 +5327,7 @@ public class HtmlUtils {
         }
 
         HtmlUtils.script(sb,
-                         "HtmlUtil.makeAccordian(\"#" + accordianId + "\" "
+                         "HtmlUtils.makeAccordian(\"#" + accordianId + "\" "
                          + "," + args + ");\n");
     }
 
@@ -4993,10 +5383,27 @@ public class HtmlUtils {
      * @return _more_
      */
     public static String comment(String s) {
-        s = s.replaceAll("\n", " ");
+        Appendable sb = Utils.makeAppendable();
+        comment(sb, s);
 
-        return "\n<!-- " + s + " -->\n";
+        return sb.toString();
     }
+
+    /**
+     * _more_
+     *
+     * @param sb _more_
+     * @param s _more_
+     */
+    public static void comment(Appendable sb, String s) {
+        try {
+            s = s.replaceAll("\n", " ");
+            Utils.concatBuff(sb, "\n<!-- ", s, " -->\n");
+        } catch (Exception exc) {
+            throw new IllegalArgumentException(exc);
+        }
+    }
+
 
     /**
      * This takes the  given String and tries to convert it to a color.
@@ -5012,6 +5419,11 @@ public class HtmlUtils {
         if (value == null) {
             return dflt;
         }
+        if (value.equals("transparent")) {
+            return new Color(1f, 0f, 0f, 0.0f);
+        }
+        value = value.replaceAll("rgb *\\(", "").replaceAll("\\)", "");
+        //        System.err.println("v:"+value);
         value = value.trim();
         if (value.equals("null")) {
             return null;
@@ -5044,14 +5456,9 @@ public class HtmlUtils {
             return new Color(Integer.decode(s).intValue());
         } catch (Exception e) {
             s = s.toLowerCase();
-            for (int i = 0; i < COLORNAMES.length; i++) {
-                if (s.equals(COLORNAMES[i])) {
-                    return COLORS[i];
-                }
-            }
-        }
 
-        return dflt;
+            return Utils.decodeColor(s, dflt);
+        }
     }
 
 
@@ -5106,7 +5513,7 @@ public class HtmlUtils {
             try {
                 URL newUrl = new URL(url, href);
                 links.add(new Link(newUrl, label));
-            } catch(Exception exc) {}
+            } catch (Exception exc) {}
         }
 
         return links;
@@ -5274,9 +5681,191 @@ public class HtmlUtils {
 
     }
 
+    /**
+     * _more_
+     *
+     * @param url _more_
+     *
+     * @return _more_
+     */
+    public static String getAudioEmbed(String url) {
+        String html =
+            "<audio controls preload=\"none\" style=\"width:480px;\">\n <source src=\"${url}\" type=\"${mime}\" />\n <p>Your browser does not support HTML5 audio.</p>\n </audio>";
+
+        String mime = "audio/wav";
+        String ext  = IOUtil.getFileExtension(url);
+        if (ext.equals("ogg")) {
+            mime = "audio/ogg";
+        } else if (ext.equals("oga")) {
+            mime = "audio/ogg";
+        } else if (ext.equals("wav")) {
+            mime = "audio/wav";
+        } else if (ext.equals("m4a")) {
+            mime = "audio/mp4";
+        } else if (ext.equals("mp4")) {
+            mime = "audio/mp4";
+        }
+
+        html = html.replace("${url}", url);
+        html = html.replace("${mime}", mime);
+
+        return html;
+    }
 
 
+    //unescape
 
+    /**
+     * _more_
+     *
+     * @param input _more_
+     *
+     * @return _more_
+     */
+    public static final String unescapeHtml3(final String input) {
+        StringWriter writer = null;
+        int          len    = input.length();
+        int          i      = 1;
+        int          st     = 0;
+        while (true) {
+            // look for '&'
+            while ((i < len) && (input.charAt(i - 1) != '&')) {
+                i++;
+            }
+            if (i >= len) {
+                break;
+            }
+
+            // found '&', look for ';'
+            int j = i;
+            while ((j < len) && (j < i + MAX_ESCAPE + 1)
+                    && (input.charAt(j) != ';')) {
+                j++;
+            }
+            if ((j == len) || (j < i + MIN_ESCAPE)
+                    || (j == i + MAX_ESCAPE + 1)) {
+                i++;
+
+                continue;
+            }
+
+            // found escape 
+            if (input.charAt(i) == '#') {
+                // numeric escape
+                int        k         = i + 1;
+                int        radix     = 10;
+
+                final char firstChar = input.charAt(k);
+                if ((firstChar == 'x') || (firstChar == 'X')) {
+                    k++;
+                    radix = 16;
+                }
+
+                try {
+                    int entityValue = Integer.parseInt(input.substring(k, j),
+                                          radix);
+
+                    if (writer == null) {
+                        writer = new StringWriter(input.length());
+                    }
+                    writer.append(input.substring(st, i - 1));
+
+                    if (entityValue > 0xFFFF) {
+                        final char[] chrs = Character.toChars(entityValue);
+                        writer.write(chrs[0]);
+                        writer.write(chrs[1]);
+                    } else {
+                        writer.write(entityValue);
+                    }
+
+                } catch (NumberFormatException ex) {
+                    i++;
+
+                    continue;
+                }
+            } else {
+                // named escape
+                CharSequence value = lookupMap.get(input.substring(i, j));
+                if (value == null) {
+                    i++;
+
+                    continue;
+                }
+
+                if (writer == null) {
+                    writer = new StringWriter(input.length());
+                }
+                writer.append(input.substring(st, i - 1));
+
+                writer.append(value);
+            }
+
+            // skip escape
+            st = j + 1;
+            i  = st;
+        }
+
+        if (writer != null) {
+            writer.append(input.substring(st, len));
+
+            return writer.toString();
+        }
+
+        return input;
+    }
+
+    /** _more_ */
+    private static final String[][] ESCAPES = {
+        { "\"", "quot" }, { "&", "amp" }, { "<", "lt" }, { ">", "gt" },
+        { "\u00A0", "nbsp" }, { "\u00A1", "iexcl" }, { "\u00A2", "cent" },
+        { "\u00A3", "pound" }, { "\u00A4", "curren" }, { "\u00A5", "yen" },
+        { "\u00A6", "brvbar" }, { "\u00A7", "sect" }, { "\u00A8", "uml" },
+        { "\u00A9", "copy" }, { "\u00AA", "ordf" }, { "\u00AB", "laquo" },
+        { "\u00AC", "not" }, { "\u00AD", "shy" }, { "\u00AE", "reg" },
+        { "\u00AF", "macr" }, { "\u00B0", "deg" }, { "\u00B1", "plusmn" },
+        { "\u00B2", "sup2" }, { "\u00B3", "sup3" }, { "\u00B4", "acute" },
+        { "\u00B5", "micro" }, { "\u00B6", "para" }, { "\u00B7", "middot" },
+        { "\u00B8", "cedil" }, { "\u00B9", "sup1" }, { "\u00BA", "ordm" },
+        { "\u00BB", "raquo" }, { "\u00BC", "frac14" }, { "\u00BD", "frac12" },
+        { "\u00BE", "frac34" }, { "\u00BF", "iquest" },
+        { "\u00C0", "Agrave" }, { "\u00C1", "Aacute" }, { "\u00C2", "Acirc" },
+        { "\u00C3", "Atilde" }, { "\u00C4", "Auml" }, { "\u00C5", "Aring" },
+        { "\u00C6", "AElig" }, { "\u00C7", "Ccedil" }, { "\u00C8", "Egrave" },
+        { "\u00C9", "Eacute" }, { "\u00CA", "Ecirc" }, { "\u00CB", "Euml" },
+        { "\u00CC", "Igrave" }, { "\u00CD", "Iacute" }, { "\u00CE", "Icirc" },
+        { "\u00CF", "Iuml" }, { "\u00D0", "ETH" }, { "\u00D1", "Ntilde" },
+        { "\u00D2", "Ograve" }, { "\u00D3", "Oacute" }, { "\u00D4", "Ocirc" },
+        { "\u00D5", "Otilde" }, { "\u00D6", "Ouml" }, { "\u00D7", "times" },
+        { "\u00D8", "Oslash" }, { "\u00D9", "Ugrave" },
+        { "\u00DA", "Uacute" }, { "\u00DB", "Ucirc" }, { "\u00DC", "Uuml" },
+        { "\u00DD", "Yacute" }, { "\u00DE", "THORN" }, { "\u00DF", "szlig" },
+        { "\u00E0", "agrave" }, { "\u00E1", "aacute" }, { "\u00E2", "acirc" },
+        { "\u00E3", "atilde" }, { "\u00E4", "auml" }, { "\u00E5", "aring" },
+        { "\u00E6", "aelig" }, { "\u00E7", "ccedil" }, { "\u00E8", "egrave" },
+        { "\u00E9", "eacute" }, { "\u00EA", "ecirc" }, { "\u00EB", "euml" },
+        { "\u00EC", "igrave" }, { "\u00ED", "iacute" }, { "\u00EE", "icirc" },
+        { "\u00EF", "iuml" }, { "\u00F0", "eth" }, { "\u00F1", "ntilde" },
+        { "\u00F2", "ograve" }, { "\u00F3", "oacute" }, { "\u00F4", "ocirc" },
+        { "\u00F5", "otilde" }, { "\u00F6", "ouml" }, { "\u00F7", "divide" },
+        { "\u00F8", "oslash" }, { "\u00F9", "ugrave" },
+        { "\u00FA", "uacute" }, { "\u00FB", "ucirc" }, { "\u00FC", "uuml" },
+        { "\u00FD", "yacute" }, { "\u00FE", "thorn" }, { "\u00FF", "yuml" },
+    };
+
+    /** _more_ */
+    private static final int MIN_ESCAPE = 2;
+
+    /** _more_ */
+    private static final int MAX_ESCAPE = 6;
+
+    /** _more_ */
+    private static final HashMap<String, CharSequence> lookupMap;
+    static {
+        lookupMap = new HashMap<String, CharSequence>();
+        for (final CharSequence[] seq : ESCAPES) {
+            lookupMap.put(seq[1].toString(), seq[0]);
+        }
+    }
 
 
 

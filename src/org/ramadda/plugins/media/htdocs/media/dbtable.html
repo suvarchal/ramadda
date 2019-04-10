@@ -1,15 +1,10 @@
-<html>
-<head>
-  <title>Database Table Entry</title>
-</head>
+<wiki>
++section title="Database Table Entry"
 
-<body>
-
-
-
+:heading Database Integration
 The Database Table entry in RAMADDA is an admin-only entry that allows you to display the contents of an external database table. 
 
-<h2>Configuration</h2>
+:heading Configuration
 The RAMADDA server has to be configured with the database connection information.
 Create  a .properties in the RAMADDA home directory with the following.
 
@@ -23,7 +18,6 @@ table.db.&lt;dbname&gt;.user=
 table.db.&lt;dbname&gt;.password=
 
 #e.g.
-
 table.db.employees.url=jdbc:mysql://localhost:3306/employees?zeroDateTimeBehavior=convertToNull&initialTimeout=1000&connectTimeout=5000
 table.db.employees.user=
 table.db.employees.password=
@@ -38,5 +32,4 @@ Once configured you can create a Database Table entry (under Documents). You nee
 
 Note: Select the database then save the Entry. Then go and Edit the entry and a pull-down list of the available database tables will be shown.
 
-</body>
-</html>
+-section

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -443,10 +443,10 @@ sb.append(HtmlUtils.form(formUrl,
             String mapRegionGroup = null;
 
             MapInfo map = getRepository().getMapManager().createMap(request,
-                              true, null);
+                              null, true, null);
 
             map.setMapRegions(getPageHandler().getMapRegions(mapRegionGroup));
-            map.addBox("", "", llr,
+            map.addBox("", "", "", llr,
                        new MapBoxProperties("blue", false, true));
             String[] points = new String[] { "" + llr.getLatMax(),
                                              "" + llr.getLonMin(),

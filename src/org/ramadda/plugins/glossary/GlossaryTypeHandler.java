@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -24,10 +24,10 @@ import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.output.*;
 import org.ramadda.repository.type.*;
 import org.ramadda.repository.util.SelectInfo;
-
-
-import org.ramadda.sql.Clause;
 import org.ramadda.util.HtmlUtils;
+
+
+import org.ramadda.util.sql.Clause;
 
 
 import org.w3c.dom.*;
@@ -180,6 +180,8 @@ public class GlossaryTypeHandler extends ExtensibleGroupTypeHandler {
 
 
         StringBuffer sb = new StringBuffer();
+        getPageHandler().entrySectionOpen(request, group, sb, null);
+
         sb.append(group.getDescription());
         sb.append(HtmlUtils.p());
 
@@ -189,7 +191,7 @@ public class GlossaryTypeHandler extends ExtensibleGroupTypeHandler {
         /*
         if (canAdd) {
             String label =
-                HtmlUtils.img(getRepository().iconUrl(ICON_NEW),
+                HtmlUtils.img(getRepository().getIconUrl(ICON_NEW),
                               msg("New Glossary Question")) + " "
                                   + msg("Create new glossary entry");
             sb.append(HtmlUtils
@@ -265,6 +267,8 @@ public class GlossaryTypeHandler extends ExtensibleGroupTypeHandler {
             sb.append(HtmlUtils.h2(letter));
             sb.append(letterBuffer);
         }
+
+        getPageHandler().entrySectionClose(request, group, sb);
 
         return new Result(msg("Glossary"), sb);
     }

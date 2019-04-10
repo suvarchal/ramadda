@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -32,10 +32,13 @@ import org.ramadda.repository.job.JobManager;
 import org.ramadda.repository.map.*;
 import org.ramadda.repository.output.*;
 import org.ramadda.repository.type.TypeHandler;
+import org.ramadda.util.Bounds;
 
 
 
 import org.ramadda.util.HtmlUtils;
+import org.ramadda.util.JQuery;
+import org.ramadda.util.Utils;
 
 
 import org.w3c.dom.*;
@@ -56,6 +59,7 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.HashSet;
 
 import java.util.Hashtable;
 import java.util.List;
@@ -299,9 +303,13 @@ public class RecordJobManager extends JobManager implements RecordConstants {
                         IOUtil.getFileTail(f.toString())) != null) {
                     continue;
                 }
+                String filename = f.getName();
 
+                String destFilename = getRepository().getGUID()
+                                      + StorageManager.FILE_SEPARATOR
+                                      + filename;
                 f = getStorageManager().copyToStorage(request, f,
-                        f.getName());
+                        destFilename);
 
                 String        name = request.getString(ARG_PUBLISH_NAME, "");
                 String        suffix = IOUtil.getFileExtension(f.toString());
@@ -322,22 +330,27 @@ public class RecordJobManager extends JobManager implements RecordConstants {
                     }
                 }
                 if (name.length() == 0) {
-                    name = f.getName();
+                    name = filename;
                 }
+                final Bounds bounds = recordEntries.get(0).getBounds();
 
                 //The initializer gets called by the EntryManager to do any initialization
                 //of the entry before it gets added to the repository
                 EntryInitializer initializer = new EntryInitializer() {
                     public void initEntry(Entry newEntry) {
                         if ( !isPointFile) {
-                            newEntry.setNorth(request.get(ARG_AREA_NORTH,
-                                    entry.getNorth()));
-                            newEntry.setWest(request.get(ARG_AREA_WEST,
-                                    entry.getWest()));
-                            newEntry.setSouth(request.get(ARG_AREA_SOUTH,
-                                    entry.getSouth()));
-                            newEntry.setEast(request.get(ARG_AREA_EAST,
-                                    entry.getEast()));
+                            if (bounds != null) {
+                                newEntry.setBounds(bounds);
+                            } else {
+                                newEntry.setNorth(request.get(ARG_AREA_NORTH,
+                                        entry.getNorth()));
+                                newEntry.setWest(request.get(ARG_AREA_WEST,
+                                        entry.getWest()));
+                                newEntry.setSouth(request.get(ARG_AREA_SOUTH,
+                                        entry.getSouth()));
+                                newEntry.setEast(request.get(ARG_AREA_EAST,
+                                        entry.getEast()));
+                            }
                         }
                     }
                 };
@@ -348,7 +361,7 @@ public class RecordJobManager extends JobManager implements RecordConstants {
                                      typeHandler, initializer);
 
                 if (status.length() == 0) {
-                    status.append(msgHeader("Published Entries"));
+                    status.append("<b>Published Entries</b><br>");
                 }
                 status.append(
                     HtmlUtils.href(
@@ -368,7 +381,6 @@ public class RecordJobManager extends JobManager implements RecordConstants {
         if (status.length() > 0) {
             status.append(HtmlUtils.p());
             status.append("\n");
-            System.err.println("appending status:" + status);
             jobInfo.appendExtraInfo(status.toString());
         }
 
@@ -416,6 +428,7 @@ public class RecordJobManager extends JobManager implements RecordConstants {
      *
      * @throws Exception On badness
      */
+    @Override
     public Result handleJobStatusRequest(Request request, Entry entry)
             throws Exception {
 
@@ -423,22 +436,20 @@ public class RecordJobManager extends JobManager implements RecordConstants {
         if (parentResult != null) {
             return parentResult;
         }
-
-
-        String jobId     = request.getString(ARG_JOB_ID, (String) null);
+        StringBuffer sb    = new StringBuffer();
+        String       jobId = request.getString(ARG_JOB_ID, (String) null);
         String productId = request.getString(ARG_POINT_PRODUCT,
                                              (String) null);
 
-        StringBuffer sb  = new StringBuffer();
-        StringBuffer xml = new StringBuffer();
-        addHtmlHeader(request, sb);
-        JobInfo jobInfo    = getJobInfo(jobId);
-        File    productDir = getRecordOutputHandler().getProductDir(jobId);
+        StringBuffer xml     = new StringBuffer();
+        JobInfo      jobInfo = getJobInfo(jobId);
+        File productDir      = getRecordOutputHandler().getProductDir(jobId);
         if ( !productDir.exists()) {
             return getRepository().makeErrorResult(request,
                     "The results have expired. Please try your query again");
         }
 
+        openHtmlHeader(request, jobInfo, sb);
         sb.append(jobInfo.getDescription().replaceAll("\n", "<br>"));
 
         if (productId != null) {
@@ -501,6 +512,7 @@ public class RecordJobManager extends JobManager implements RecordConstants {
             });
         }
         xml.append(XmlUtil.openTag(TAG_JOB, jobAttrs));
+
         if (jobInfo.isInError()) {
             sb.append(
                 getPageHandler().showDialogError(
@@ -513,9 +525,18 @@ public class RecordJobManager extends JobManager implements RecordConstants {
                 getPageHandler().showDialogNote("Processing is complete"));
         }
         sb.append(HtmlUtils.formTable());
+        sb.append("<tr><td width=20%></a><td width=80%></td></tr>");
+        if ( !jobInfo.isInError() && !stillRunning) {
+            sb.append(
+                HtmlUtils.formEntry(
+                    "",
+                    HtmlUtils.div(
+                        HtmlUtils.href(
+                            jobInfo.getReturnUrl(),
+                            "Return to form"), HtmlUtils.cssClass(
+                                "ramadda-button"))));
+        }
         //set the column width
-        sb.append(
-            "<tr><td width=20%>&nbsp;</a><td width=80%>&nbsp;</td></tr>");
         if (stillRunning) {
             String cancelUrl =
                 request.entryUrl(getRepository().URL_ENTRY_SHOW, entry,
@@ -523,10 +544,79 @@ public class RecordJobManager extends JobManager implements RecordConstants {
                 ARG_OUTPUT, getOutputResults().getId(), ARG_JOB_ID, jobId,
                 ARG_CANCEL, "true"
             });
-            sb.append(HtmlUtils.formEntry("",
-                                          HtmlUtils.href(cancelUrl,
-                                              msg("Cancel job"))));
+            String cancel =
+                HtmlUtils.div(HtmlUtils.href(cancelUrl, msg("Cancel job")),
+                              HtmlUtils.cssClass("ramadda-button"));
+            sb.append(HtmlUtils.formEntry("", cancel));
         }
+
+        sb.append(HtmlUtils.formEntry("", jobInfo.getExtraInfo().toString()));
+
+        if ( !stillRunning) {
+            StringBuffer productSB = new StringBuffer();
+
+            //List the files available
+            int    fileCnt = 0;
+            File[] files   = productDir.listFiles();
+            xml.append(XmlUtil.openTag(TAG_PRODUCTS));
+            for (File f : files) {
+                if (f.getName().startsWith(".")) {
+                    continue;
+                }
+                if (fileCnt == 0) {
+                    productSB.append("<table>");
+                }
+                fileCnt++;
+                String getFileUrl =
+                    HtmlUtils.url(getRepository().URL_ENTRY_SHOW + "/"
+                                  + f.getName(), new String[] {
+                    ARG_ENTRYID, entry.getId(), ARG_OUTPUT,
+                    getOutputResults().getId(), ARG_JOB_ID, jobId,
+                    ARG_POINT_PRODUCT, f.getName()
+                });
+                //                xml.append(XmlUtil.openTag(TAG_URL));
+                xml.append("<" + TAG_URL + ">");
+                XmlUtil.appendCdata(xml, request.getAbsoluteUrl(getFileUrl));
+                xml.append(XmlUtil.closeTag(TAG_URL));
+                productSB.append("<tr><td>");
+                productSB.append(HtmlUtils.href(getFileUrl, f.getName()));
+                productSB.append("</td><td align=right>");
+                productSB.append(
+                    getRecordFormHandler().formatFileSize(f.length()));
+                productSB.append("</td></tr>");
+            }
+
+
+
+            xml.append(XmlUtil.closeTag(TAG_PRODUCTS));
+            if (fileCnt > 1) {
+                String getFileUrl =
+                    HtmlUtils.url(getRepository().URL_ENTRY_SHOW
+                                  + "/all.zip", new String[] {
+                    ARG_ENTRYID, entry.getId(), ARG_OUTPUT,
+                    getOutputResults().getId(), ARG_JOB_ID, jobId,
+                    ARG_POINT_PRODUCT, "zip"
+                });
+                productSB.append("<tr><td>");
+                productSB.append(HtmlUtils.href(getFileUrl, "Zip products"));
+                productSB.append("</td></tr>");
+            }
+
+
+            if (fileCnt > 0) {
+                productSB.append("</table>");
+            } else {
+                productSB.append(
+                    getPageHandler().showDialogNote(
+                        msg("No product files found")));
+            }
+
+            if (productSB.length() > 0) {
+                sb.append(HtmlUtils.formEntryTop(msgLabel("Products"),
+                        productSB.toString()));
+            }
+        }
+
 
 
         sb.append(HtmlUtils.formEntry(msgLabel("Job ID"), jobId));
@@ -580,77 +670,17 @@ public class RecordJobManager extends JobManager implements RecordConstants {
                         jobInfo.getNumPoints()) + " points"));
         }
 
-        if ( !stillRunning) {
-            StringBuffer productSB = new StringBuffer();
 
-            //List the files available
-            int    fileCnt = 0;
-            File[] files   = productDir.listFiles();
-            xml.append(XmlUtil.openTag(TAG_PRODUCTS));
-            for (File f : files) {
-                if (f.getName().startsWith(".")) {
-                    continue;
-                }
-                if (fileCnt == 0) {
-                    productSB.append("<table>");
-                }
-                fileCnt++;
-                String fileUrl = HtmlUtils.url(getRepository().URL_ENTRY_SHOW
-                                     + "/" + f.getName(), new String[] {
-                    ARG_ENTRYID, entry.getId(), ARG_OUTPUT,
-                    getOutputResults().getId(), ARG_JOB_ID, jobId,
-                    ARG_POINT_PRODUCT, f.getName()
-                });
-                //                xml.append(XmlUtil.openTag(TAG_URL));
-                xml.append("<" + TAG_URL + ">");
-                XmlUtil.appendCdata(xml, request.getAbsoluteUrl(fileUrl));
-                xml.append(XmlUtil.closeTag(TAG_URL));
-                productSB.append("<tr><td>");
-                productSB.append(HtmlUtils.href(fileUrl, f.getName()));
-                productSB.append("</td><td align=right>");
-                productSB.append(
-                    getRecordFormHandler().formatFileSize(f.length()));
-                productSB.append("</td></tr>");
-            }
-
-
-
-            xml.append(XmlUtil.closeTag(TAG_PRODUCTS));
-            if (fileCnt > 1) {
-                String fileUrl = HtmlUtils.url(getRepository().URL_ENTRY_SHOW
-                                     + "/all.zip", new String[] {
-                    ARG_ENTRYID, entry.getId(), ARG_OUTPUT,
-                    getOutputResults().getId(), ARG_JOB_ID, jobId,
-                    ARG_POINT_PRODUCT, "zip"
-                });
-                productSB.append("<tr><td>");
-                productSB.append(HtmlUtils.href(fileUrl, "Zip products"));
-                productSB.append("</td></tr>");
-            }
-
-
-            if (fileCnt > 0) {
-                productSB.append("</table>");
-            } else {
-                productSB.append(
-                    getPageHandler().showDialogNote(
-                        msg("No product files found")));
-            }
-
-            if (productSB.length() > 0) {
-                sb.append(HtmlUtils.formEntryTop(msgLabel("Products"),
-                        productSB.toString()));
-            }
-        }
 
         xml.append(XmlUtil.closeTag(TAG_JOB));
-        sb.append(HtmlUtils.formEntry("", jobInfo.getExtraInfo().toString()));
         sb.append(HtmlUtils.formTableClose());
 
 
         if (request.responseAsXml()) {
             return getRepository().makeOkResult(request, xml.toString());
         }
+
+        closeHtmlHeader(request, jobInfo, sb);
 
         return new Result("Products", sb);
 
@@ -666,23 +696,6 @@ public class RecordJobManager extends JobManager implements RecordConstants {
         return getRecordOutputHandler().OUTPUT_RESULTS;
     }
 
-    /**
-     * _more_
-     *
-     * @param request _more_
-     * @param sb _more_
-     *
-     * @throws Exception _more_
-     */
-    @Override
-    public void addHtmlHeader(Request request, Appendable sb)
-            throws Exception {
-        try {
-            //            getRecordOutputHandler().makeApiHeader(request, sb);
-        } catch (Exception exc) {
-            throw new RuntimeException(exc);
-        }
-    }
 
     /**
      * _more_
@@ -713,6 +726,7 @@ public class RecordJobManager extends JobManager implements RecordConstants {
             Request request, Entry entry, OutputType outputType,
             List<? extends RecordEntry> pointEntries)
             throws Exception {
+
         checkNewJobOK();
         try {
             return handleAsynchRequestInner(request, entry, outputType,
@@ -744,8 +758,13 @@ public class RecordJobManager extends JobManager implements RecordConstants {
             final List<? extends RecordEntry> recordEntries)
             throws Exception {
 
-        final JobInfo jobInfo = new JobInfo(request, entry.getId(),
-                                            getRepository().getGUID());
+        String formUrl =
+            request.getUrl((HashSet<String>) Utils.makeHashSet(ARG_OUTPUT),
+                           null) + "&" + ARG_OUTPUT + "=points.form";
+        final JobInfo jobInfo = new JobInfo(request, entry,
+                                            getRepository().getGUID(),
+                                            "Point Processing");
+        jobInfo.setReturnUrl(formUrl);
         jobInfo.setType(JOB_TYPE_POINT);
         jobInfo.setJobStatusUrl(getJobUrl(request, entry, jobInfo.getJobId(),
                                           getOutputResults()));

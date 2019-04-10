@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ package org.ramadda.util;
 import org.w3c.dom.*;
 
 import ucar.unidata.util.IOUtil;
+import ucar.unidata.util.Misc;
 import ucar.unidata.util.StringUtil;
 
 import ucar.unidata.xml.XmlUtil;
@@ -300,11 +301,11 @@ public class GeoUtils {
 
                     continue;
                 }
-                double[] loc = getLocationFromAddress(arg, key);
-                if (loc == null) {
+                Place place = getLocationFromAddress(arg, key);
+                if (place == null) {
                     System.out.println(arg + ": NA");
                 } else {
-                    System.out.println(arg + ": " + loc[0] + "," + loc[1]);
+                    System.out.println(arg + ": " + place);
                 }
             }
         } catch (Exception exc) {
@@ -327,7 +328,7 @@ public class GeoUtils {
     }
 
     /** _more_ */
-    private static Hashtable<String, double[]> addressToLocation = null;
+    private static Hashtable<String, Place> addressToLocation = null;
 
 
 
@@ -339,7 +340,7 @@ public class GeoUtils {
      *
      * @return The location or null if not found
      */
-    public static double[] getLocationFromAddress(String address) {
+    public static Place getLocationFromAddress(String address) {
         return getLocationFromAddress(address, null);
     }
 
@@ -351,10 +352,24 @@ public class GeoUtils {
      *
      * @return _more_
      */
-    public static double[] getLocationFromAddress(String address,
+    public static Place getLocationFromAddress(String address,
             String googleKey) {
+        return getLocationFromAddress(address, googleKey, null);
+    }
+
+    /**
+     * _more_
+     *
+     * @param address _more_
+     * @param googleKey _more_
+     * @param bounds _more_
+     *
+     * @return _more_
+     */
+    public static Place getLocationFromAddress(String address,
+            String googleKey, Bounds bounds) {
         try {
-            return getLocationFromAddressInner(address, googleKey);
+            return getLocationFromAddressInner(address, googleKey, bounds);
 
         } catch (Exception exc) {
             throw new RuntimeException(exc);
@@ -366,18 +381,15 @@ public class GeoUtils {
      *
      * @param address _more_
      * @param googleKey _more_
+     * @param bounds _more_
      *
      * @return _more_
      *
      * @throws Exception _more_
      */
-    public static double[] getLocationFromAddressInner(String address,
-            String googleKey)
+    public static Place getLocationFromAddressInner(String address,
+            String googleKey, Bounds bounds)
             throws Exception {
-
-        if (googleKey == null) {
-            googleKey = GeoUtils.googleKey;
-        }
 
         if (address == null) {
             return null;
@@ -386,21 +398,148 @@ public class GeoUtils {
         if (address.length() == 0) {
             return null;
         }
+        if (address.toLowerCase().startsWith("from:")) {
+            address = address.substring(5);
+        } else if (address.toLowerCase().startsWith("to:")) {
+            address = address.substring(3);
+        }
+        boolean doCountry = false;
+        if (address.toLowerCase().startsWith("country:")) {
+            address = address.substring("country:".length()).trim();
+            doCountry = true;
+        }
+        boolean doState = false;
+        if (address.toLowerCase().startsWith("state:")) {
+            address = address.substring("state:".length()).trim();
+            doState = true;
+        }
+
+        boolean doZip = false;
+        if (address.toLowerCase().startsWith("zip:")) {
+            address = address.substring("zip:".length()).trim();
+            doZip = true;
+        }
+        boolean doCity = false;
+        if (address.toLowerCase().startsWith("city:")) {
+            address = address.substring("city:".length()).trim();
+            doCity = true;
+        }
+        //        System.err.println ("address:" + address +" " + doZip);
+
+        if (address.length() == 0) {
+            return null;
+        }
+
+
+        Place place = null;
+
+        if(doCountry) {
+            try {
+                List<Place> places = Place.getPlaces("countries");
+                place = Place.findPlace(places, address);
+                if(place == null)
+                    System.err.println("no place:" + address);
+                return place;
+            } catch(Exception exc) {
+                exc.printStackTrace();
+            }
+        }
+
+
+        if(doState) {
+            try {
+                List<Place> places = Place.getPlaces("states");
+                place = Place.findPlace(places, address);
+                if(place == null)
+                    System.err.println("no place:" + address);
+                return place;
+            } catch(Exception exc) {
+                exc.printStackTrace();
+            }
+        }
+
+
+        if(doZip) {
+            try {
+                List<Place> places = Place.getPlaces("zipcodes");
+                place = Place.findPlace(places, address);
+                if(place == null)
+                    System.err.println("no place:" + address);
+                return place;
+            } catch(Exception exc) {
+                exc.printStackTrace();
+            }
+        }
+
+        if(doCity) {
+            try {
+                List<String> toks = StringUtil.splitUpTo(address,",",2);
+                if(toks.size()>1) {
+                    String city = toks.get(0).toLowerCase().trim();
+                    String city1 = city +" city";
+                    String city2 = city +" town";
+                    String city3 = city +" cdp";
+                    String city4 = city +" village";
+                    String state = toks.get(1).toLowerCase().trim();
+                    List<Place> places = Place.getPlaces("places");
+                    for(Place place2: places) {
+                        if(Misc.equals(place2.getLowerCaseSuffix(),state)) {
+                            String name = place2.getLowerCaseName();
+                            if(name.equals(city) ||
+                               name.equals(city1) ||
+                               name.equals(city2) ||
+                               name.equals(city3) ||
+                               name.equals(city4)) {
+                                return place2;
+                            }
+                        }
+                    }
+                }
+            } catch(Exception exc) {
+                exc.printStackTrace();
+            }
+        }
+
+        /*
+        place = Place.getPlace(address);
+        if (place == null) {
+            int index = address.indexOf("-");
+            if (index > 0) {
+                String tmp = address.substring(0, index);
+                place = Place.getPlace(tmp);
+            }
+        }
+        if ((place == null) && (address.length() > 5)) {
+            String tmp = address.substring(0, 5);
+            place = Place.getPlace(tmp);
+        }
+        */
+
+        if (place != null) {
+            //            System.err.println("got place:" + address +" " + place.getLatitude()+" " + place.getLongitude());
+            return place;
+        }
+
+        if (googleKey == null) {
+            googleKey = GeoUtils.googleKey;
+        }
+
         if (addressToLocation == null) {
-            addressToLocation = new Hashtable<String, double[]>();
+            addressToLocation = new Hashtable<String, Place>();
             if (cacheDir != null) {
                 File cacheFile = new File(IOUtil.joinDir(cacheDir,
-                                     "addresslocations.txt"));
+                                     "addresslocations2.txt"));
                 if (cacheFile.exists()) {
                     for (String line :
                             StringUtil.split(IOUtil.readContents(cacheFile),
                                              "\n", true, true)) {
                         List<String> toks = StringUtil.split(line,
                                                 cacheDelimiter);
-                        if (toks.size() == 3) {
+                        if (toks.size() == 4) {
                             addressToLocation.put(toks.get(0),
-                                    new double[] { new Double(toks.get(1)),
-                                    new Double(toks.get(2)) });
+                                    new Place(toks.get(1),
+                                        new Double(toks.get(2)),
+                                        new Double(toks.get(3))));
                         }
                     }
                 }
@@ -411,78 +550,68 @@ public class GeoUtils {
         }
 
 
+        place = addressToLocation.get(address);
+        if (place != null) {
+            if ((bounds == null)
+                    || bounds.contains(place.getLatitude(),
+                                       place.getLongitude())) {
+                if (Double.isNaN(place.getLatitude())) {
+                    return null;
+                }
 
-        double[] location = addressToLocation.get(address);
-        if (location != null) {
-            if (Double.isNaN(location[0])) {
-                return null;
+                return place;
             }
-
-            return location;
         }
 
-
+        if(address.length()==0 || address.equals(",")) return null;
+        System.err.println("looking for address:" + address);
 
 
         String latString      = null;
         String lonString      = null;
         String encodedAddress = StringUtil.replace(address, " ", "%20");
-
+        String name           = null;
 
 
         if (googleKey != null) {
             try {
+                //                https://maps.googleapis.com/maps/api/geocode/json?address=Winnetka&bounds=34.172684,118.604794|34.236144,-118.500938&key=YOUR_API_KEY
                 String url =
                     "https://maps.googleapis.com/maps/api/geocode/json?address="
                     + encodedAddress + "&key=" + googleKey;
+                if (bounds != null) {
+                    url += "&bounds=" + bounds.getSouth() + ","
+                           + bounds.getWest() + "|" + bounds.getNorth() + ","
+                           + bounds.getEast();
+                }
                 String result = IOUtil.readContents(url, GeoUtils.class);
-                //                System.err.println("url:" + url);
-                ///                System.err.println("result:" + result);
+                //                System.err.println("result:" + result);
 
-                //                    "lng" : -105.226021
+                name = StringUtil.findPattern(result,
+                        "\"formatted_address\"\\s*:\\s*\"([^\"]+)\"");
                 latString = StringUtil.findPattern(result,
                         "\"lat\"\\s*:\\s*([-\\d\\.]+),");
                 lonString = StringUtil.findPattern(result,
                         "\"lng\"\\s*:\\s*([-\\d\\.]+)\\s*");
-                //                System.err.println(result);
-                System.err.println("address:" + address + " loc:" + latString
-                                   + " " + lonString);
             } catch (Exception exc) {
                 System.err.println("exc:" + exc);
             }
         }
-        /*
-     try {
-         String url = "http://gws2.maps.yahoo.com/findlocation?q="
-                      + encodedAddress;
-         System.err.println("yahoo:" + url);
-         String  result  = IOUtil.readContents(url, GeoUtils.class);
-         System.err.println("yahoo:" + result);
-         Element root    = XmlUtil.getRoot(result);
-         Element latNode = XmlUtil.findDescendant(root, "latitude");
-         Element lonNode = XmlUtil.findDescendant(root, "longitude");
-         if ((latNode != null) && (lonNode != null)) {
-             latString = XmlUtil.getChildText(latNode);
-             lonString = XmlUtil.getChildText(lonNode);
-         }
-     } catch (Exception exc) {
-         System.err.println("exc:" + exc);
-     }
-
-         */
-
-
         if ((latString != null) && (lonString != null)) {
-            location = new double[] { Double.parseDouble(latString),
-                                      Double.parseDouble(lonString) };
-            addressToLocation.put(address, location);
+            place = new Place((name == null)
+                              ? address
+                              : name, new Double(latString),
+                                      new Double(lonString));
+            addressToLocation.put(address, place);
             if (cacheWriter != null) {
-                cacheWriter.println(address + cacheDelimiter + location[0]
-                                    + cacheDelimiter + location[1]);
+                cacheWriter.println(address + cacheDelimiter
+                                    + place.getName() + cacheDelimiter
+                                    + place.getLatitude() + cacheDelimiter
+                                    + place.getLongitude());
                 cacheWriter.flush();
             }
 
-            return location;
+            return place;
         } else {
             if (cacheWriter != null) {
                 cacheWriter.println(address + cacheDelimiter + Double.NaN
@@ -530,6 +659,118 @@ public class GeoUtils {
 
     }
 
+    /**
+     * _more_
+     *
+     * @param results _more_
+     *
+     * @return _more_
+     */
+    public static Bounds parseGdalInfo(String results) {
+        /*
+Upper Left  (  -28493.167, 4255884.544) (117d38'27.05"W, 33d56'37.74"N)
+Lower Left  (  -28493.167, 4224973.143) (117d38'27.05"W, 33d39'53.81"N)
+Upper Right (    2358.212, 4255884.544) (117d18'28.38"W, 33d56'37.74"N)
+Lower Right (    2358.212, 4224973.143) (117d18'28.38"W, 33d39'53.81"N)
+        */
+
+        double north = Double.NaN;
+        double south = Double.NaN;
+        double east  = Double.NaN;
+        double west  = Double.NaN;
+        for (String line : StringUtil.split(results, "\n", true, true)) {
+            double[] latlon;
+            if (line.indexOf("Upper Left") >= 0) {
+                latlon = getGdalLatLon(line);
+                if (latlon != null) {
+                    north = ((north != north)
+                             ? latlon[1]
+                             : Math.max(north, latlon[1]));
+                    west  = ((west != west)
+                             ? latlon[0]
+                             : Math.min(west, latlon[0]));
+                }
+            } else if (line.indexOf("Lower Right") >= 0) {
+                latlon = getGdalLatLon(line);
+                if (latlon != null) {
+                    south = ((south != south)
+                             ? latlon[1]
+                             : Math.min(south, latlon[1]));
+                    east  = ((east != east)
+                             ? latlon[0]
+                             : Math.max(east, latlon[0]));
+                }
+            } else if (line.indexOf("Upper Right") >= 0) {
+                latlon = getGdalLatLon(line);
+                if (latlon != null) {
+                    north = ((north != north)
+                             ? latlon[1]
+                             : Math.max(north, latlon[1]));
+                    east  = ((east != east)
+                             ? latlon[0]
+                             : Math.max(east, latlon[0]));
+                }
+            } else if (line.indexOf("Lower Left") >= 0) {
+                latlon = getGdalLatLon(line);
+                if (latlon != null) {
+                    south = ((south != south)
+                             ? latlon[1]
+                             : Math.min(south, latlon[1]));
+                    west  = ((west != west)
+                             ? latlon[0]
+                             : Math.min(west, latlon[0]));
+                }
+
+            } else {}
+        }
+
+        Bounds bounds = null;
+
+        if ( !Double.isNaN(north)) {
+            bounds = new Bounds(north, west, south, east);
+        }
+
+        return bounds;
+    }
+
+    /**
+     * _more_
+     *
+     * @param line _more_
+     *
+     * @return _more_
+     */
+    private static double[] getGdalLatLon(String line) {
+        line = line.trim();
+        line = StringUtil.findPattern(line, ".*\\(([^\\)]+)\\.*");
+        //        System.err.println("TOK: " + line);
+        if (line == null) {
+            return null;
+        }
+
+        List<String> toks = StringUtil.split(line, ",", true, true);
+        if (toks.size() != 2) {
+            return null;
+        }
+
+        return new double[] { decodeGdalLatLon(toks.get(0)),
+                              decodeGdalLatLon(toks.get(1)) };
+    }
+
+    /**
+     * _more_
+     *
+     * @param s _more_
+     *
+     * @return _more_
+     */
+    private static double decodeGdalLatLon(String s) {
+        s = s.replace("d", ":");
+        s = s.replace("'", ":");
+        s = s.replace("\"", "");
+
+        return Misc.decodeLatLon(s);
+    }
 
 
 }

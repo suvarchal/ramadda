@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -108,75 +108,75 @@ public class McordsIrmcr2File extends org.ramadda.data.point.text.TextFile {
      * Class description
      *
      *
-     * @version        $version$, Sat, Feb 28, '15
-     * @author         Enter your name here...
+     * @version        $version$, Wed, Feb 20, '19
+     * @author         Enter your name here...    
      */
     public static class McordsIrmcr2Record extends org.ramadda.data.point
         .PointRecord {
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_FIRST =
             org.ramadda.data.point.PointRecord.ATTR_LAST;
 
-        /** _more_ */
+        /** _more_          */
         public static final List<RecordField> FIELDS =
             new ArrayList<RecordField>();
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_LATITUDE = ATTR_FIRST + 1;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_LATITUDE;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_LONGITUDE = ATTR_FIRST + 2;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_LONGITUDE;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_TIME = ATTR_FIRST + 3;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_TIME;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_THICKNESS = ATTR_FIRST + 4;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_THICKNESS;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_ALTITUDE = ATTR_FIRST + 5;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_ALTITUDE;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_FRAME = ATTR_FIRST + 6;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_FRAME;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_BOTTOM = ATTR_FIRST + 7;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_BOTTOM;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_SURFACE = ATTR_FIRST + 8;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_SURFACE;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_QUALITY = ATTR_FIRST + 9;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_QUALITY;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_LAST = ATTR_FIRST + 10;
 
 
@@ -314,22 +314,22 @@ public class McordsIrmcr2File extends org.ramadda.data.point.text.TextFile {
         }
 
 
-        /** _more_ */
+        /** _more_          */
         double time;
 
-        /** _more_ */
+        /** _more_          */
         double thickness;
 
-        /** _more_ */
+        /** _more_          */
         int frame;
 
-        /** _more_ */
+        /** _more_          */
         double bottom;
 
-        /** _more_ */
+        /** _more_          */
         double surface;
 
-        /** _more_ */
+        /** _more_          */
         int quality;
 
 
@@ -618,31 +618,31 @@ public class McordsIrmcr2File extends org.ramadda.data.point.text.TextFile {
             if (superCnt > 0) {
                 pw.print(',');
             }
-            pw.print(latitude);
+            pw.print(getStringValue(RECORDATTR_LATITUDE, latitude));
             myCnt++;
             pw.print(',');
-            pw.print(longitude);
+            pw.print(getStringValue(RECORDATTR_LONGITUDE, longitude));
             myCnt++;
             pw.print(',');
-            pw.print(time);
+            pw.print(getStringValue(RECORDATTR_TIME, time));
             myCnt++;
             pw.print(',');
-            pw.print(thickness);
+            pw.print(getStringValue(RECORDATTR_THICKNESS, thickness));
             myCnt++;
             pw.print(',');
-            pw.print(altitude);
+            pw.print(getStringValue(RECORDATTR_ALTITUDE, altitude));
             myCnt++;
             pw.print(',');
-            pw.print(frame);
+            pw.print(getStringValue(RECORDATTR_FRAME, frame));
             myCnt++;
             pw.print(',');
-            pw.print(bottom);
+            pw.print(getStringValue(RECORDATTR_BOTTOM, bottom));
             myCnt++;
             pw.print(',');
-            pw.print(surface);
+            pw.print(getStringValue(RECORDATTR_SURFACE, surface));
             myCnt++;
             pw.print(',');
-            pw.print(quality);
+            pw.print(getStringValue(RECORDATTR_QUALITY, quality));
             myCnt++;
 
             return myCnt + superCnt;

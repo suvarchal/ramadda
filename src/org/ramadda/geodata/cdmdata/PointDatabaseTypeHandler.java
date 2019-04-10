@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -39,14 +39,14 @@ import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.output.OutputHandler;
 
 import org.ramadda.repository.type.*;
-import org.ramadda.sql.Clause;
-
-import org.ramadda.sql.SqlUtil;
 
 import org.ramadda.util.FormInfo;
 import org.ramadda.util.HtmlUtils;
 
 import org.ramadda.util.KmlUtil;
+import org.ramadda.util.sql.Clause;
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -1062,11 +1062,11 @@ public class PointDatabaseTypeHandler extends BlobTypeHandler {
                 if (chartTemplate == null) {
                     chartTemplate = getRepository().getResource(
                         "/org/ramadda/repository/resources/chart/amline.html");
-                    chartTemplate = chartTemplate.replace("${urlroot}",
+                    chartTemplate = chartTemplate.replace("${root}",
                             getRepository().getUrlBase());
-                    chartTemplate = chartTemplate.replace("${urlroot}",
+                    chartTemplate = chartTemplate.replace("${root}",
                             getRepository().getUrlBase());
-                    chartTemplate = chartTemplate.replace("${urlroot}",
+                    chartTemplate = chartTemplate.replace("${root}",
                             getRepository().getUrlBase());
                 }
                 */
@@ -1074,7 +1074,7 @@ public class PointDatabaseTypeHandler extends BlobTypeHandler {
                 //  for dycharts javascript
                 chartTemplate = getRepository().getResource(
                     "/org/ramadda/repository/resources/chart/dycharts.html");
-                chartTemplate = chartTemplate.replace("${urlroot}",
+                chartTemplate = chartTemplate.replace("${root}",
                         getRepository().getUrlBase());
                 String title = request.getString(ARG_POINT_TIMESERIES_TITLE,
                                    entry.getName());
@@ -2471,9 +2471,9 @@ public class PointDatabaseTypeHandler extends BlobTypeHandler {
             throws Exception {
         StringBuffer sb = new StringBuffer();
         sb.append(getHeader(request, entry));
-        String icon = iconUrl("/icons/pointdata.gif");
+        String icon = getIconUrl("/icons/pointdata.gif");
         MapInfo map = getRepository().getMapManager().createMap(request,
-                          request.get(ARG_WIDTH, 800),
+                          entry, request.get(ARG_WIDTH, 800),
                           request.get(ARG_HEIGHT, 500), false, null);
         int cnt = 0;
         for (PointData pointData : list) {
@@ -2489,7 +2489,7 @@ public class PointDatabaseTypeHandler extends BlobTypeHandler {
             }
 
             map.addMarker(HtmlUtils.quote("" + cnt), pointData.lat,
-                          pointData.lon, icon, info.toString());
+                          pointData.lon, icon, "", info.toString());
         }
         map.center();
         sb.append(map.getHtml());
@@ -2836,14 +2836,14 @@ public class PointDatabaseTypeHandler extends BlobTypeHandler {
         basicSB.append(
             HtmlUtils.formEntry(
                 msgLabel("From Date"),
-                getPageHandler().makeDateInput(
+                getDateHandler().makeDateInput(
                     request, ARG_POINT_FROMDATE, "pointsearch", dateRange[0],
                     timezone)));
 
         basicSB.append(
             HtmlUtils.formEntry(
                 msgLabel("To Date"),
-                getPageHandler().makeDateInput(
+                getDateHandler().makeDateInput(
                     request, ARG_POINT_TODATE, "pointsearch", dateRange[1],
                     timezone)));
 
@@ -2861,7 +2861,7 @@ public class PointDatabaseTypeHandler extends BlobTypeHandler {
 
 
         MapInfo map = getRepository().getMapManager().createMap(request,
-                          true, null);
+                          entry, true, null);
         map.addBox(entry, new MapBoxProperties("blue", false));
         map.centerOn(entry);
 

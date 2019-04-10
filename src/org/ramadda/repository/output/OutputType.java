@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ package org.ramadda.repository.output;
 
 import org.ramadda.repository.*;
 import org.ramadda.repository.auth.*;
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -148,6 +148,9 @@ public class OutputType {
     private Counter numberOfCalls = new Counter();
 
 
+    /** _more_ */
+    private boolean okToUse = true;
+
     /**
      * _more_
      *
@@ -232,6 +235,26 @@ public class OutputType {
         this(that);
         this.suffix = suffix;
     }
+
+    /**
+     *  Set the OkToUse property.
+     *
+     *  @param value The new value for OkToUse
+     */
+    public void setOkToUse(boolean value) {
+        okToUse = value;
+    }
+
+    /**
+     *  Get the OkToUse property.
+     *
+     *  @return The OkToUse
+     */
+    public boolean getOkToUse() {
+        return okToUse;
+    }
+
+
 
     /**
      * _more_

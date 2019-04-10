@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ public class VirtualTypeHandler extends ExtensibleGroupTypeHandler {
             String widget = HtmlUtils.textArea(urlArg, value, 10, 60,
                                 HtmlUtils.id(textAreaId));
             formInfo.addMaxSizeValidation(column.getLabel(), textAreaId,
-                                          1500);
+                                          5000);
             String suffix =
                 "entry ids - one per row<br>Or use the  <a target=_help href=\"http://ramadda.org/repository/userguide/wikitext.html#collection\">entry shortcut and search</a> services";
             String buttons = OutputHandler.getSelect(request, textAreaId,
@@ -159,8 +159,9 @@ public class VirtualTypeHandler extends ExtensibleGroupTypeHandler {
         }
         idString = StringUtil.join(",", lines);
 
-        List<Entry> entries = getWikiManager().getEntries(request, mainEntry,
-                                  mainEntry, idString, null, false, "");
+        List<Entry> entries = getWikiManager().getEntries(request, null,
+                                  mainEntry, mainEntry, idString, null,
+                                  false, "");
 
 
         String by = request.getString(ARG_ORDERBY, (String) null);

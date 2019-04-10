@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -127,7 +127,7 @@ public class SocrataSearchProvider extends SearchProvider {
      * @return _more_
      */
     @Override
-    public String getIconUrl() {
+    public String getSearchProviderIconUrl() {
         return "${root}/socrata/socrata.png";
     }
 
@@ -218,9 +218,9 @@ public class SocrataSearchProvider extends SearchProvider {
                 String mimeType = StringUtil.splitUpTo(Json.readValue(item,
                                       "blobMimeType", ";"), ";",
                                           2).get(0).trim();
-                String fileUrl = "https://" + hostname + "/download/" + id
-                                 + "/" + mimeType;
-                resource = new Resource(new URL(fileUrl));
+                String getFileUrl = "https://" + hostname + "/download/" + id
+                                    + "/" + mimeType;
+                resource = new Resource(new URL(getFileUrl));
                 desc.append(HtmlUtils.br());
                 desc.append(HtmlUtils.href(itemUrl, "View file at Socrata"));
             }
@@ -388,9 +388,9 @@ public class SocrataSearchProvider extends SearchProvider {
             String mimeType = StringUtil.splitUpTo(Json.readValue(item,
                                   "blobMimeType", ";"), ";",
                                       2).get(0).trim();
-            String fileUrl = "https://" + domain + "/download/" + id
+            String getFileUrl = "https://" + domain + "/download/" + id
                              + "/" + mimeType;
-            resource = new Resource(new URL(fileUrl));
+            resource = new Resource(new URL(getFileUrl));
             //            https://www.opendatanyc.com/download/ewq6-p8b6/application/pdf
             desc.append(HtmlUtils.br());
             desc.append(HtmlUtils.href(itemUrl, "View file at Socrata"));

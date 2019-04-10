@@ -1,31 +1,16 @@
-
 [ht::head {Wiki Text} ]
-
 <%nochildlist%>
 
-All of the display in RAMADDA is accomplished through its  wiki facility. This supports both regular wiki markup as well as special 
-RAMADDA wiki tags that allow for displaying maps, lists, charts, etc. The <a href="http://geodesystems.com/repository/alias/wikis">geodesystems.com site</a> has many examples of the wiki facility.
+The web pages in RAMADDA are created through its  wiki facility. The wiki facility supports both regular wiki markup like Wikipedia uses
+as well as special  RAMADDA wiki tags that allow for page payout, displaying maps, lists, charts, etc. 
+
+[ug::subheading {Sections} ]
+<%inpagetoc%>
 
 
-<subhead intoc="false" id="editor">Wiki Editor</subhead>
-RAMADDA provides a wiki text editor:
-[ht::cimg images/wikiedit.png {Wiki Text Editor} {border=0 width=600}]
-<ul>
-<li>
-The  buttons allow you to add basic wiki markup.
-<li>
-The Add property menu adds RAMADDA specific properties from the entry that is being displayed 
-(e.g., name, description, children entries, etc).
-<li>
-The Add entry id menu allows you to specify the entry to use in properties (see below).
-<li>
-The Add entry link menu adds wiki links to other entries.
-</ul>
 
-<subhead intoc="false" id="markup">Basic Markup</subhead>
-
-The RAMADDA Wiki facility generally follows the format
-that Wikipedia follows. For example:
+[ug::subheading {Basic Markup} basicmarkup]
+The RAMADDA Wiki facility generally follows the format that Wikipedia follows. For example:
 [wiki::text {
 ==Section Heading 1==
 ===Section Heading 2===
@@ -36,7 +21,7 @@ A horizontal line:
 ----
 }]
 
-Lists:
+Bulleted lists:
 [wiki::text {
 * bullet 1
 * bullet 2
@@ -44,6 +29,83 @@ Lists:
 ** sub bullet 2
 * bullet 3
 }]
+
+The RAMADDA wiki text supports a number of other markup methods using +tag/-tag and :tag syntax. 
+The "+/-" syntax is for multi-line and the ":" syntax is for single line.
+For example, an easy way to add a line break of paragraph (instead of doing &lt;br&gt;, &lt;p&gt;) is:
+[wiki::text {
+:br
+:pr
+}]
+
+To center text do:
+[wiki::text {
++center
+some text
+to center
+-center
+}]
+
+To wrap text in a div do:
+[wiki::text {
++div
+...
+-div
+}]
+
+
+Set the background color or image with:
+<pre>
++div color="color"
+...
+-div
+
++div image=image_reference
+...
+-div
+
++div style="css style"
+...
+-div
+</pre>
+
+Where image_reference is either:
+<pre>
++div image=::name_of_attachment
+-div
++div image=this
+...
+-div
++div image=other_entry_id
+...
+-div
+</pre>
+
+
+To add attributes to the div do:
+[wiki::text {
++div style="max-height:100px;overflow-y:auto;"
+...
+-div
+}]
+
+
+
+
+To create a button do:
+[wiki::text {
+
+:button /url Some label
+
+:button-green /url Some label
+
+:button-blue /url Some label
+}]
+
+Will produce:
+[ht::cimg images/buttons.png {Buttons} {border=0}]
+
+
 
 
 You can escape your wiki text and include raw, unprocessed text with the &lt;nowiki&gt; tag:
@@ -55,75 +117,125 @@ This is text that does not get formatted
 more wiki text
 }]
 
+
+For example, if you want to include javascript in your text do:
+[wiki::text {
+&lt;nowiki&gt;
+&lt;script  type="text/JavaScript"  &gt;
+...
+&lt;/script&gt;
+&lt;/nowiki&gt;
+
+}]
+
 See the <a href=" http://en.wikipedia.org/wiki/Help:Wiki_markup">Wikipedia page on Wiki Markup</a> for more information on basic Wiki markup. 
 
 
-<subhead intoc="false" id="display">Layout and Display Markup</subhead>
-There are a number of helper layout tags that make it easy to do page layout and display.
+[ug::subsubheading {Macros} {macros}]
+Macro values can be defined and used later in the wiki page with the :macro and +macro/-macro tags.
 
-<b>Sections</b><br>
+To define a macro do:
+[wiki::text {
+:macro macro_name macro body
+or:
++macro macro_name
+macro
+body
+-macro
+}]
 
-To get the full page layout like on <a href="http://ramadda.org/repository">ramadda.org</a> use the "+section" tag:
+To use the macro do:
+[wiki::text {
+:macro macro_name Some text
+...
+any wiki text here ${macro_name} more text
+
+}]
+
+For example, if you have a number of buttons as described above but want to have
+one color for them do:
+[wiki::text {
+:macro buttonColor -green
+...
+:button${buttonColor} /url1 Button 1 text
+
+:button${buttonColor} /url2 Button 2 text
+}]
+
+Repository wide macros can be defined in the server side properties file in the RAMADDA home directory. Add the below properties:
 <pre>
-+section 
-...
--section
-</pre>
-
-If you append a "#" then the row number is kept track of and an even/odd color scheme is applied. 
-
-<pre>
-+section  #
-...
--section
-+section  #
-...
--section
-</pre>
-
-
-
-If you add title="..." then a title is added. If you add label="..." then a header is added. The normal use is:
-
-<pre>
-+section # title="section 1"
-...
--section
-+section # label="section 2"
-...
--section
-+section # label="section 3"
-...
--section
-</pre>
-
-You can change the background color/image by specifying one of the classes:
-
-<pre>
-+section class="ramadda-section-map"
-...
--section
-+section class="ramadda-section-lightpink"
-...
--section
-+section class="ramadda-section-lightblue"
-...
--section
-+section class="ramadda-section-lightgreen"
-...
--section
-</pre>
-
-You can also add a CSS style descriptor
-
-<pre>
-+section style="background: #888; border: 1px red solid;"
-...
--section
+ramadda.wiki.macros=comma separated list of macro names
+ramadda.wiki.macro.&lt;macro&gt;=&lt;macro value&gt;
+#For example
+ramadda.wiki.macros=buttonColor,blockColor
+ramadda.wiki.macro.buttonColor-green
+ramadda.wiki.macro.blockColor-olivine
 </pre>
 
 
-<b>Titles and headings</b><br>
+
+
+Note: the block tag below has a similar feature with the "var" attribute. The difference is that the block tag can be placed at the bottom of the page after the
+var that it references is used. The macro tags need to be inline before they are used.
+
+[ug::subsubheading {Blocks} {blocks}]
+The &lt;block&gt; tag allows you to easily create a toggle block and/or show or hide content
+based on the user's device.
+
+To show a simple toggle block just do:
+[xml {
+<block>
+ any content here
+</block>
+}]
+
+You can specify the toggle label title with:
+[xml {
+<block title="Click here to open">
+ any content here
+</block>
+}]
+
+
+You can specify whether the block is open or closed:
+[xml {
+<block open="false">
+ any content here
+</block>
+}]
+
+You can specify whether to show the content or not:
+[xml {
+<block show="mobile" decorate="false">
+  this will only show for mobile users
+</block>
+<block show="!mobile" decorate="false">
+  this will only show for non-mobile users
+</block>
+}]
+
+You can also use the block tag to define a variable or macro that is used later.
+
+[xml {
+<block var="var_name">
+ any content here
+</block>
+}]
+
+
+This will not show the content in place. Rather you can reference and insert the content elsewhere in the page with:
+[xml {
+${var_name}
+}]
+
+
+
+
+[ug::subheading {Layout and Display Markup} layout]
+There are a number of layout tags that make it easy to do page layout and display.
+
+
+[ug::subsubheading {Titles and headings} titles]
 There are a number of block display elements - 
 title, heading, blurb, note, and block that can be used as:
 <pre>
@@ -148,14 +260,96 @@ You can change the background color with:
 </pre>
 
 Examples at <a href="https://geodesystems.com/repository/alias/wikiexamples">https://geodesystems.com/repository/alias/wikiexamples</a>.
+<p>
+
+[ug::subsubheading {Sections} sections]
+
+To make page sections use the +section/-section tags.
+<pre>
++section 
+section content
+-section
+</pre>
+
+If you append a "#" then the row number is kept track of and an even/odd color scheme is applied. 
+
+<pre>
++section  #
+...
+-section
++section  #
+...
+-section
+</pre>
+
+
+If you append a "----" then a top border is shown:
+
+<pre>
++section
+...
+-section
++section  ----
+...
+-section
+</pre>
+
+
+
+If you add title="..." then a title is added. If you add label="..." then a header is added. The normal use is:
+
+<pre>
++section # title="section 1"
+...
+-section
++section # label="section 2"
+...
+-section
++section # label="section 3"
+...
+-section
+</pre>
+
+Using the {{name}} wiki tag will use the entry name for the title:
+<pre>
++section  title={{name}}
+...
+-section
+</pre>
+
+
+You can change the background color/image by specifying sections as below. Full list of styles <a href="https://geodesystems.com/repository/alias/wikiexamples">here</a>.
+
+
+<pre>
++section class="ramadda-section-map"
+...
+-section
++section class="ramadda-section-lightpink"
+...
+-section
++section class="ramadda-section-lightblue"
+...
+-section
++section class="ramadda-section-lightgreen"
+...
+-section
+</pre>
 
 
 
 
+You can also add a CSS style descriptor
+
+<pre>
++section style="background: #888; border: 1px red solid;"
+...
+-section
+</pre>
 
 
-<b>Inset</b>
-By default, a page has no margins on the left-side. If you have normal text layout you can make an inset with "+inset":
+[ug::subsubheading {Inset} inset]
+The +inset tag supports margins.
 <pre>
 +inset
 ...
@@ -172,30 +366,160 @@ This by default gives a 20px left and right margin. To change this you can add a
 
 
 
-<a name="layout"></a>
+[ug::subsubheading {Frames} frames]
+Frame your content like this:
+[ht::cimg images/frame.png {} {border=0}]
+
+With the +frame/-frame tags:
+<pre>
++frame
+content
+-frame
+</pre>
+
+You can change the background of the inner part of the frame with:
+<pre>
++frame background=white
+content
+-frame
+</pre>
+
+You can change the size and the color of the frame with:
+<pre>
++frame frameSize=5 frameColor=red
+content
+-frame
+</pre>
+
+Add a shadow effect with
+<pre>
++frame background=#fff frameSize=0 shadow
+content
+-frame
+</pre>
+
+[ug::subsubheading {Grid Boxes} gridboxes]
+To make a gridded box layout like this use  the +gridboxes/+gridbox tags.
+[ht::cimg images/gridbox.png {} {border=0}]
+
+These take the form of:
+<pre>
++gridboxes-&lt;number of columns&gt;
++gridbox Header 1
+contents
+-gridbox
++gridbox Header 2
+contents
+-gridbox
+-gridboxes
+</pre>
+
+For example:
+<pre>
++gridboxes-3
++gridbox Header 1
+Hello there
+<br>
+How are you
+-gridbox
++gridbox
+Hello there
+<br>
+How are you
+-gridbox
++gridbox Header 3
+Hello there
+<br>
+How are you
+-gridbox
++gridbox Header 4
+Line 1
+:br 
+Line 2
+-gridbox
+-gridboxes
+</pre>
 
 
-<b>Grid Layout</b><br>
+
+[ug::subsubheading {Scrollable Tables} tables]
+Scrollable HTML tables are supported with the +table/-table  tags. The form is below. 
+Note: any open tr or td tags will be close with the -table tag.
+<pre>
++table  height=100  stripe=false hover=true searching=false  cellborder=false rowborder=false paging=false ordering=false
++tr
++td 
+heading 1
+-td
++td 
+heading 2
+-td
+-tr
++tr
++td 
+column 1
+-td
++td 
+column 2
+-td
+-tr
+...
+-table
+</pre>
+
+The attributes of the +table tag are all optional. 
+<ul>  
+<li> height=100   - Set the height of the table and enable scrolling
+<li> stripe=false - Stripe the rows
+<li> hover=true  - Highlight the rows on hover
+<li> searching=false  - Show the search box
+<li> cellborder=false - draw borders around the cells
+<li> rowborder=false -  draw borders around the rows
+<li> paging=false  - enable paging
+<li> ordering=false -  enable sorting
+</ul>
+
+
+
+There are shortcuts available
+<pre>
++table  height=100  
+:tr "heading 1" "heading 2"
++tr
+:td column 1
+:td column 2
+-trow
+...
+-table
+</pre>
+
+
+
+[ug::subsubheading {Grid Layout} gridlayout]
 There is support for the <a href="http://getbootstrap.com/">Bootstrap</a> CSS grid system. To do a row layout use the following. The "+col-md-..." correspond to Bootstraps column widths, e.g., col-md-\[2,3,4,6,8,9,10,12\].
 Basically you can have any number of columns within a row.
 Each column has a width, the sum of which adds up to 12.
+Note: you can also use +col-&lt;some number&gt; as a short hand, 
+dropping the &quot;-md&quot;
 
-Three equally spaced columns:
+<p>
+Here are three equally spaced columns:
+
 
 <pre>+row
-+col-md-4 
++col-4 
 Left column contents
 -col
-+col-md-4 
++col-4 
 Center column contents
 -col
-+col-md-4
++col-4
 Right column contents
 -col
 -row
 </pre>
 
-Results in: 
+Which results in: 
 
 <div class="row">
 <div class="col-md-4" style="border: 1px #000 solid;">
@@ -210,34 +534,109 @@ Right column contents
 </div>
 
 
-
+<p>
 You can set the widths of different columns:
 <pre>
 +row
-+col-md-2 
++col-2 
 Left column contents
 -col
-+col-md-10
++col-10
 Right column contents
 -col
 -row
 </pre>
 
-Results in:
+Which results in:
 
 <div class="row">
-<div class="col-md-2"  style="border: 1px #000 solid;">
+<div class="col-md-2"  style="border: 1px #ccc solid;">
 Left column contents
 </div>
-<div class="col-md-10"  style="border: 1px #000 solid;">
+<div class="col-md-10"  style="border: 1px #ccc solid;">
 Right column contents
+</div>
 </div>
 
 
 
+[ug::subsubheading {Tabs} tabs]
+You can create a set of tabs with:
+<pre>
++tabs
++tab Tab 1 title
+Tab 1 content
+-tab
++tab Tab 2 title
+Tab 2 content
+-tab
+...
++tab Tab N title
+Tab N content
+-tab
+-tabs
+</pre>
 
 
-<subhead intoc="false" id="links">Linking to other entries</subhead>
+Tabs can also be nested:
+<pre>
++tabs
++tab Tab 1 title
++tabs
++tab another tab title
+...
+-tab
+-tabs
+-tab
++tab Tab 2 title
+Tab 2 content
+-tab
+-tabs
+</pre>
+
+Use a minimal style:
+<pre>
++tabs min
++tab Tab 1 title
++tabs
+-tabs
+</pre>
+
+Use a minimal style with arrows:
+<pre>
++tabs minarrow
++tab Tab 1 title
++tabs
+-tabs
+</pre>
+
+Center the tabs:
+<pre>
++tabs center
++tab Tab 1 title
++tabs
+-tabs
+</pre>
+
+
+<p>
+[ug::subsubheading {Accordian} accordian]
+
+You can create an accordian:
+<pre>
++accordian
++segment Accordian 1 title
+Accordian 1 content
+-segment
++segment Accordian 2 title
+Accordian 2 content
+-segment
+-accordian
+</pre>
+
+
+
+[ug::subsubheading {Linking to other entries} entry]
 Normally in a wiki a link to another page is of the form:
 [wiki::text {
 [[Page name]]
@@ -278,10 +677,10 @@ If the entry with the given name does not exist then the link will take one to t
 create entry form.
 
 
-<subhead intoc="false" id="properties">Wiki Properties</subhead>
+[ug::subsubheading {Wiki Properties} properties]
 You can also import content from the current Wiki Page entry or any other entry with the import  
 syntax:
-[wiki::text [wiki::tag property]]
+[wiki::text [wiki::tag {&lt;property&gt;  &lt;name="value" pairs&gt;}]]
 
 e.g., if we wanted to show the information tabs for an entry we'd do:
 [wiki::text [wiki::tag information]]
@@ -294,18 +693,25 @@ This would give us:
 [ht::cimg images/wikiinformation.png {} {border=0}]
 
 
-Normally, all property tags refer to the current entry. However, you can specify another entry:
+[ug::subsubheading {Specify other entries with the <i>entry</i> attribute} entry]
+Normally, all property tags refer to the current entry. However, another entry can be specified  with the "entry" attribute, e.g:
 [wiki::text [wiki::tag information {entry="some other entry id or name or 'parent' or 'grandparent'"}]]
 
 
 
 The entry value can be:
 <ul>
+<p>
 <li> The ID of an entry
+<p>
 <li> Its full path, e.g., /Top/.../entry_name
+<p>
 <li> The parent entry - "parent" 
+<p>
 <li> The parent of the parent entry  -"grandparent"
+<p>
 <li> The entry itself - "this"
+<p>
 <li> An entry linked to the entry. Either "link" to find the first one or to specify an entry type use "link:entry_type"
 </ul>
 
@@ -313,8 +719,19 @@ The entry value can be:
 The <i>Add Entry ID</i> menu in the editor toolbar allows you to select the entry to use. As a convenience this
 adds both the ID of the entry as well as its name. 
 
-<p>
-Some of the properties can result in an error message (e.g., image not found, entry not found, etc). You can specify a different message (or blank) with message attribute:
+[ug::subsubheading {Property tag} property]
+The <i>property</i> tag supports defining 
+an attribute property that is shared by all tags in the page. 
+
+[wiki::text [wiki::tag property {name="property name" value="property value"}]]
+
+For example, if you are creating a wiki page full of charts 
+(e.g., <a href="https://geodesystems.com/repository/entry/form?entryid=1f7c455f-1518-42cf-8701-8edc2a1e9ecb">here</a>) 
+that refer to another point data entry for their data then you use the property like, e.g.:
+[wiki::text [wiki::tag property {name="entry" value="9b2f87fc-91f2-485c-8035-7ef588c35fda"}]]
+
+[ug::subsubheading {Message attribute} message]
+Some of the tags can result in an error message (e.g., image not found, entry not found, etc). You can specify a different message (or blank) with message attribute:
 
 [wiki::text [wiki::tag someproperty {message="some message"}]]
 
@@ -335,39 +752,45 @@ If, however, you specify a blank message then nothing will be shown:
 {{links entry="Links" message=""}}
 }]
 
-Note: you can specify a prefix and suffix attributes that are only used if the tag was successful. So for example you could specify a heading for the links: 
+[ug::subsubheading {Prefix and suffix attributes} prefix]
+
+You can specify  prefix and suffix attributes that are only used if the tag was successful. So for example you could specify a heading for the links: 
 
 [wiki::text {
-{{links entry="Links" message="" prefix="Here are the links:&lt;br&gt;}}
+{{links entry="Links" message="" prefix="Here are the links:&lt;br&gt;"}}
 }]
-
 
 This would only show when there is a Links sub-folder.
 
+[ug::subsubheading {Basic Wiki Tags} basic]
 
-<subhead intoc="false" id="basic">Basic Wiki Properties</subhead>
-
-The first set of property tags show some information for the entry. Note: the attributes are all optional.
+The first set of tags show some information for the entry. Note: the attributes are all optional.
 
 <ul>
-<li> [wiki::tagdef name]:  Entry name
-<li> [wiki::tagdef entryid]:  Entry ID
-<li> [wiki::tagdef description {wikify="true|false"}]: Entry description. If wikify=true then treat the description as
+<li> [wiki::tagdef name] Entry name
+<p>
+<li> [wiki::tagdef entryid]  Entry ID
+<p>
+<li> [wiki::tagdef description {wikify="true|false"}] Entry description. If wikify=true then treat the description as
 wiki text.
+
+<p>
 <li> 
 [wiki::tagdef fromdate {format="date time format"} ]<br> 
 [wiki::tagdef todate {format="date time format"} ]<br> 
 [wiki::tagdef daterange {format="date time format" separator=" -- "} ]<br> 
 [wiki::tagdef createdate {format="date time format"} ]<br>  
 [wiki::tagdef changedate {format="date time format"} ]<br>  
-Show the different dates available for an entyr.
+Show the different dates available for an entry.
 If specified, format the date with the given date time format.
 This follows the
 Java <a href="http://docs.oracle.com/javase/6/docs/api/java/text/SimpleDateFormat.html">date format</a> conventions.
 
 
-<li> [wiki::tagdef information]: The information tabs.
-<li> [wiki::tagdef properties {metadata.types="types to show or not show"}]: Show the properties listing.
+<p>
+<li> [wiki::tagdef information] The information tabs.
+<p>
+<li> [wiki::tagdef properties {metadata.types="types to show or not show"}] Show the properties listing.
 The attribute metadata.types is an optional comma separated list of the metata (or property) types that should be shown or not shown.
 
 For example, if you wanted to show all of the properties except for the Project PI property do:
@@ -381,9 +804,11 @@ Then if you wanted to just show  the Project PI property then do:
 </pre>
 
 
-<li> [wiki::tagdef html]: Shows the default html view of the entry. Note: this requires an entry="..." to specify a different entry.
-<li> [wiki::tagdef link {linkresource=true|false button=true|false output=someoutput}]: Makes a link to the entry. Set button=true to buttonize the link. Link to the file with linkresource=true. Link to some other view with output=
-<li> [wiki::tagdef map {width="width of map" height="height of map" listentries="true|false" listwidth="width or percent"}]: Display a map. If the entry is a folder then display the children entries of the folder.
+<li> [wiki::tagdef html] Shows the default html view of the entry. Note: this requires an entry="..." to specify a different entry.
+<p>
+<li> [wiki::tagdef link {linkresource=true|false button=true|false output=someoutput}] Makes a link to the entry. Set button=true to buttonize the link. Link to the file with linkresource=true. Link to some other view with output=
+<p>
+<li> [wiki::tagdef map {width="width of map" height="height of map" listentries="true|false" listwidth="width or percent"}] Display a map. If the entry is a folder then display the children entries of the folder.
 
 If you do not specify a width then the map will be sized to fit its page. 
 
@@ -400,14 +825,19 @@ If you have a Folder (or other group) and want to just show the Folder and nots 
 </pre>
 
 
-<li> [wiki::tagdef earth {width="width of map" height="height of map"}]: 
+<li> [wiki::tagdef earth {width="width of map" height="height of map"}] 
 Display the Google Earth plugin. 
-
-<li> [wiki::tagdef comments]: Show the comments.
-<li> [wiki::tagdef breadcrumbs]: Show the breadcrumb path.
-<li> [wiki::tagdef layout]: This shows the "Layout:" toolbar bar for an entry.
-<li> [wiki::tagdef toolbar]: Show the entry toolbar.
-<li> [wiki::tagdef image {src="image source" alt="alt text" width="image width" link="true|false" left="absolute position" top="absolute position" linkresource="true|false" alt="image alt label"}]: Include an image. If src is not given then this shows the image (if there is one) 
+<p>
+<li> [wiki::tagdef comments] Show the comments.
+<p>
+<li> [wiki::tagdef breadcrumbs] Show the breadcrumb path.
+<p>
+<li> [wiki::tagdef layout] This shows the "Layout:" toolbar bar for an entry.
+<p>
+<li> [wiki::tagdef toolbar] Show the entry toolbar.
+<p>
+<li> [wiki::tagdef image {src="image source" alt="alt text" width="image width" link="true|false" left="absolute position" top="absolute position" linkresource="true|false" alt="image alt label"}] <br>
+Include an image. If src is not given then this shows the image (if there is one) 
 from the entry.  If src is specified it can take on the form: 
 <pre>
 src="entry name"
@@ -429,7 +859,8 @@ resource).  height and width can be used to scale the image, the alt
 attribute will be used in place of the entry id as a label on the image
 for accessibility.
 
-<li> [wiki::tagdef menu {popup="true|false" title="title to use" menus="file,edit,feeds,view,other"}]: 
+<p>
+<li> [wiki::tagdef menu {popup="true|false" title="title to use" menus="file,edit,feeds,view,other"}] 
 Show the menu actions. If menus is not specified
 show all of the menus. If menus is specified only show those menus listed.
 Show all menus in a toggle block:
@@ -453,135 +884,12 @@ Show the menu actions in a popup:
 </ul>
 
 
+[ug::subsubheading {Collection Wiki Tags} entries]
 
-<subhead intoc="false" id="displays">Display Components</subhead>
-There is a set of new "display" wiki tags that allow you to develop rich 
-integrated and interactive search, map and charting wiki pages.
-
-There are numerous examples of this facility available at <a href="http://ramadda.org/repository/alias/displays">ramadda.org</a>. You can always see the underlying wiki text from the Information or Wiki Text entry menu item.
-
-
-
-The idea is that there is a new <i>group</i> tag that can manage a number of children displays. Each child display
-may be located in a fixed location (using layoutHere=false) in the web page or the group can manage the layout of the children displays.
-
-
-
-
-
-
-The group is defined as:
-
-[wiki::tagdef group {showTitle="true"  showMenu="false"  layoutType="table"  layoutColumns="1" divid="maindiv"}]
-
-And the displays are defined as:
-[wiki::tagdef display {type="display type"   layoutHere="true"  ...}]
-
-Where type may be one of:
-<ul>
-<li> <i>entrylist</i> A search form and a list of entries. 
-
-Specify alternative search providers with the <i>provider</i> argument, e.g.:
-<pre>
-provider=google,arxiv,wolfram
-</pre>
-
-<li> <i>table</i> Tabular display of data
-
-<li> <i>linechart</i> A line chart
-
-<li> <i>barchart</i> A bar chart
-
-<li> <i>map</i> A map
-
-</pre>
-
-
-If you have a wiki page that does not have a group but only one or more display tags then a group will be
-added automatically.
-
-The major role for the group is to allow for the different displays to communicate with each other 
-(e.g., creating a new chart, map click, animation, etc) and to layout the set of children displays.
-
-<h3>Display Layout</h3>
-
-You can specify different layouts with the <i>layoutType</i> attribute. The available layouts are:
-<pre>
-layoutType=table
-layoutType=columns
-layoutType=rows
-</pre>
-
-Using the table layout you also specify a number of columns with the <i>layoutColumns</i> attibute.
-
-For the <i>columns</i> and <i>rows</i> layout type each child display can specify the <i>column</i> number of
-<i>row</i> number it should be placed in. 
-
-For example, for the <i>rows</i> layout if you had:
-<pre>
-{{group layoutType="rows"}}
-{{display display1  row="1"}}
-{{display display2  row="1"}}
-{{display display3  row="1"}}
-{{display display4  row="2"}}
-{{display display5  row="2"}}
-{{display display6  row="3"}}
-</pre>
-
-Would result in (without the border):
-<table width="50%" border=1><tr><td width=33%>display1</td><td width=33%>display2</td><td width=33%>display3</td></table>
-<table width="50%" border=1><tr><td width=50%>display4</td><td width=50%>display5</td></table>
-<table width="50%" border=1><tr><td width=100%>display6</td></table>
-
-
-The <i>divid</i> attribute allows you to specify a div tag that is in the wiki page as the location for the group and the displays
-to place themselves in. For example, below is the (abbreviated) wiki text used to create
-this <a href="http://ramadda.org/repository/entry/show/Home/RAMADDA+Examples/Rich+Content+Wikis/Display+Wikis/General+purpose+file+viewer?entryid=a98aa183-939b-471d-b31d-382e10657f2f">page</a> on ramadda.org.
-
-We want to have a fixed layout where the entry list is on the left and the map is on the right. Any charts or other display components that are interactively created by the user are managed by the group and layed out below the list and map.
-To do this we define a regular html table layout that contains a couple of div tags - one for the list and one for the map. We set the IDs of the div tags and then reference those IDs in the display wiki tags below.
-
-Likewise, the group has a divid=maindiv which corresponds to the div at the bottom of the page.
-
-[xml {
-<table width=100% border=0 cellpadding=10>
-<tr valign=top>
-<td width=50%><div id="listdiv"></div></td>
-<td width=50%><div id="mapdiv"></div></td>
-</table>
-
-<div id=maindiv></div>
-
-{{group  layoutType="table"  layoutColumns="1" divid="maindiv"}}
-
-{{display   type="entrylist"   divid="listdiv" }}
-
-{{display   type="map"  layoutHere="true" height="250" divid="mapdiv"}}
-}]
-
-
-
-
-When using the display tag you need to specify the type of display.
-
-[wiki::tagdef display {type="entrylist"   layoutHere="true"   orientation="vertical"  showMetadata="false" showTypes="true" name="list1" innerHeight="200" divid="listdiv" formOpen="false"}
-]:
-
-<h3>Entry List Display</h3>
-
-
-<pre>
-entryType="type_point_pbo_position_time_series"
-ramaddaBaseUrl="http://community.ramadda.org/repository/repos/data"
-</pre>
-
-
-<subhead intoc="false" id="collection">Collection Wiki Properties</subhead>
-
-The following properties display a collection of entries. By default they
+The following tags display a collection of entries. By default they
 are the children entries of the wiki entry but you can specify
 other groups of entries with any of the following arguments:
-[wiki::text {{{property entry="some other entry" 
+[wiki::text {{{<i>tag</i> entry="some other entry" 
                entries="entryid1,entryid2,entryid3.." 
                entries.filter="file|folder|image|type:some type|geo|suffix:file suffixes"
                exclude="entryid1,entryid2,entryid3.."  
@@ -708,9 +1016,7 @@ You can also:
 </ul>
 
 
-<a name="virtual_group"></a>
-<h3>Virtual Groups</h3>
-
+[ug::subsubheading {Virtual Groups} virtual_groups]
 RAMADDA provides a "Virtual Group" entry type. This acts as a Folder except a set of entry IDs or searches can be specified. There are a number of examples available <a href="http://ramadda.org/repository/entry/show/Home/RAMADDA+Examples/Miscellany/Virtual+Groups?entryid=f5ccdc47-62f7-481a-b67d-bf76e5b34359">here</a>.
 
 The Entry IDs field of the Virtual Group can be a list of specific entries, e.g.:
@@ -739,27 +1045,26 @@ search
 
 
 
-<h3>Collection Tags</h3>
-
+[ug::subsubheading {Collection Tags} collection_tags]
 <ul>
 
-<li> [wiki::tagdef tree]:
-The [wiki::tagdef tree] tag is used to display the children entries of a folder.
+<li> [wiki::tagdef tree]
+The tree tag is used to display the children entries of a folder.
 It can take the form:
-[wiki::text [wiki::tagdef tree {title="Links" showtoggle="false" open="true" }]]
+[wiki::text {{{tree title="Links" showtoggle="false" open="true" }}}]
 
 The title attribute is used in place of "Children". 
 If showtoggle="false" then the show/hide toggle link is not shown.
 
-<li> [wiki::tagdef grid]: Show the children in a grid. e.g., show 
+<li> [wiki::tagdef grid] Show the children in a grid. e.g., show 
 the grandchildren as a grid:
 [wiki::text {{{grid entries="grandchildren"}}}]
 
 
-<li> [wiki::tagdef recent {days="number of days to show"}]:
+<li> [wiki::tagdef recent {days="number of days to show"}]
 Show the most recent N days in a list organized by day.
 
-<li> [wiki::tagdef imageplayer {width="image width" loopdelay="delay in milliseconds" loopstart="true|false" useAttachment="true|false"}]:
+<li> [wiki::tagdef imageplayer {width="image width" loopdelay="delay in milliseconds" loopstart="true|false" useAttachment="true|false"}]
 Show images in an image player, e.g.
 [wiki::text {{{imageplayer loopdelay="500" loopstart="true"}}}] </pre>
 
@@ -767,7 +1072,7 @@ If <i>useAttachment</i> is true then, if the entry's file is not an image but it
 an attachment that is an image then use the attachment image.
 
 
-<li> [wiki::tagdef gallery {width="image width" columns="number of columns" showdescription="true"}]:
+<li> [wiki::tagdef gallery {width="image width" columns="number of columns" showdescription="true"}]
 Show a 3 column gallery:
 [wiki::text {{{gallery columns="3"}}}] </pre>
 
@@ -777,7 +1082,7 @@ Show a vertical listing of the children entry images:
 Set the image width and only show up to 5 images:
 [wiki::text {{{gallery  width="300" max="5"}}}] </pre>
 
-<li> [wiki::tagdef tabs]: Show the children as tabs:
+<li> [wiki::tagdef tabs] Show the children as tabs:
 [wiki::text {{{tabs}}}] </pre>
 
 Show only the 3 specified entries in tabs:
@@ -801,11 +1106,11 @@ Additional arguments:
 <li>linkresource="true|false" - if true, link to the entry resource
 </ul>
 
-<li> [wiki::tagdef accordian {border="0" collapse="true"}  ]: Show the children in an accordian:
+<li> [wiki::tagdef accordian {border="0" collapse="true"}  ] Show the children in an accordian:
 [wiki::text {{{accordian}}}] </pre>
 Uses the same arguments as tabs. If border is non-zero then show a border. If collapse is false then open the first section.
 
-<li> [wiki::tagdef slideshow]: Show the children in a slideshow:
+<li> [wiki::tagdef slideshow] Show the children in a slideshow:
 [wiki::text {{{slideshow}}}] </pre>
 <p>
 Uses the same arguments as tabs, plus:
@@ -825,7 +1130,7 @@ Uses the same arguments as tabs, plus:
                           class="css class for the link"
                           tagopen="html to prepend to the link - default is li" 
                           tagclose="close html"
-                          linkresource="true|false if true link to the entry's file or URL; If false link to the entry"}]: Layout links to the entries.<br>
+                          linkresource="true|false if true link to the entry's file or URL; If false link to the entry"}] Layout links to the entries.<br>
 This produces a set of links to the entries. 
 
 A bulleted list:
@@ -933,64 +1238,10 @@ apply.header="${url}"
 
 
 
-<subhead intoc="false" id="block">Hiding and showing content</subhead>
-
-The &lt;block&gt; tag allows you to easily create a toggle block and/or show or hide content
-based on the user's device.
-
-To show a simple toggle block just do:
-[xml {
-<block>
- any content here
-</block>
-}]
-
-You can specify the toggle label title with:
-[xml {
-<block title="Click here to open">
- any content here
-</block>
-}]
-
-
-You can specify whether the block is open or closed:
-[xml {
-<block open="false">
- any content here
-</block>
-}]
-
-You can specify whether to show the content or not:
-[xml {
-<block show="mobile" decorate="false">
-  this will only show for mobile users
-</block>
-<block show="!mobile" decorate="false">
-  this will only show for non-mobile users
-</block>
-}]
-
-You can also use the block tag to define a variable or macro that is used later.
-
-[xml {
-<block var="var_name">
- any content here
-</block>
-}]
-
-
-This will not show the content in place. Rather you can reference and insert the content later with:
-[xml {
- \${var_name}
-</block>
-}]
 
 
 
-
-
-
-<subhead intoc="false" id="import">Importing any page</subhead>
+[ug::subsubheading {Importing any page}]
 
 You can also import any of the views of an entry, e.g., the map view, 
 the calendar view, etc., with the  
@@ -1006,9 +1257,7 @@ want to include and look at the url for the output=... url argument
 and use that.
 
 
-
-<a name="snippet"></a>
-<b>Snippet</b><br>
+[ug::subsubheading {Snippet} snippet]
 A number of the layouts below (e.g,, table layout) will include a snippet of descriptive text from the entry that is being displayed. The snippet text is defined in the description of the entry with:
 <pre>
 Some description here.

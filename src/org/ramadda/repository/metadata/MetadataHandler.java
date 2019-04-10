@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -20,33 +20,23 @@ package org.ramadda.repository.metadata;
 import org.ramadda.repository.*;
 import org.ramadda.repository.util.FileWriter;
 import org.ramadda.util.HtmlUtils;
-
+import org.ramadda.util.Utils;
 
 import org.w3c.dom.*;
 
 
-import ucar.unidata.util.DateUtil;
-import ucar.unidata.util.IOUtil;
 import ucar.unidata.util.Misc;
 
 
-import ucar.unidata.util.StringUtil;
 import ucar.unidata.util.TwoFacedObject;
 import ucar.unidata.xml.XmlUtil;
 
-
-
-
-
 import java.io.*;
-
 
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.List;
-import java.util.zip.*;
-
 
 
 
@@ -61,6 +51,8 @@ public class MetadataHandler extends RepositoryManager {
 
     /** _more_ */
     public static String ATTR_FORUSER = "foruser";
+
+
 
     /** _more_ */
     public static String ARG_METADATAID = "metadataid";
@@ -94,6 +86,8 @@ public class MetadataHandler extends RepositoryManager {
 
     /** _more_ */
     boolean forUser = true;
+
+
 
 
     /**
@@ -188,6 +182,7 @@ public class MetadataHandler extends RepositoryManager {
                                    Hashtable fileMap, boolean internal)
             throws Exception {
         forUser = XmlUtil.getAttribute(node, ATTR_FORUSER, true);
+
         String type = XmlUtil.getAttribute(node, ATTR_TYPE);
         //TODO: Handle the extra attributes
         String extra = XmlUtil.getGrandChildText(node, Metadata.TAG_EXTRA,
@@ -233,7 +228,7 @@ public class MetadataHandler extends RepositoryManager {
                 internal)) {
             return;
         }
-        entry.addMetadata(metadata);
+        getMetadataManager().addMetadata(entry, metadata);
     }
 
     /**
@@ -581,30 +576,6 @@ public class MetadataHandler extends RepositoryManager {
                                      datasetNode);
     }
 
-
-    /**
-     * _more_
-     *
-     * @param metadata _more_
-     *
-     * @return _more_
-     */
-    public boolean canHandle(Metadata metadata) {
-        return canHandle(metadata.getType());
-    }
-
-    /**
-     * _more_
-     *
-     * @param type _more_
-     *
-     * @return _more_
-     */
-    public boolean canHandle(String type) {
-        return typeMap.get(type) != null;
-    }
-
-
     /**
      * _more_
      *
@@ -687,7 +658,7 @@ public class MetadataHandler extends RepositoryManager {
         }
         String suffix = "";
         if (metadata.getId().length() > 0) {
-            suffix = "." + metadata.getId();
+            suffix = "_" + metadata.getId();
         }
 
         return type.getForm(this, request, entry, metadata, suffix, forEdit);
@@ -740,9 +711,9 @@ public class MetadataHandler extends RepositoryManager {
     public String getSearchUrl(Request request, MetadataType type,
                                String value) {
         List args = new ArrayList();
-        //        args.add(ARG_METADATA_TYPE + "." + type.getId());
+        //        args.add(ARG_METADATA_TYPE + "_" + type.getId());
         //        args.add(type.toString());
-        args.add(ARG_METADATA_ATTR1 + "." + type.getId());
+        args.add(ARG_METADATA_ATTR1 + "_" + type.getId());
         args.add(value);
 
         return HtmlUtils.url(
@@ -764,7 +735,7 @@ public class MetadataHandler extends RepositoryManager {
         return HtmlUtils.href(
             getSearchUrl(request, metadata),
             HtmlUtils.img(
-                getRepository().iconUrl(ICON_SEARCH_SMALL),
+                getRepository().getIconUrl(ICON_SEARCH_SMALL),
                 "Search for entries with this metadata", " border=0 "));
     }
 
@@ -782,7 +753,7 @@ public class MetadataHandler extends RepositoryManager {
                                 MetadataType type)
             throws Exception {
         boolean doSelect = true;
-        String  argName  = ARG_METADATA_ATTR1 + "." + type;
+        String  argName  = ARG_METADATA_ATTR1 + "_" + type;
         if (doSelect) {
             String[] values = getMetadataManager().getDistinctValues(request,
                                   this, type);
@@ -848,7 +819,8 @@ public class MetadataHandler extends RepositoryManager {
                 request.makeUrl(
                     getRepository().getMetadataManager().URL_METADATA_LIST,
                     ARG_METADATA_TYPE, type.toString()), HtmlUtils.img(
-                        getRepository().iconUrl(ICON_LIST), "View Listing"));
+                        getRepository().getIconUrl(ICON_LIST),
+                        "View Listing"));
 
         cloudLink = HtmlUtils.href(
             request.makeUrl(
@@ -870,9 +842,9 @@ public class MetadataHandler extends RepositoryManager {
         int rowNum = 1;
         for (int i = 0; i < values.length; i++) {
             String browseUrl = HtmlUtils.url(url,
-                                             ARG_METADATA_TYPE + "."
+                                             ARG_METADATA_TYPE + "_"
                                              + type.getId(), type.getId(),
-                                                 ARG_METADATA_ATTR1 + "."
+                                                 ARG_METADATA_ATTR1 + "_"
                                                  + type.getId(), values[i]);
             String value = values[i].trim();
             if (value.length() == 0) {
@@ -940,19 +912,32 @@ public class MetadataHandler extends RepositoryManager {
         if (html == null) {
             return;
         }
-
         if (entry != null) {
             request.uploadFormWithAuthToken(
                 sb, getMetadataManager().URL_METADATA_ADD);
+            sb.append("\n");
             sb.append(HtmlUtils.hidden(ARG_ENTRYID, entry.getId()));
+            sb.append("\n");
+            sb.append(HtmlUtils.formTable());
+            sb.append("\n");
         } else {
+            sb.append("\n");
+            sb.append(HtmlUtils.formTable());
+            sb.append("\n");
             sb.append(HtmlUtils.row(HtmlUtils.colspan(header(html[0]), 2)));
         }
 
+
+        sb.append("\n");
         sb.append(html[1]);
+        sb.append("\n");
+        sb.append("\n");
+        sb.append(HtmlUtils.formTableClose());
+        sb.append("\n");
 
         if (entry != null) {
             sb.append(HtmlUtils.formClose());
+            sb.append("\n");
         }
     }
 
@@ -1010,11 +995,11 @@ public class MetadataHandler extends RepositoryManager {
         Hashtable args = request.getArgs();
         for (Enumeration keys = args.keys(); keys.hasMoreElements(); ) {
             String arg = (String) keys.nextElement();
-            if ( !arg.startsWith(ARG_METADATAID + ".")) {
+            if ( !arg.startsWith(ARG_METADATAID + "_")) {
                 continue;
             }
             String id     = request.getString(arg, "");
-            String suffix = "." + id;
+            String suffix = "_" + id;
             handleForm(request, entry, id, suffix, existingMetadata,
                        metadataList, false);
         }
@@ -1031,6 +1016,19 @@ public class MetadataHandler extends RepositoryManager {
     public String getEnumerationValues(MetadataElement element) {
         return "";
     }
+
+    /**
+     * _more_
+     *
+     * @param type _more_
+     *
+     * @return _more_
+     */
+    public boolean canHandle(String type) {
+        return typeMap.get(type) != null;
+    }
+
+
 
 
     /**

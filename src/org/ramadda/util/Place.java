@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -57,19 +57,25 @@ public class Place {
 
     /** _more_ */
     public static final Resource[] RESOURCES = {
-        //name,id,fips,lat,lon,opt state index
+        //name,id,fips,lat,lon,opt state index,suffix
+        new Resource(RESOURCE_ROOT + "/alllocations.txt", new int[] { 0, 0, 0,1,2
+                                                                      }, ""),
+        new Resource(RESOURCE_ROOT + "/countries.txt", new int[] { 3, 0,
+                -1, 1, 2, }, ""),
         new Resource(RESOURCE_ROOT + "/states.txt", new int[] { 1, 0, 2, 3,
-                4 }, ""),
-        new Resource(RESOURCE_ROOT + "/counties.txt", new int[] { 3, 1, 1, 10,
-                11 }, ""),
-        new Resource(RESOURCE_ROOT + "/subdivisions.txt", new int[] { 3, 1, 1,
-                11, 12 }, ""),
+                4, }, ""), new Resource(RESOURCE_ROOT + "/counties.txt",
+                                        new int[] {
+            3, 1, 1, 10, 11, -1, 0
+        }, ""), new Resource(RESOURCE_ROOT + "/subdivisions.txt", new int[] {
+            3, 1, 1, 11, 12, -1, 0
+        }, ""),
         //new Resource(RESOURCE_ROOT +"/districts.txt",new int[]{},""),
-        new Resource(RESOURCE_ROOT + "/places.txt", new int[] { 3, 1, 1, 12,
-                13 }, ""),
+        new Resource(RESOURCE_ROOT + "/places.txt", new int[] {
+            3, 1, 1, 12, 13, -1, 0
+        }, ""),
         //#GEOID        NAME    UATYPE  POP10   HU10    ALAND   AWATER  ALAND_SQMI      AWATER_SQMI     INTPTLAT        INTPTLONG
-        new Resource(RESOURCE_ROOT + "/urbanareas.txt", new int[] { 1, 0, 0,
-                9, 10 }, "urban:"),
+        //        new Resource(RESOURCE_ROOT + "/urbanareas.txt", new int[] { 1, 0, 0,
+        //                9, 10 }, "urban:"),
         //#GEOID        POP10   HU10    ALAND   AWATER  ALAND_SQMI      AWATER_SQMI     INTPTLAT        INTPTLONG
         new Resource(RESOURCE_ROOT + "/zipcodes.txt", new int[] { 0, 0, 0, 7,
                 8 }, "zip:"),
@@ -90,6 +96,9 @@ public class Place {
     private static class Resource {
 
         /** _more_ */
+        String id;
+
+        /** _more_ */
         String base;
 
         /** _more_ */
@@ -102,6 +111,9 @@ public class Place {
         /** _more_ */
         String prefix;
 
+        /** _more_ */
+        List<Place> places = new ArrayList<Place>();
+
         /**
          * _more_
          *
@@ -111,6 +123,7 @@ public class Place {
          */
         public Resource(String file, int[] indices, String prefix) {
             this.base    = new File(file).getName();
+            this.id      = IOUtil.stripExtension(this.base);
             this.file    = file;
             this.indices = indices;
             this.prefix  = prefix;
@@ -125,12 +138,35 @@ public class Place {
     private static Hashtable<String, Place> placesMap = new Hashtable<String,
                                                             Place>();
 
+    /** _more_ */
+    private static Hashtable<String, Resource> resourceMap =
+        new Hashtable<String, Resource>();
+
+
+
+    /** _more_ */
+    private static Hashtable<String, Hashtable<String, Place>> resourcePlacesMap =
+        new Hashtable<String, Hashtable<String, Place>>();
+
+
 
     /** _more_ */
     private String from;
 
+    /** _more_          */
+    private String label;
+
+
     /** _more_ */
     private String name;
+    private String lcname;
+
+    /** _more_          */
+    private String suffix;
+    private String lcsuffix;
+
+    /** _more_          */
+    private String _name;
 
     /** _more_ */
     private String id;
@@ -150,6 +186,20 @@ public class Place {
      */
     public Place() {}
 
+    /**
+     * _more_
+     *
+     * @param name _more_
+     * @param lat _more_
+     * @param lon _more_
+     */
+    public Place(String name, double lat, double lon) {
+        this.id        = name;
+        this.name      = name;
+        this.latitude  = lat;
+        this.longitude = lon;
+    }
+
 
 
     /**
@@ -161,13 +211,21 @@ public class Place {
      * @param fipsIndex _more_
      * @param latIndex _more_
      * @param lonIndex _more_
+     * @param suffixIndex _more_
      */
     public void processLine(List<String> toks, int nameIndex, int idIndex,
-                            int fipsIndex, int latIndex, int lonIndex) {
+                            int fipsIndex, int latIndex, int lonIndex,
+                            int suffixIndex) {
+        //        System.err.println("line:" + toks.size() +"  " + toks);
         if (fipsIndex >= toks.size()) {
             return;
         }
-        String fips = toks.get(fipsIndex);
+        String fips = (fipsIndex < 0)
+                      ? ""
+                      : toks.get(fipsIndex);
+        suffix = (suffixIndex >= 0)
+                 ? toks.get(suffixIndex)
+                 : null;
         setName(toks.get(nameIndex));
         setId(toks.get(idIndex));
         setFips(fips);
@@ -203,7 +261,8 @@ public class Place {
      *  @param value The new value for Name
      */
     public void setName(String value) {
-        name = value;
+        name  = value;
+        _name = name.toLowerCase();
     }
 
     /**
@@ -215,14 +274,30 @@ public class Place {
         return name;
     }
 
+    public String getLowerCaseName() {
+        if(lcname ==null) lcname = name.toLowerCase();
+        return lcname;
+    }
+
+    public String getSuffix() {
+        return suffix;
+    }
+
+
+    public String getLowerCaseSuffix() {
+        if(lcsuffix==null && suffix!=null)
+            lcsuffix = suffix.toLowerCase();
+        return lcsuffix;
+    }
+
     /**
      * _more_
      *
      * @return _more_
      */
     public String toString() {
-        return from + " name:" + name + " id:" + id + " fips:" + fips
-               + " lat:" + latitude + " lon:" + longitude;
+        return " name:" + name + " id:" + id + " fips:" + fips + " lat:"
+               + latitude + " lon:" + longitude;
     }
 
     /**
@@ -292,6 +367,16 @@ public class Place {
     }
 
 
+    public static Place findPlace(List<Place>places, String key) {
+        key = key.toLowerCase();
+        //        System.out.println("key:" + key);
+        for(Place place: places) {
+            //            System.out.println(":" + place._name+":");
+            if(key.equals(place._name)) return place;
+        }
+        return null;
+    }
+
     /**
      * _more_
      *
@@ -312,6 +397,39 @@ public class Place {
         return found;
     }
 
+    /**
+     * _more_
+     *
+     * @param id _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static Resource getResource(String id) throws Exception {
+        getPlaces(id);
+        return resourceMap.get(id);
+    }
+
+    /**
+     * _more_
+     *
+     * @param id _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static List<Place> getPlacesForResource(String id)
+            throws Exception {
+        Resource resource = getResource(id);
+        if (resource == null) {
+            return null;
+        }
+
+        return resource.places;
+    }
+
 
     /**
      * _more_
@@ -321,13 +439,34 @@ public class Place {
      * @throws Exception _more_
      */
     public static List<Place> getPlaces() throws Exception {
+        return getPlaces(null);
+    }
+
+    /**
+     * _more_
+     *
+     * @param resourceId _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static List<Place> getPlaces(String resourceId) throws Exception {
         if (places == null) {
             synchronized (MUTEX) {
                 if (places == null) {
                     List<Place> tmp = new ArrayList<Place>();
                     for (int i = 0; i < RESOURCES.length; i++) {
                         Resource resource = RESOURCES[i];
-                        //                System.err.println("Reading:" + resource.file +" prefix:" + resource.prefix);
+                        //                        System.err.println("Reading:" + resource.file +" id:" + resource.id);
+                        if((resourceId != null)
+                                && !resource.id.equals(resourceId)) {
+                            continue;
+                        }
+                        Hashtable<String, Place> resourceMap =
+                            new Hashtable<String, Place>();
+                        Place.resourceMap.put(resource.id, resource);
+                        resourcePlacesMap.put(resource.id, resourceMap);
                         BufferedReader br = new BufferedReader(
                                                 new InputStreamReader(
                                                     IOUtil.getInputStream(
@@ -342,11 +481,16 @@ public class Place {
                                 continue;
                             }
                             Place place = new Place();
-                            place.from = resource.base;
+                            resource.places.add(place);
+                            place.from = resource.id;
+                            int suffix = (indices.length >= 7)
+                                         ? indices[6]
+                                         : -1;
                             place.processLine(StringUtil.split(line, "\t",
                                     false, false), indices[0], indices[1],
-                                        indices[2], indices[3], indices[4]);
-                            if (indices.length >= 6) {
+                                        indices[2], indices[3], indices[4],
+                                        suffix);
+                            if ((indices.length >= 6) && (indices[5] >= 0)) {
                                 place.fips = place.fips.substring(indices[5]);
                             }
                             tmp.add(place);
@@ -356,6 +500,9 @@ public class Place {
                                 if (key == null) {
                                     continue;
                                 }
+                                resourceMap.put(key, place);
+                                resourceMap.put(key.toLowerCase(), place);
+                                resourceMap.put(key.toUpperCase(), place);
                                 placesMap.put(key, place);
                                 placesMap.put(key.toLowerCase(), place);
                                 placesMap.put(key.toUpperCase(), place);
@@ -363,6 +510,17 @@ public class Place {
                             for (String key :
                                     new String[] {
                                         resource.prefix + place.getId() }) {
+                                if (key == null) {
+                                    continue;
+                                }
+                                placesMap.put(key, place);
+                                placesMap.put(key.toLowerCase(), place);
+                                placesMap.put(key.toUpperCase(), place);
+                            }
+
+                            for (String key :
+                                    new String[] {
+                                        resource.prefix + place.getName() }) {
                                 if (key == null) {
                                     continue;
                                 }
@@ -394,7 +552,64 @@ public class Place {
      * @throws Exception _more_
      */
     public static Place getPlace(String id) throws Exception {
-        getPlaces();
+        return getPlace(id, null);
+    }
+
+    /**
+     * _more_
+     *
+     * @param s _more_
+     * @param max _more_
+     * @param bounds _more_
+     * @param startsWith _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static List<Place> search(String s, int max, Bounds bounds,
+                                     boolean startsWith)
+            throws Exception {
+        getPlaces("alllocations");
+        List<Place> result = new ArrayList<Place>();
+        s = s.toLowerCase();
+
+        for (Place place : places) {
+            if (place._name == null) {
+                continue;
+            }
+            if ((bounds != null)
+                    && !bounds.contains(place.getLatitude(),
+                                        place.getLongitude())) {
+                continue;
+            }
+            boolean match = (startsWith
+                             ? place._name.startsWith(s)
+                             : place._name.indexOf(s) >= 0);
+            if (match) {
+                result.add(place);
+                if (result.size() > max) {
+                    break;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * _more_
+     *
+     * @param id _more_
+     * @param resource _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static Place getPlace(String id, String resource)
+            throws Exception {
+        getPlaces(resource);
         Place place = placesMap.get(id);
         if (place != null) {
             return place;
@@ -428,8 +643,30 @@ public class Place {
      * @throws Exception _more_
      */
     public static void main(String[] args) throws Exception {
-        for (String arg : args) {
-            System.err.println("result:" + getPlace(arg));
+        System.err.println(search("boulder", 50, null, false));
+        if (true) {
+            return;
+        }
+        List<Place> places = getPlacesForResource((args.length > 0)
+                ? args[0]
+                : null);
+        //        List<Place> places = getPlaces();
+        if (places == null) {
+            System.err.println("no resource:");
+
+
+            return;
+        }
+        System.out.println("#name,lat,lon");
+        for (Place place : places) {
+            if (place.fips != null) {
+                String label = place.name;
+                if (place.suffix != null) {
+                    label += "," + place.suffix;
+                }
+                System.out.println(label + "\t" + place.latitude + "\t"
+                                   + place.longitude);
+            }
         }
     }
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -24,9 +24,12 @@ import org.ramadda.repository.output.OutputHandler;
 import org.ramadda.repository.type.*;
 
 
+import org.ramadda.util.HtmlUtils;
+import org.ramadda.util.WikiUtil;
 import org.w3c.dom.*;
 
 import java.util.ArrayList;
+import java.util.Hashtable;
 import java.util.List;
 
 
@@ -35,9 +38,6 @@ import java.util.List;
  *
  */
 public class ChatTypeHandler extends ExtensibleGroupTypeHandler {
-
-    /** _more_ */
-    private ChatOutputHandler chatOutputHandler;
 
     /**
      * _more_
@@ -56,60 +56,43 @@ public class ChatTypeHandler extends ExtensibleGroupTypeHandler {
     /**
      * _more_
      *
-     * @return _more_
-     */
-    private ChatOutputHandler getChatOutputHandler() {
-        if (chatOutputHandler == null) {
-            try {
-                chatOutputHandler =
-                    (ChatOutputHandler) getRepository().getOutputHandler(
-                        ChatOutputHandler.OUTPUT_CHATROOM);
-            } catch (Exception exc) {
-                throw new RuntimeException(exc);
-
-            }
-        }
-
-        return chatOutputHandler;
-    }
-
-
-    /**
-     * _more_
      *
+     * @param wikiUtil _more_
      * @param request _more_
+     * @param originalEntry _more_
+     * @param tag _more_
+     * @param props _more_
      * @param entry _more_
-     * @param group _more_
-     * @param subGroups _more_
-     * @param entries _more_
      *
      * @return _more_
      *
      * @throws Exception _more_
      */
-    public Result getHtmlDisplay(Request request, Entry entry,
-                                 List<Entry> subGroups, List<Entry> entries)
-            throws Exception {
-        return getChatOutputHandler().outputEntry(request,
-                chatOutputHandler.OUTPUT_CHATROOM, entry);
-    }
-
-    /**
-     * _more_
-     *
-     * @return _more_
-     */
     @Override
-    public boolean getForUser() {
-        if (getChatOutputHandler() == null) {
-            return false;
+    public String getWikiInclude(WikiUtil wikiUtil, Request request,
+                                 Entry originalEntry, Entry entry,
+                                 String tag, Hashtable props)
+            throws Exception {
+        if ( !tag.equals("chat")) {
+            return super.getWikiInclude(wikiUtil, request, originalEntry,
+                                        entry, tag, props);
         }
-        if (getChatOutputHandler().getChatPort() > 0) {
-            return true;
-        }
-
-        return false;
+        StringBuilder sb   = new StringBuilder();
+        sb.append(HtmlUtils.cssLink(getPageHandler().makeHtdocsUrl("/chat/chat.css")));
+        HtmlUtils.importJS(sb,
+                           "https://www.gstatic.com/charts/loader.js");
+        HtmlUtils.importJS(sb, getPageHandler().makeHtdocsUrl("/chat/chat.js"));
+        String id = HtmlUtils.getUniqueId("chat_");
+        HtmlUtils.div(sb,
+                      "",
+                      HtmlUtils.id(id)
+                      + HtmlUtils.cssClass("ramadda-chat"));
+        boolean canEdit = getAccessManager().canEditEntry(request,entry);
+        sb.append(HtmlUtils.script("\nnew RamaddaChat('" + entry.getId()+"','"+ id +"'," + canEdit+");\n"));
+        return sb.toString();
     }
+
+
 
 
 }

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -30,16 +30,22 @@ import org.apache.commons.net.ftp.*;
 import org.w3c.dom.*;
 
 
+import ucar.unidata.ui.ImageUtils;
 import ucar.unidata.util.DateUtil;
 import ucar.unidata.util.IOUtil;
 import ucar.unidata.util.Misc;
 import ucar.unidata.util.StringUtil;
 import ucar.unidata.xml.XmlUtil;
 
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Image;
 
 import java.awt.Toolkit;
 import java.awt.image.*;
+
+import java.awt.image.BufferedImage;
 
 import java.io.*;
 
@@ -50,7 +56,7 @@ import java.lang.reflect.Constructor;
 import java.net.*;
 
 import java.text.DecimalFormat;
-
+import java.text.ParseException;
 import java.text.ParsePosition;
 
 import java.text.SimpleDateFormat;
@@ -63,6 +69,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.GregorianCalendar;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
@@ -169,16 +176,109 @@ public class Utils {
     /**
      * _more_
      *
-     * @param sb _more_
-     * @param s _more_
+     * @return _more_
+     */
+    public static Appendable makeAppendable() {
+        return new StringBuilder();
+    }
+
+    /**
+     * _more_
+     *
+     * @param list _more_
+     * @param args _more_
      *
      * @return _more_
      */
-    public static Appendable append(Appendable sb, String s) {
+    public static List add(List list, Object... args) {
+        if (list == null) {
+            list = new ArrayList();
+        }
+        for (Object s : args) {
+            if (s != null) {
+                list.add(s);
+            }
+        }
+
+        return list;
+    }
+
+    /**
+     * _more_
+     *
+     * @param map _more_
+     * @param args _more_
+     *
+     * @return _more_
+     */
+    public static Hashtable put(Hashtable map, Object... args) {
+        for (int i = 0; i < args.length; i += 2) {
+            map.put(args[i], args[i + 1]);
+        }
+
+        return map;
+    }
+
+    /**
+     * _more_
+     *
+     * @param sb _more_
+     * @param args _more_
+     *
+     * @return _more_
+     */
+    public static Appendable append(Appendable sb, Object... args) {
         try {
-            sb.append(s);
+            for (Object s : args) {
+                if (s != null) {
+                    sb.append(s.toString());
+                } else {
+                    sb.append("null");
+                }
+            }
 
             return sb;
+        } catch (java.io.IOException ioe) {
+            throw new RuntimeException(ioe);
+        }
+    }
+
+    /**
+     * _more_
+     *
+     * @param args _more_
+     *
+     * @return _more_
+     */
+    public static String concatString(Object... args) {
+        try {
+            Appendable sb = makeAppendable();
+            for (Object s : args) {
+                sb.append((s != null)
+                          ? s.toString()
+                          : (String) null);
+            }
+
+            return sb.toString();
+        } catch (java.io.IOException ioe) {
+            throw new RuntimeException(ioe);
+        }
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param sb _more_
+     * @param args _more_
+     */
+    public static void concatBuff(Appendable sb, Object... args) {
+        try {
+            for (Object s : args) {
+                sb.append((s != null)
+                          ? s.toString()
+                          : (String) null);
+            }
         } catch (java.io.IOException ioe) {
             throw new RuntimeException(ioe);
         }
@@ -224,6 +324,33 @@ public class Utils {
      * _more_
      *
      * @param line _more_
+     * @param widths _more_
+     *
+     * @return _more_
+     */
+    public static List<String> tokenizeColumns(String line,
+            List<Integer> widths) {
+        List<String> toks    = new ArrayList<String>();
+        int          lastIdx = 0;
+        for (int i = 0; i < widths.size(); i++) {
+            int width = widths.get(i);
+            if (lastIdx + width > line.length()) {
+                break;
+            }
+            String theString = line.substring(lastIdx, lastIdx + width);
+            toks.add(theString);
+            lastIdx += width;
+        }
+
+        return toks;
+    }
+
+
+
+    /**
+     * _more_
+     *
+     * @param line _more_
      * @param columnDelimiter _more_
      *
      * @return _more_
@@ -231,8 +358,10 @@ public class Utils {
     public static List<String> tokenizeColumns(String line,
             String columnDelimiter) {
         //        System.err.println("line:" + line);
+        //        System.err.println("line:" + line.replaceAll("\t","_TAB_"));
         List<String> toks      = new ArrayList<String>();
         StrTokenizer tokenizer = StrTokenizer.getCSVInstance(line);
+        tokenizer.setEmptyTokenAsNull(true);
         //        StrTokenizer tokenizer = new StrTokenizer(line, columnDelimiter);
         if ( !columnDelimiter.equals(",")) {
             tokenizer.setDelimiterChar(columnDelimiter.charAt(0));
@@ -240,6 +369,9 @@ public class Utils {
         //        tokenizer.setQuoteChar('"');
         while (tokenizer.hasNext()) {
             String tok = tokenizer.nextToken();
+            if (tok == null) {
+                tok = "";
+            }
             //            System.err.println("tok:" + tok);
             toks.add(tok);
         }
@@ -263,6 +395,21 @@ public class Utils {
     }
 
 
+    /**
+     * _more_
+     *
+     * @param d _more_
+     *
+     * @return _more_
+     */
+    public static boolean isReal(double d) {
+        if ( !Double.isNaN(d) && (d != Double.POSITIVE_INFINITY)
+                && (d != Double.NEGATIVE_INFINITY)) {
+            return true;
+        }
+
+        return false;
+    }
 
 
 
@@ -549,11 +696,13 @@ public class Utils {
         }
 
 
+        System.err.println("Could not find constructor for:" + c.getName());
         for (int i = 0; i < constructors.length; i++) {
             Class[] formals = constructors[i].getParameterTypes();
             for (int j = 0; j < formals.length; j++) {
-                System.err.println("param " + j + "  " + formals[j].getName()
-                                   + " " + paramTypes[j].getName());
+                System.err.println("\tparam " + j + "  "
+                                   + formals[j].getName() + " "
+                                   + paramTypes[j].getName());
             }
         }
 
@@ -739,6 +888,10 @@ public class Utils {
     }
 
 
+
+
+
+
     /**
      * _more_
      *
@@ -841,8 +994,8 @@ public class Utils {
      *
      * @return _more_
      */
-    public static Hashtable<String, String> makeMap(String... args) {
-        Hashtable<String, String> map = new Hashtable<String, String>();
+    public static Hashtable makeMap(Object... args) {
+        Hashtable map = new Hashtable();
         for (int i = 0; i < args.length; i += 2) {
             map.put(args[i], args[i + 1]);
         }
@@ -1071,6 +1224,14 @@ public class Utils {
         return pattern.toString();
     }
 
+    public static InputStream getInputStream(String filename, Class origin)
+        throws FileNotFoundException, IOException {
+        File f = new File(filename);
+        if(f.exists()) return new FileInputStream(f);
+        return IOUtil.getInputStream(filename, origin);
+    }
+
+
     /**
      * _more_
      *
@@ -1084,7 +1245,7 @@ public class Utils {
             return null;
         }
         try {
-            InputStream is = IOUtil.getInputStream(file, Utils.class);
+            InputStream is = Utils.getInputStream(file, Utils.class);
             if (is != null) {
                 byte[] bytes = IOUtil.readBytes(is);
                 Image  image = Toolkit.getDefaultToolkit().createImage(bytes);
@@ -1180,7 +1341,7 @@ public class Utils {
             }
         } else {  //have something like DD.ddd
             try {
-                value = Double.parseDouble(latlon);
+                value = parseNumber(latlon);
             } catch (NumberFormatException nfe) {
                 value = Double.NaN;
             }
@@ -1266,11 +1427,17 @@ public class Utils {
             is = new FileInputStream(filename);
         } else {
             //Try it as a url
+            if (filename.startsWith("//")) {
+                filename = "https:" + filename;
+            }
             URL           url        = new URL(filename);
             URLConnection connection = null;
             try {
                 connection = url.openConnection();
-                is         = connection.getInputStream();
+                connection.addRequestProperty("Accept", "*/*");
+                connection.addRequestProperty("Host", url.getHost());
+                connection.addRequestProperty("User-Agent", "ramadda");
+                is = connection.getInputStream();
             } catch (Exception exc) {
                 String msg = "An error has occurred";
                 if ((connection != null)
@@ -1355,7 +1522,7 @@ public class Utils {
                 closeConnection(ftpClient);
             }
         } else {
-            InputStream is = IOUtil.getInputStream(url.toString(),
+            InputStream is = Utils.getInputStream(url.toString(),
                                  Utils.class);
             IOUtil.writeTo(is, os);
 
@@ -1575,19 +1742,75 @@ public class Utils {
      *
      * @param props _more_
      * @param key _more_
+     *
+     * @return _more_
+     */
+    public static String getProperty(Hashtable props, String key) {
+        return getProperty(props, key, (String) null);
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param props _more_
+     * @param key _more_
      * @param dflt _more_
      *
      * @return _more_
      */
-    public static double getProperty(Hashtable props, String key,
-                                     double dflt) {
-        String s = Misc.getProperty(props, key, (String) null);
-        if (stringUndefined(s)) {
+    public static String getProperty(Hashtable props, String key,
+                                     String dflt) {
+        String s = (String) props.get(key);
+        if (s == null) {
+            s = (String) props.get(key.toLowerCase());
+        }
+        if (s == null) {
             return dflt;
         }
 
-        return Double.parseDouble(s);
+        return s;
     }
+
+
+
+    /**
+     * _more_
+     *
+     * @param props _more_
+     * @param key _more_
+     * @param dflt _more_
+     *
+     * @return _more_
+     */
+    public static boolean getProperty(Hashtable props, String key,
+                                      boolean dflt) {
+        String s = Utils.getProperty(props, key, (String) null);
+        if (s == null) {
+            return dflt;
+        }
+
+        return new Boolean(s).booleanValue();
+    }
+
+    /**
+     * _more_
+     *
+     * @param props _more_
+     * @param key _more_
+     * @param dflt _more_
+     *
+     * @return _more_
+     */
+    public static int getProperty(Hashtable props, String key, int dflt) {
+        String s = Utils.getProperty(props, key, (String) null);
+        if (s == null) {
+            return dflt;
+        }
+
+        return new Integer(s).intValue();
+    }
+
 
     /**
      * _more_
@@ -2441,39 +2664,227 @@ public class Utils {
     /**
      * _more_
      *
+     * @param c _more_
+     * @param sb _more_
+     * @param lines _more_
+     *
+     * @return _more_
+     */
+    private static StringBuilder append(char c, StringBuilder sb,
+                                        List<StringBuilder> lines) {
+        if (sb == null) {
+            sb = new StringBuilder();
+            lines.add(sb);
+        }
+        sb.append(c);
+
+        return sb;
+    }
+
+    /**
+     * _more_
+     *
+     * @param commandString _more_
+     *
+     * @return _more_
+     */
+    public static List<StringBuilder> parseMultiLineCommandLine(
+            String commandString) {
+
+        List<StringBuilder> lines = new ArrayList<StringBuilder>();
+        //        System.err.println(commandString);
+        StringBuilder sb         = null;
+        boolean       prevEscape = false;
+        int           bracketCnt = 0;
+        for (int i = 0; i < commandString.length(); i++) {
+            char c = commandString.charAt(i);
+            if (c == '\r') {
+                continue;
+            }
+            boolean inEscape = prevEscape;
+            prevEscape = false;
+            if (c == '{') {
+                if (inEscape) {
+                    sb = append(c, sb, lines);
+
+                    continue;
+                }
+                //                if(bracketCnt>0) 
+                sb = append(c, sb, lines);
+                bracketCnt++;
+
+                continue;
+            }
+            if (c == '}') {
+                if (inEscape) {
+                    sb = append(c, sb, lines);
+
+                    continue;
+                }
+                bracketCnt--;
+                if (bracketCnt < 0) {
+                    throw new IllegalArgumentException("Unopened bracket:"
+                            + commandString);
+                }
+                //                if(bracketCnt>0) 
+                sb = append(c, sb, lines);
+
+                continue;
+            }
+
+            if (c == '\n') {
+                if ( !inEscape && (bracketCnt == 0)) {
+                    sb = null;
+                } else {
+                    sb = append(' ', sb, lines);
+                }
+
+                continue;
+            }
+
+            if (inEscape) {
+                sb = append(c, sb, lines);
+
+                continue;
+            }
+            if (c == '\\') {
+                prevEscape = true;
+
+                continue;
+            }
+            sb = append(c, sb, lines);
+
+            if (c == '{') {
+                bracketCnt++;
+            } else if (c == '}') {
+                bracketCnt--;
+            }
+        }
+        //        System.err.println(lines);
+        if (true) {
+            return lines;
+        }
+
+        /*
+
+        List<String> toks = StringUtil.split(commandString, "\n", true,
+                                             true);
+        boolean priorLineContinues = false;
+        for (int i = 0; i < toks.size(); i++) {
+            String  line       = toks.get(i);
+            if(bracketCnt==0) {
+                StringBuilder sb = new StringBuilder();
+                for(int j=0;j<line.length();j++) {
+                    char c = line.charAt(j);
+                    if(c == '{') {
+                        bracketCnt++;
+                    } else if(c == '}') {
+                        bracketCnt--;
+                    }
+                }
+            }
+            boolean appendNext = false;
+            if (line.endsWith("\\")) {
+                appendNext = true;
+                line       = line.substring(0, line.length() - 1);
+            } else {
+                appendNext = false;
+            }
+            if (priorLineContinues) {
+                lines.get(lines.size() - 1).append(" ");
+                lines.get(lines.size() - 1).append(line);
+            } else {
+                lines.add(new StringBuilder(line));
+            }
+            priorLineContinues = appendNext;
+        }
+        */
+
+        return lines;
+
+    }
+
+
+    /**
+     * _more_
+     *
      * @param s _more_
      *
      * @return _more_
      */
     public static List<String> parseCommandLine(String s) {
+
+        //        System.err.println("command line:" + s);
         List<String> args = new ArrayList<String>();
         s = s.trim();
-        StringBuilder sb       = new StringBuilder();
-        boolean       inQuote  = false;
-        boolean       inEscape = false;
+        StringBuilder sb         = new StringBuilder();
+        boolean       inQuote    = false;
+        boolean       inBracket  = false;
+        boolean       prevEscape = false;
+        //        System.out.println("line:" + s);
+        //        System.err.println("s:" + s);
         for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
+            char    c            = s.charAt(i);
+            boolean isQuote      = (c == '\"') || (c == '{') || (c == '}');
+            boolean openBracket  = (c == '{');
+            boolean closeBracket = (c == '}');
+            boolean isEscape     = (c == '\\');
+            //        s = " -db  {rhl_0000005.id \"test it\" }";
+            //            System.out.println("char:" + c + " prev escape:" + prevEscape +" isquote:" + isQuote +" inquote:"+ inQuote);
+            if (prevEscape) {
+                sb.append(c);
+                prevEscape = false;
+
+                continue;
+            }
+
             if (c == '\\') {
-                if (inEscape) {
+                if (prevEscape) {
                     sb.append(c);
-                    inEscape = false;
+                    prevEscape = false;
                 } else {
-                    inEscape = true;
+                    prevEscape = true;
                 }
 
                 continue;
             }
-            if (c == '\"') {
-                if (inEscape) {
-                    sb.append(c);
-                    inEscape = false;
+            if (prevEscape) {
+                sb.append(c);
+                prevEscape = false;
 
-                    continue;
+                continue;
+            }
+            //.... " {.....} "
+            if (openBracket) {
+                if (inQuote) {
+                    sb.append(c);
+                } else {
+                    inBracket = true;
                 }
+
+                continue;
+            }
+            if (closeBracket) {
+                if (inQuote) {
+                    sb.append(c);
+                } else {
+                    args.add(sb.toString());
+                    sb.setLength(0);
+                    inBracket = false;
+                }
+
+                continue;
+            }
+            if (inBracket) {
+                sb.append(c);
+
+                continue;
+            }
+            if (isQuote) {
                 if (inQuote) {
                     inQuote = false;
                     args.add(sb.toString());
-                    sb = new StringBuilder();
+                    sb.setLength(0);
                 } else {
                     inQuote = true;
                 }
@@ -2495,11 +2906,19 @@ public class Utils {
             }
             sb.append(c);
         }
+        if (inQuote) {
+            throw new IllegalArgumentException("Unclosed quote:" + s);
+        }
+        if (inBracket) {
+            throw new IllegalArgumentException("Unclosed bracket:" + s);
+        }
         if (sb.length() > 0) {
             args.add(sb.toString());
         }
+        //        System.err.println("args:" + args);
 
         return args;
+
     }
 
 
@@ -2583,15 +3002,23 @@ public class Utils {
         return new double[] { centroidX, centroidY };
     }
 
+    /** _more_ */
     private static List<SimpleDateFormat> dateFormats;
 
+    /**
+     * _more_
+     *
+     * @param dttm _more_
+     *
+     * @return _more_
+     */
     public static Date parseDate(String dttm) {
-        if(dateFormats==null) {
+        if (dateFormats == null) {
             String[] formats = {
-                "yyyy-MM-dd'T'HH:mm:ss",
-                "yyyy-MM-dd HH:mm:ss z", "yyyy-MM-dd HH:mm:ss",
-                "yyyy-MM-dd HH:mm", "yyyy-MM-dd", "yyyyMMddHHmmss",
-                "yyyyMMddHHmm", "yyyyMMddHH", "yyyyMMdd"
+                "yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm:ss z",
+                "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd HH:mm z",
+                "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd",
+                "yyyyMMddHHmmss", "yyyyMMddHHmm", "yyyyMMddHH", "yyyyMMdd"
             };
 
             dateFormats = new ArrayList<SimpleDateFormat>();
@@ -2601,16 +3028,17 @@ public class Utils {
                 dateFormat.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
                 dateFormats.add(dateFormat);
             }
-        
+
         }
-        int cnt = 0;
-        ParsePosition pp = new ParsePosition(0);
-        for(SimpleDateFormat dateFormat: dateFormats) {
+        int           cnt = 0;
+        ParsePosition pp  = new ParsePosition(0);
+        for (SimpleDateFormat dateFormat : dateFormats) {
             Date date = dateFormat.parse(dttm, pp);
             if (date != null) {
                 return date;
             }
         }
+
         return null;
     }
 
@@ -2625,8 +3053,122 @@ public class Utils {
      *
      * @throws Exception _more_
      */
-    public static void main(String args[]) throws Exception {
-        String url = "https://api.census.gov/data/2015/acs5?get=NAME,B01003_001E,B01001_002E,B01001_026E,B01001A_001E,B01001B_001E,B01001I_001E,B01001D_001E,B25001_001E,B07013_002E,B07013_003E&for=county:*";
+    public static void main(String[] args) throws Exception {
+        if(true) {
+            readImage(args[0]);
+            return;
+
+        }
+
+        if (true) {
+            System.err.println("v:" + (9 * 0.1));
+            System.err.println("v:" + (99 * 0.1));
+            System.err.println("v:" + (999 * 0.1));
+            System.err.println("v:" + (9999 * 0.1));
+            System.err.println("v:" + (99999 * 0.1));
+
+            return;
+        }
+
+        if (true) {
+            String fmt  = "HHmm'Z' dd MMM yy";
+            String date = "1200Z 23 MAR 19";
+            System.err.println(new SimpleDateFormat(fmt).parse(date));
+
+            return;
+        }
+
+
+
+
+        String ds = "2019-02-20T10:00 UTC";
+        System.err.println(parseDate(ds));
+        if (true) {
+            return;
+        }
+
+
+        String           dt  = "Aug. 20, 1842";
+        SimpleDateFormat sdf = new SimpleDateFormat("MMM. dd, yyyy");
+
+        System.err.println(sdf.parse(dt));
+        if (true) {
+            return;
+        }
+
+        String s       = "          England (UK) ";
+        String pattern = "_leftparen_.*_rightparen_";
+        pattern = pattern.replaceAll("_leftparen_",
+                                     "\\\\(").replaceAll("_rightparen_",
+                                         "\\\\)");
+        System.err.println("P:" + pattern);
+        System.err.println("S:" + s);
+        s = s.replaceAll(pattern, "FOO");
+        System.err.println("S:" + s);
+        if (true) {
+            return;
+        }
+
+        /*
+        String str = "(?s)colspan=\"2\" class=\"xl239\" style=\"border-right:.5pt solid black;border-left:\n  none\">Age";
+        String pattern = ".*colspan=\"2\".*";
+        Pattern p = Pattern.compile(pattern, Pattern.MULTILINE);
+        System.err.println(        p.matcher(str).find());
+        if(true) return;
+
+        byte[] bytes = decodeBase64(args[0]);
+        for (int i = 0; i < bytes.length; i += 4) {
+            int asInt = (bytes[i] & 0xFF) | ((bytes[i + 1] & 0xFF) << 8)
+                        | ((bytes[i + 2] & 0xFF) << 16)
+                        | ((bytes[i + 3] & 0xFF) << 24);
+            float asFloat = Float.intBitsToFloat(asInt);
+            System.err.println("i:" + i + " f:" + asFloat);
+        }
+        if (true) {
+            return;
+        }
+
+
+        String s = "-1 \"\\\n\\\"X";
+        s = "-1 {hello \nthere} more";
+        s = " -db  {\nx1 \nx2\nx3}rhl_0000005.id  \n\"test it\" \nshould\\\n be \\\none same line\n  \nanother";
+        s = "{\nx1 \nx2 {} \n x3}";
+        s = "-db {\nrhl_0000005.id foo\n40_00485165555076 { }\n}\nanother line\n{and another line}";
+        //        s = "should\\\n be \\\non same line";
+        parseMultiLineCommandLine(s);
+        //        s = "-maxrows 30 -db \" rhl_0000005.id {test it} \" ";
+        //        System.err.println(s);
+        //        System.err.println(parseCommandLine(s));
+        */
+    }
+
+    /**
+     * _more_
+     *
+     * @param args _more_
+     *
+     * @throws Exception _more_
+     */
+    public static void main3(String args[]) throws Exception {
+        //        doMakeInputStream("https://www-static.bouldercolorado.gov/docs/webcams/bouldercreek/camera0.jpg",true);
+        String dt = "2018-12-31 20:01:59.0000000 +00:00";
+        //String dt = "2018-12-31 20:01:59.0000000";
+
+        SimpleDateFormat sdf =
+            new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS XXX");
+        sdf.parse(dt);
+    }
+
+    /**
+     * _more_
+     *
+     * @param args _more_
+     *
+     * @throws Exception _more_
+     */
+    public static void xxmain(String args[]) throws Exception {
+        String url =
+            "https://api.census.gov/data/2015/acs5?get=NAME,B01003_001E,B01001_002E,B01001_026E,B01001A_001E,B01001B_001E,B01001I_001E,B01001D_001E,B25001_001E,B07013_002E,B07013_003E&for=county:*";
         doGet(new URL(url));
         //        parseDate(args[0]);
         //        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
@@ -2635,7 +3177,789 @@ public class Utils {
     }
 
 
+    /**
+     * _more_
+     *
+     * @param args _more_
+     *
+     * @return _more_
+     */
+    public static HashSet makeHashSet(Object... args) {
+        HashSet h = new HashSet();
+        for (Object arg : args) {
+            h.add(arg);
+        }
 
+        return h;
+    }
+
+    /**
+     * _more_
+     *
+     * @param args _more_
+     *
+     * @return _more_
+     */
+    public static HashSet makeHashSet(List args) {
+        HashSet h = new HashSet();
+        for (Object arg : args) {
+            h.add(arg);
+        }
+
+        return h;
+    }
+
+    /**
+     * _more_
+     *
+     * @param args _more_
+     *
+     * @return _more_
+     */
+    public static Hashtable makeHashtable(Object... args) {
+        Hashtable h = new Hashtable();
+        for (int i = 0; i < args.length; i += 2) {
+            h.put(args[i], args[i + 1]);
+        }
+
+        return h;
+    }
+
+    /**
+     * _more_
+     *
+     * @param args _more_
+     *
+     * @return _more_
+     */
+    public static List makeList(Object... args) {
+        List h = new ArrayList();
+        for (Object arg : args) {
+            h.add(arg);
+        }
+
+        return h;
+    }
+
+    /** _more_ */
+    public static final Hashtable<String, Color> COLORNAMES =
+        (Hashtable<String,
+                   Color>) makeHashtable("lightsalmon",
+                                         new Color(255, 160, 122), "salmon",
+                                         new Color(250, 128, 114),
+                                         "darksalmon",
+                                         new Color(233, 150, 122),
+                                         "lightcoral",
+                                         new Color(240, 128, 128),
+                                         "indianred", new Color(205, 92, 92),
+                                         "crimson", new Color(220, 20, 60),
+                                         "firebrick", new Color(178, 34, 34),
+                                         "red", new Color(255, 0, 0),
+                                         "darkred", new Color(139, 0, 0),
+                                         "coral", new Color(255, 127, 80),
+                                         "tomato", new Color(255, 99, 71),
+                                         "orangered", new Color(255, 69, 0),
+                                         "gold", new Color(255, 215, 0),
+                                         "orange", new Color(255, 165, 0),
+                                         "darkorange",
+                                         new Color(255, 140, 0),
+                                         "lightyellow",
+                                         new Color(255, 255, 224),
+                                         "lemonchiffon",
+                                         new Color(255, 250, 205),
+                                         "lightgoldenrodyellow",
+                                         new Color(250, 250, 210),
+                                         "papayawhip",
+                                         new Color(255, 239, 213),
+                                         "moccasin",
+                                         new Color(255, 228, 181),
+                                         "peachpuff",
+                                         new Color(255, 218, 185),
+                                         "palegoldenrod",
+                                         new Color(238, 232, 170), "khaki",
+                                         new Color(240, 230, 140),
+                                         "darkkhaki",
+                                         new Color(189, 183, 107), "yellow",
+                                         new Color(255, 255, 0), "lawngreen",
+                                         new Color(124, 252, 0),
+                                         "chartreuse",
+                                         new Color(127, 255, 0), "limegreen",
+                                         new Color(50, 205, 50), "lime",
+                                         new Color(0, 255, 0), "forestgreen",
+                                         new Color(34, 139, 34), "green",
+                                         new Color(0, 128, 0), "darkgreen",
+                                         new Color(0, 100, 0), "greenyellow",
+                                         new Color(173, 255, 47),
+                                         "yellowgreen",
+                                         new Color(154, 205, 50),
+                                         "springgreen",
+                                         new Color(0, 255, 127),
+                                         "mediumspringgreen",
+                                         new Color(0, 250, 154),
+                                         "lightgreen",
+                                         new Color(144, 238, 144),
+                                         "palegreen",
+                                         new Color(152, 251, 152),
+                                         "darkseagreen",
+                                         new Color(143, 188, 143),
+                                         "mediumseagreen",
+                                         new Color(60, 179, 113), "seagreen",
+                                         new Color(46, 139, 87), "olive",
+                                         new Color(128, 128, 0),
+                                         "darkolivegreen",
+                                         new Color(85, 107, 47), "olivedrab",
+                                         new Color(107, 142, 35),
+                                         "lightcyan",
+                                         new Color(224, 255, 255), "cyan",
+                                         new Color(0, 255, 255), "aqua",
+                                         new Color(0, 255, 255),
+                                         "aquamarine",
+                                         new Color(127, 255, 212),
+                                         "mediumaquamarine",
+                                         new Color(102, 205, 170),
+                                         "paleturquoise",
+                                         new Color(175, 238, 238),
+                                         "turquoise",
+                                         new Color(64, 224, 208),
+                                         "mediumturquoise",
+                                         new Color(72, 209, 204),
+                                         "darkturquoise",
+                                         new Color(0, 206, 209),
+                                         "lightseagreen",
+                                         new Color(32, 178, 170),
+                                         "cadetblue",
+                                         new Color(95, 158, 160), "darkcyan",
+                                         new Color(0, 139, 139), "teal",
+                                         new Color(0, 128, 128),
+                                         "powderblue",
+                                         new Color(176, 224, 230),
+                                         "lightblue",
+                                         new Color(173, 216, 230),
+                                         "lightskyblue",
+                                         new Color(135, 206, 250), "skyblue",
+                                         new Color(135, 206, 235),
+                                         "deepskyblue",
+                                         new Color(0, 191, 255),
+                                         "lightsteelblue",
+                                         new Color(176, 196, 222),
+                                         "dodgerblue",
+                                         new Color(30, 144, 255),
+                                         "cornflowerblue",
+                                         new Color(100, 149, 237),
+                                         "steelblue",
+                                         new Color(70, 130, 180),
+                                         "royalblue",
+                                         new Color(65, 105, 225), "blue",
+                                         new Color(0, 0, 255), "mediumblue",
+                                         new Color(0, 0, 205), "darkblue",
+                                         new Color(0, 0, 139), "navy",
+                                         new Color(0, 0, 128),
+                                         "midnightblue",
+                                         new Color(25, 25, 112),
+                                         "mediumslateblue",
+                                         new Color(123, 104, 238),
+                                         "slateblue",
+                                         new Color(106, 90, 205),
+                                         "darkslateblue",
+                                         new Color(72, 61, 139), "lavender",
+                                         new Color(230, 230, 250), "thistle",
+                                         new Color(216, 191, 216), "plum",
+                                         new Color(221, 160, 221), "violet",
+                                         new Color(238, 130, 238), "orchid",
+                                         new Color(218, 112, 214), "fuchsia",
+                                         new Color(255, 0, 255), "magenta",
+                                         new Color(255, 0, 255),
+                                         "mediumorchid",
+                                         new Color(186, 85, 211),
+                                         "mediumpurple",
+                                         new Color(147, 112, 219),
+                                         "blueviolet",
+                                         new Color(138, 43, 226),
+                                         "darkviolet",
+                                         new Color(148, 0, 211),
+                                         "darkorchid",
+                                         new Color(153, 50, 204),
+                                         "darkmagenta",
+                                         new Color(139, 0, 139), "purple",
+                                         new Color(128, 0, 128), "indigo",
+                                         new Color(75, 0, 130), "pink",
+                                         new Color(255, 192, 203),
+                                         "lightpink",
+                                         new Color(255, 182, 193), "hotpink",
+                                         new Color(255, 105, 180),
+                                         "deeppink", new Color(255, 20, 147),
+                                         "palevioletred",
+                                         new Color(219, 112, 147),
+                                         "mediumvioletred",
+                                         new Color(199, 21, 133), "white",
+                                         new Color(255, 255, 255), "snow",
+                                         new Color(255, 250, 250),
+                                         "honeydew",
+                                         new Color(240, 255, 240),
+                                         "mintcream",
+                                         new Color(245, 255, 250), "azure",
+                                         new Color(240, 255, 255),
+                                         "aliceblue",
+                                         new Color(240, 248, 255),
+                                         "ghostwhite",
+                                         new Color(248, 248, 255),
+                                         "whitesmoke",
+                                         new Color(245, 245, 245),
+                                         "seashell",
+                                         new Color(255, 245, 238), "beige",
+                                         new Color(245, 245, 220), "oldlace",
+                                         new Color(253, 245, 230),
+                                         "floralwhite",
+                                         new Color(255, 250, 240), "ivory",
+                                         new Color(255, 255, 240),
+                                         "antiquewhite",
+                                         new Color(250, 235, 215), "linen",
+                                         new Color(250, 240, 230),
+                                         "lavenderblush",
+                                         new Color(255, 240, 245),
+                                         "mistyrose",
+                                         new Color(255, 228, 225),
+                                         "gainsboro",
+                                         new Color(220, 220, 220),
+                                         "lightgray",
+                                         new Color(211, 211, 211), "silver",
+                                         new Color(192, 192, 192),
+                                         "darkgray",
+                                         new Color(169, 169, 169), "gray",
+                                         new Color(128, 128, 128), "dimgray",
+                                         new Color(105, 105, 105),
+                                         "lightslategray",
+                                         new Color(119, 136, 153),
+                                         "slategray",
+                                         new Color(112, 128, 144),
+                                         "darkslategray",
+                                         new Color(47, 79, 79), "black",
+                                         new Color(0, 0, 0), "cornsilk",
+                                         new Color(255, 248, 220),
+                                         "blanchedalmond",
+                                         new Color(255, 235, 205), "bisque",
+                                         new Color(255, 228, 196),
+                                         "navajowhite",
+                                         new Color(255, 222, 173), "wheat",
+                                         new Color(245, 222, 179),
+                                         "burlywood",
+                                         new Color(222, 184, 135), "tan",
+                                         new Color(210, 180, 140),
+                                         "rosybrown",
+                                         new Color(188, 143, 143),
+                                         "sandybrown",
+                                         new Color(244, 164, 96),
+                                         "goldenrod",
+                                         new Color(218, 165, 32), "peru",
+                                         new Color(205, 133, 63),
+                                         "chocolate",
+                                         new Color(210, 105, 30),
+                                         "saddlebrown",
+                                         new Color(139, 69, 19), "sienna",
+                                         new Color(160, 82, 45), "brown",
+                                         new Color(165, 42, 42), "maroon",
+                                         new Color(128, 0, 0));
+
+    /** hex color string without leading # */
+    public static final String HEX_COLOR_PATTERN =
+        "^?(([a-fA-F0-9]){3}){1,2}$";
+
+    /**
+     * _more_
+     *
+     * @param value _more_
+     * @param dflt _more_
+     *
+     * @return _more_
+     */
+    public static Color decodeColor(String value, Color dflt) {
+        if (value == null) {
+            return dflt;
+        }
+        value = value.trim();
+        if (value.length() == 0) {
+            return dflt;
+        }
+        if (value.equals("null")) {
+            return null;
+        }
+        try {
+            String s = value;
+            if (Pattern.matches(HEX_COLOR_PATTERN, s) && !s.startsWith("#")) {
+                // add # so Integer will decode it properly
+                s = "#" + s;
+            }
+
+            return new Color(Integer.decode(s).intValue());
+        } catch (Exception e) {
+            Color c = COLORNAMES.get(value.toLowerCase());
+            if (c == null) {
+                return dflt;
+            }
+
+            return c;
+        }
+    }
+
+
+
+    /**
+     * _more_
+     *
+     * @param from _more_
+     * @param file _more_
+     *
+     * @return _more_
+     *
+     * @throws IOException _more_
+     */
+    public static long writeTo(URL from, File file) throws IOException {
+        URLConnection    connection = from.openConnection();
+        InputStream is = Utils.getInputStream(from.toString(), Utils.class);
+        int              length     = connection.getContentLength();
+        long             numBytes   = -1;
+        FileOutputStream fos        = new FileOutputStream(file);
+        try {
+            long result = IOUtil.writeTo(is, fos);
+            numBytes = result;
+        } finally {
+            IOUtil.close(fos);
+            IOUtil.close(is);
+            if (numBytes <= 0) {
+                try {
+                    file.delete();
+                } catch (Exception exc) {}
+
+            }
+        }
+
+        return numBytes;
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param x _more_
+     *
+     * @return _more_
+     */
+    public static float square(float x) {
+        return (float) Math.pow(x, 2);
+    }
+
+    /**
+     * _more_
+     *
+     * @param vx _more_
+     * @param vy _more_
+     * @param wx _more_
+     * @param wy _more_
+     *
+     * @return _more_
+     */
+    public static float distanceBetweenPoints(float vx, float vy, float wx,
+            float wy) {
+        return square(vx - wx) + square(vy - wy);
+    }
+
+    /**
+     * _more_
+     *
+     * @param px _more_
+     * @param py _more_
+     * @param vx _more_
+     * @param vy _more_
+     * @param wx _more_
+     * @param wy _more_
+     *
+     * @return _more_
+     */
+    public static float distanceToSegmentSquared(float px, float py,
+            float vx, float vy, float wx, float wy) {
+        float l2 = distanceBetweenPoints(vx, vy, wx, wy);
+        if (l2 == 0) {
+            return distanceBetweenPoints(px, py, vx, vy);
+        }
+        float t = ((px - vx) * (wx - vx) + (py - vy) * (wy - vy)) / l2;
+        if (t < 0) {
+            return distanceBetweenPoints(px, py, vx, vy);
+        }
+        if (t > 1) {
+            return distanceBetweenPoints(px, py, wx, wy);
+        }
+
+        return distanceBetweenPoints(px, py, (vx + t * (wx - vx)),
+                                     (vy + t * (wy - vy)));
+    }
+
+    /**
+     * _more_
+     *
+     * @param px _more_
+     * @param py _more_
+     * @param vx _more_
+     * @param vy _more_
+     * @param wx _more_
+     * @param wy _more_
+     *
+     * @return _more_
+     */
+    public static float perpendicularDistance(float px, float py, float vx,
+            float vy, float wx, float wy) {
+        return (float) Math.sqrt(distanceToSegmentSquared(px, py, vx, vy, wx,
+                wy));
+    }
+
+    /**
+     * _more_
+     *
+     * @param list _more_
+     * @param s _more_
+     * @param e _more_
+     * @param index _more_
+     *
+     * @return _more_
+     */
+    public static float getMaxPerpendicularDistance(List<float[]> list,
+            int s, int e, int[] index) {
+        // Find the point with the maximum distance
+        float dmax = 0;
+        if (index != null) {
+            index[0] = 0;
+        }
+
+        final int start = s;
+        final int end   = e - 1;
+        for (int i = start + 1; i < end; i++) {
+            // Point
+            final float px = list.get(i)[0];
+            final float py = list.get(i)[1];
+            // Start
+            final float vx = list.get(start)[0];
+            final float vy = list.get(start)[1];
+            // End
+            final float wx = list.get(end)[0];
+            final float wy = list.get(end)[1];
+
+            final float d  = perpendicularDistance(px, py, vx, vy, wx, wy);
+            if (d > dmax) {
+                if (index != null) {
+                    index[0] = i;
+                }
+                dmax = d;
+            }
+        }
+
+        return dmax;
+    }
+
+    /**
+     * originally from https://github.com/phishman3579/java-algorithms-implementation/blob/master/src/com/jwetherell/algorithms/mathematics/RamerDouglasPeucker.java
+     * _more_
+     *
+     * @param list _more_
+     * @param s _more_
+     * @param e _more_
+     * @param epsilon _more_
+     * @param resultList _more_
+     */
+    private static void douglasPeucker(List<float[]> list, int s, int e,
+                                       float epsilon,
+                                       List<float[]> resultList) {
+        final int start = s;
+        final int end   = e - 1;
+        // Find the point with the maximum distance
+        int[] index = { 0 };
+        float dmax  = getMaxPerpendicularDistance(list, s, e, index);
+        // If max distance is greater than epsilon, recursively simplify
+        if (dmax > epsilon) {
+            // Recursive call
+            douglasPeucker(list, s, index[0], epsilon, resultList);
+            douglasPeucker(list, index[0], e, epsilon, resultList);
+        } else {
+            if ((end - start) > 0) {
+                resultList.add(list.get(start));
+                resultList.add(list.get(end));
+            } else {
+                resultList.add(list.get(start));
+            }
+        }
+    }
+
+    /**
+     * Given a curve composed of line segments find a similar curve with fewer points.
+     *
+     * originally from https://github.com/phishman3579/java-algorithms-implementation/blob/master/src/com/jwetherell/algorithms/mathematics/RamerDouglasPeucker.java
+     * @param coords _more_
+     * @param epsilon Distance dimension
+     * @return Similar curve with fewer points
+     */
+    public static float[][] douglasPeucker(float[][] coords, float epsilon) {
+        List<float[]> incoming = new ArrayList<float[]>();
+        for (int i = 0; i < coords[0].length; i++) {
+            incoming.add(new float[] { coords[0][i], coords[1][i] });
+        }
+        final List<float[]> result = new ArrayList<float[]>();
+        douglasPeucker(incoming, 0, incoming.size(), epsilon, result);
+        //        System.err.println("incoming:"+ incoming.size() +" result:"+ result.size());
+        float[][] f = new float[result.get(0).length][result.size()];
+        for (int i = 0; i < result.size(); i++) {
+            float[] coord = result.get(i);
+            f[0][i] = coord[0];
+            f[1][i] = coord[1];
+        }
+
+        return f;
+    }
+
+
+    /** default decimal formatter */
+    private static DecimalFormat formatter = new DecimalFormat();
+
+    /**
+     *  copy and paste from the IDV Misc.java to have the formatter by synchronized
+     *
+     * @param value _more_
+     *
+     * @return _more_
+     *
+     * @throws NumberFormatException _more_
+     */
+    public static double parseNumber(String value)
+            throws NumberFormatException {
+        if (value.equals(MISSING) || value.equals(NaN)) {
+            return Double.NaN;
+        }
+        try {
+            // hack to also accept lower case e for exponent
+            value = value.replace("e", "E");
+            synchronized (formatter) {
+                return formatter.parse(value).doubleValue();
+            }
+        } catch (ParseException pe) {
+            throw new NumberFormatException(pe.getMessage());
+        }
+    }
+
+    /**
+     * _more_
+     *
+     * @param v _more_
+     * @param min _more_
+     * @param max _more_
+     *
+     * @return _more_
+     */
+    public static boolean between(double v, double min, double max) {
+        return (v >= min) && (v <= max);
+    }
+
+
+    /** _more_ */
+    public static final String MISSING = "missing";
+
+    /** NaN string */
+    public static final String NaN = "NaN";
+
+
+    /**
+     * _more_
+     *
+     * @param image _more_
+     * @param top _more_
+     * @param bottom _more_
+     * @param left _more_
+     * @param right _more_
+     *
+     * @return _more_
+     */
+    public static BufferedImage crop(BufferedImage image, int top, int left,
+                                     int bottom, int right) {
+        int imageWidth  = image.getWidth(null);
+        int imageHeight = image.getHeight(null);
+        int w           = imageWidth - right - left;
+        int h           = imageHeight - top - bottom;
+
+        //        System.err.println("iw:" + imageWidth +" w:"  + w + " " + left +" " + right);
+        //        System.err.println("ih:" + imageHeight +" h:"  + h + " " + top +" " + bottom);
+        return image.getSubimage(left, top, w, h);
+    }
+
+    /**
+     * Class description
+     *
+     *
+     * @version        $version$, Mon, Jan 7, '19
+     * @author         Enter your name here...
+     */
+    public static class ObjectSorter implements Comparable {
+
+        /** _more_ */
+        boolean ascending = true;
+
+        /** _more_ */
+        String svalue;
+
+        /** _more_ */
+        double value;
+
+        /** _more_ */
+        Object object;
+
+        /**
+         * _more_
+         *
+         * @param value _more_
+         * @param object _more_
+         * @param ascending _more_
+         */
+        public ObjectSorter(Object object, double value, boolean ascending) {
+            this.value     = value;
+            this.object    = object;
+            this.ascending = ascending;
+        }
+
+        /**
+         * _more_
+         *
+         * @param object _more_
+         * @param value _more_
+         * @param ascending _more_
+         */
+        public ObjectSorter(Object object, int value, boolean ascending) {
+            this.value     = value;
+            this.object    = object;
+            this.ascending = ascending;
+        }
+
+        /**
+         * _more_
+         *
+         * @param value _more_
+         * @param object _more_
+         * @param ascending _more_
+         */
+        public ObjectSorter(Object object, String value, boolean ascending) {
+            this.svalue    = value;
+            this.object    = object;
+            this.ascending = ascending;
+        }
+
+        /**
+         * _more_
+         *
+         * @param o _more_
+         *
+         * @return _more_
+         */
+        public int compareTo(Object o) {
+            ObjectSorter that = (ObjectSorter) o;
+            if (svalue != null) {
+                return svalue.compareTo(that.svalue);
+            }
+            if (value < that.value) {
+                return ascending
+                       ? -1
+                       : 1;
+            }
+            if (value > that.value) {
+                return ascending
+                       ? 1
+                       : -1;
+            }
+
+            return 0;
+        }
+
+        /**
+         * _more_
+         *
+         * @return _more_
+         */
+        public Object getObject() {
+            return object;
+        }
+
+        /**
+         * _more_
+         *
+         * @return _more_
+         */
+        public double getValue() {
+            return value;
+        }
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param s _more_
+     * @param start _more_
+     * @param end _more_
+     *
+     * @return _more_
+     */
+    public static String[] tokenizeChunk(String s, String start, String end) {
+        int idx1 = s.indexOf(start);
+        if (idx1 < 0) {
+            //            System.err.println("no 1");
+            return null;
+        }
+        int idx2 = s.indexOf(end, idx1);
+        if (idx2 < 0) {
+            //            System.err.println("no 2");
+            return null;
+        }
+        String chunk = s.substring(idx1 + start.length() + 1, idx2);
+        //        System.err.println("chunk:"+ chunk);
+        s = s.substring(idx2 + start.length());
+
+        return new String[] { chunk, s };
+    }
+
+
+    /**
+     * Encode the input string
+     *
+     * @param s  the string to encode
+     *
+     * @return  the encoded String
+     */
+    public static final String encodeUntrustedText(String s) {
+        //        s = s.replaceAll("&","&amp;;");
+        //
+        //Note: if this is wrong then we can get an XSS attack from the anonymous upload.
+        //If we encode possible attack vectors (<,>) as entities then we edit the entry they
+        //get turned into the raw character and we're owned.
+        s = s.replaceAll("&", "_AMP_");
+        s = s.replaceAll("<", "_LT_");
+        s = s.replaceAll(">", "_GT_");
+        s = s.replaceAll("\"", "&quot;");
+
+        //        s = HtmlUtils.urlEncode(s);
+        //       s = s.replace("+", " ");
+        return s;
+    }
+
+    /**
+     * _more_
+     *
+     * @param vs _more_
+     *
+     * @return _more_
+     */
+    public static double getAverage(List<Double> vs) {
+        double total = 0;
+        for (double d : vs) {
+            total += d;
+        }
+
+        return ((vs.size() > 0)
+                ? total / vs.size()
+                : 0);
+    }
 
 
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -793,6 +793,16 @@ public class StorageManager extends RepositoryManager {
 
 
     /**
+     * _more_
+     */
+    @Override
+    public void clearCache() {
+        for (File file : cacheDir.listFiles()) {
+            file.delete();
+        }
+    }
+
+    /**
      * Get the cache directory
      *
      * @return  the directory
@@ -1551,6 +1561,12 @@ public class StorageManager extends RepositoryManager {
     }
 
 
+    public void writeFile(File oldFile, String contents) throws Exception {
+        checkWriteFile(oldFile);
+        IOUtil.writeFile(oldFile, contents);
+    }
+
+
 
     /**
      * Move a file to storage
@@ -2135,8 +2151,7 @@ public class StorageManager extends RepositoryManager {
      */
     public InputStream getInputStream(String path) throws Exception {
         checkPath(path);
-
-        return IOUtil.getInputStream(path, getClass());
+        return Utils.getInputStream(path, getClass());
     }
 
     /**

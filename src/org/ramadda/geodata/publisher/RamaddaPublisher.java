@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -42,16 +42,14 @@ import ucar.visad.display.Animation;
 
 import visad.DateTime;
 
-
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.Insets;
 import java.awt.geom.Rectangle2D;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
+import java.io.*;
+
 
 import java.text.SimpleDateFormat;
 
@@ -61,6 +59,8 @@ import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
+
+import javax.imageio.*;
 
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
@@ -117,11 +117,15 @@ public class RamaddaPublisher extends ucar.unidata.idv.publish
         new JCheckBox("Publish bundle and attach image", true);
 
     /** _more_ */
-    private JCheckBox doThumbnailCbx = new JCheckBox("Show as  a thumbnail",
-                                           true);
+    private JCheckBox doThumbnailCbx =
+        new JCheckBox("Attach image as thumbnail", true);
+
+    /** _more_          */
+    private JCheckBox doImageEntryCbx = new JCheckBox("Add image as entry",
+                                            false);
 
     /** _more_ */
-    private JCheckBox doZidvCbx = new JCheckBox("Save as zidv file", false);
+    private JCheckBox doZidvCbx = new JCheckBox("Save as ZIDV file", false);
 
     /** _more_ */
     private JCheckBox uploadZidvDataCbx = new JCheckBox("Upload ZIDV Data",
@@ -442,14 +446,13 @@ public class RamaddaPublisher extends ucar.unidata.idv.publish
             List      topComps          = new ArrayList();
 
 
-
             boolean   isImage           = false;
             if ((contentFile != null) && !isBundle && !isImport) {
                 topComps.add(GuiUtils.rLabel("File:"));
                 JComponent extra;
                 if (ImageUtils.isImage(contentFile)) {
                     isImage = true;
-                    //                    extra = doThumbnailCbx;
+                    extra   = GuiUtils.hbox(doThumbnailCbx, doImageEntryCbx);
                 } else {
                     extra = GuiUtils.filler(1, 1);
                 }
@@ -466,7 +469,8 @@ public class RamaddaPublisher extends ucar.unidata.idv.publish
                     GuiUtils.left(
                         GuiUtils.hbox(
                             new JLabel(IOUtil.getFileTail(contentFile)),
-                            GuiUtils.filler(10, 5), doBundleCbx, doZidvCbx)));
+                            GuiUtils.filler(10, 5),
+                            GuiUtils.hbox(doBundleCbx, extra), doZidvCbx)));
                 if (lastBundleFile != null) {
                     addAssociationCbx = myAddAssociationCbx;
                     addAssociationCbx.setText(
@@ -657,7 +661,6 @@ public class RamaddaPublisher extends ucar.unidata.idv.publish
 
 
 
-
                     String   fromDate = formatDate(fromDateFld.getDate());
                     String   toDate   = formatDate(toDateFld.getDate());
                     int      cnt      = 0;
@@ -696,19 +699,26 @@ public class RamaddaPublisher extends ucar.unidata.idv.publish
                     String  theName = nameFld.getText().trim();
                     String  desc    = descFld.getText().trim();
                     if (contentFile != null) {
-                        node = addEntry(root, contentFile, contentId,
-                                        parentId, theName, desc);
-                        theName = "IDV Bundle for " + theName;
-                        desc    = "";
+                        if (doImageEntryCbx.isSelected()) {
+                            node = addEntry(root, contentFile, contentId,
+                                            parentId, theName, desc);
+                            theName = "IDV Bundle for " + theName;
+                            desc    = "";
+                        }
                     }
                     if (bundleFile != null) {
                         node = addEntry(root, bundleFile, bundleId, parentId,
                                         theName, desc);
                         if (contentFile != null) {
-                            repositoryClient.addAssociation(root, contentId,
-                                    bundleId, "uses bundle");
+                            if (doImageEntryCbx.isSelected()) {
+                                repositoryClient.addAssociation(root,
+                                        contentId, bundleId, "uses bundle");
+                            }
                         }
                     }
+                    System.err.println("isImage:" + isImage + " "
+                                       + contentFile + " " + (node != null)
+                                       + " " + doThumbnailCbx.isSelected());
 
                     if ((contentFile != null) && (node != null)) {
                         if (isImage && doThumbnailCbx.isSelected()) {
@@ -717,18 +727,30 @@ public class RamaddaPublisher extends ucar.unidata.idv.publish
                         } else {
                             //                            repositoryClient.addAttachment(node, IOUtil.getFileTail(contentFile));
                         }
-                        if (false && isImage && doThumbnailCbx.isSelected()) {
-                            Image image = ImageUtils.readImage(contentFile);
-                            image = ImageUtils.resize(image, 75, -1);
-                            String filename =
-                                "thumb_" + IOUtil.getFileTail(contentFile);
-                            String tmpFile =
-                                getIdv().getObjectStore().getTmpFile(
-                                    filename);
-                            ImageUtils.writeImageToFile(image, tmpFile);
-                            repositoryClient.addThumbnail(node, filename);
-                            zipEntryNames.add(filename);
-                            files.add(tmpFile);
+                        if (isImage && doThumbnailCbx.isSelected()) {
+                            Image image = ImageIO.read(
+                                              new BufferedInputStream(
+                                                  new FileInputStream(
+                                                      contentFile)));
+                            if (image != null) {
+                                System.err.println("image size before:"
+                                        + image.getWidth(null) + " "
+                                        + image.getHeight(null));
+                                image = ImageUtils.resize(image, 75, -1);
+                                System.err.println("image size after:"
+                                        + image.getWidth(null) + " "
+                                        + image.getHeight(null));
+                                String filename =
+                                    "thumb_"
+                                    + IOUtil.getFileTail(contentFile);
+                                String tmpFile =
+                                    getIdv().getObjectStore().getTmpFile(
+                                        filename);
+                                ImageUtils.writeImageToFile(image, tmpFile);
+                                repositoryClient.addThumbnail(node, filename);
+                                zipEntryNames.add(filename);
+                                files.add(tmpFile);
+                            }
                         }
                     }
 
@@ -852,7 +874,7 @@ public class RamaddaPublisher extends ucar.unidata.idv.publish
                         lastBundleId   = entryId;
                         lastBundleFile = bundleFile;
                     }
-                    LogUtil.userMessage("Publication was successful\nURL: "
+                    LogUtil.userMessage("Publication was successful. URL:\n"
                                         + url);
 
                     return url;
@@ -914,6 +936,7 @@ public class RamaddaPublisher extends ucar.unidata.idv.publish
             //            System.err.println("\t if 1 " + super.toString() + "  (connected)");
             return getName() + "  (connected)";
         }
+
         return getName();
     }
 

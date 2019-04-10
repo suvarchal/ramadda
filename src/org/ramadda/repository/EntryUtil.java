@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -22,14 +22,14 @@ import org.ramadda.repository.database.*;
 
 import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.type.*;
-import org.ramadda.sql.Clause;
-import org.ramadda.sql.SqlUtil;
 
 
 
 
 import org.ramadda.util.TTLCache;
 import org.ramadda.util.TTLObject;
+import org.ramadda.util.sql.Clause;
+import org.ramadda.util.sql.SqlUtil;
 
 import ucar.unidata.util.Misc;
 import ucar.unidata.util.StringUtil;
@@ -430,7 +430,7 @@ public class EntryUtil extends RepositoryManager {
      * @return _more_
      */
     public String formatDate(Request request, Entry entry) {
-        return getPageHandler().formatDate(request, entry.getStartDate(),
+        return getDateHandler().formatDate(request, entry.getStartDate(),
                                            getTimezone(entry));
     }
 

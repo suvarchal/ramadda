@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -35,8 +35,6 @@ import org.ramadda.repository.type.ProcessFileTypeHandler;
 import org.ramadda.repository.type.TypeHandler;
 import org.ramadda.repository.type.TypeInsertInfo;
 import org.ramadda.repository.util.SelectInfo;
-import org.ramadda.sql.Clause;
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.CategoryBuffer;
 import org.ramadda.util.CategoryList;
 import org.ramadda.util.FormInfo;
@@ -45,6 +43,8 @@ import org.ramadda.util.Json;
 import org.ramadda.util.TTLCache;
 import org.ramadda.util.TTLObject;
 import org.ramadda.util.Utils;
+import org.ramadda.util.sql.Clause;
+import org.ramadda.util.sql.SqlUtil;
 
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -79,6 +79,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 
+import java.text.SimpleDateFormat;
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
@@ -103,10 +105,6 @@ public class EntryManager extends RepositoryManager {
     public static final String[] PRELOAD_CATEGORIES = { "Documents",
             "General", "Information", "Collaboration", "Database" };
 
-
-    /** _more_ */
-    public static final String PROP_ENABLE_HOSTNAME_MAPPING =
-        "ramadda.enable_hostname_mapping";
 
     /** _more_ */
     private EntryUtil entryUtil;
@@ -232,11 +230,10 @@ public class EntryManager extends RepositoryManager {
                 topEntry = initTopEntry();
             }
 
-            //If no path then check if the hostname maps to an alias
-            boolean enableHostnameMapping =
-                getRepository().getProperty(PROP_ENABLE_HOSTNAME_MAPPING,
-                                            false);
-            if (enableHostnameMapping && (request != null)) {
+
+
+            if (getRepository().getEnableHostnameMapping()
+                    && (request != null)) {
                 Entry fromHostname = getEntryFromAlias(request,
                                          "http://"
                                          + request.getRequestHostname());
@@ -655,7 +652,6 @@ public class EntryManager extends RepositoryManager {
                 if (entry == null) {
                     fatalError(request, "Could not find entry:" + suffix);
                 }
-                System.err.println("From path:" + path + "  -- " + prefix);
             }
 
             if (entry == null) {
@@ -722,7 +718,6 @@ public class EntryManager extends RepositoryManager {
 
 
             redirectUrl = redirectUrl + "?" + request.getUrlArgs();
-            //            System.err.println("routing remote request:" + redirectUrl);
             URL           url        = new URL(redirectUrl);
             URLConnection connection = url.openConnection();
             InputStream   is         = connection.getInputStream();
@@ -1085,6 +1080,25 @@ public class EntryManager extends RepositoryManager {
         return entry.getTypeHandler().processEntryAccess(request, entry);
     }
 
+    /**
+     * _more_
+     *
+     * @param request _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public Result processEntryTypeAction(Request request) throws Exception {
+        Entry entry = getEntry(request);
+        if (entry == null) {
+            throw new RepositoryUtil.MissingEntryException(
+                "Could not find entry");
+        }
+
+        return entry.getTypeHandler().processEntryAction(request, entry);
+    }
+
 
     /** _more_ */
     public static final String ARG_EXTEDIT_EDIT = "extedit.edit";
@@ -1265,9 +1279,6 @@ public class EntryManager extends RepositoryManager {
                         public boolean processEntry(Entry entry,
                                 List<Entry> children)
                                 throws Exception {
-
-                            System.err.println("processEntry:"
-                                    + entry.getName());
                             if ( !oldType.equals(TypeHandler.TYPE_ANY)
                                     && !entry.getTypeHandler().isType(
                                         oldType)) {
@@ -1413,7 +1424,8 @@ public class EntryManager extends RepositoryManager {
                                           "Extended Edit", true);
 
 
-        sb.append(HtmlUtils.h3("Spatial and Temporal Metadata"));
+        sb.append(formHeader("Spatial and Temporal Metadata"));
+        sb.append(HtmlUtils.openInset(5, 30, 20, 0));
 
         sb.append(HtmlUtils.labeledCheckbox(ARG_EXTEDIT_SPATIAL, "true",
                                             false, "Set spatial metadata"));
@@ -1431,8 +1443,10 @@ public class EntryManager extends RepositoryManager {
 
 
 
+        sb.append(HtmlUtils.closeInset());
 
-        sb.append(HtmlUtils.h3("File Listing"));
+        sb.append(formHeader("File Listing"));
+        sb.append(HtmlUtils.openInset(5, 30, 20, 0));
         sb.append(HtmlUtils.checkbox(ARG_EXTEDIT_REPORT_MISSING, "true",
                                      true) + " " + msg("Show missing files")
                                            + "<p>");
@@ -1446,7 +1460,9 @@ public class EntryManager extends RepositoryManager {
         List<HtmlUtils.Selector> tfos = getTypeHandlerSelectors(request,
                                             true, true, entry);
 
-        sb.append(HtmlUtils.h3("Change Entry Type"));
+        sb.append(HtmlUtils.closeInset());
+        sb.append(formHeader("Change Entry Type"));
+        sb.append(HtmlUtils.openInset(5, 30, 20, 0));
         sb.append(msgLabel("New type"));
         sb.append(HtmlUtils.space(1));
 
@@ -1471,12 +1487,14 @@ public class EntryManager extends RepositoryManager {
         sb.append(HtmlUtils.submit(msg("Change type of this entry"),
                                    ARG_EXTEDIT_CHANGETYPE));
         sb.append(HtmlUtils.formClose());
+        sb.append(HtmlUtils.closeInset());
+
+        sb.append(formHeader("Change Descendents Entry Type"));
         sb.append(request.form(getRepository().URL_ENTRY_EXTEDIT,
                                HtmlUtils.attr("name", "entryform")));
         sb.append(HtmlUtils.hidden(ARG_ENTRYID, entry.getId()));
 
-
-        sb.append(HtmlUtils.h3("Change Descendents Entry Type"));
+        sb.append(HtmlUtils.openInset(5, 30, 20, 0));
         sb.append(HtmlUtils.formTable());
         sb.append(HtmlUtils.formEntry(msgLabel("Old type"),
                                       HtmlUtils.select(ARG_EXTEDIT_OLDTYPE,
@@ -1506,6 +1524,8 @@ public class EntryManager extends RepositoryManager {
                 ARG_EXTEDIT_CHANGETYPE_RECURSE));
 
         sb.append(HtmlUtils.formClose());
+        sb.append(HtmlUtils.closeInset());
+
 
         return makeEntryEditResult(request, entry, "Extended Edit", sb);
 
@@ -1793,7 +1813,7 @@ public class EntryManager extends RepositoryManager {
         }
 
 
-        sb.append(HtmlUtils.formTable());
+        sb.append(HtmlUtils.formTable("ramadda-entry-edit"));
         String title = BLANK;
 
         if (type == null) {
@@ -1990,7 +2010,6 @@ public class EntryManager extends RepositoryManager {
     private String getEntryTimestamp(Entry entry) {
         long changeDate = entry.getChangeDate();
 
-        //        System.err.println("timestamp:" +changeDate +" " + new Date(changeDate));
         return "" + changeDate;
     }
 
@@ -2191,11 +2210,14 @@ public class EntryManager extends RepositoryManager {
                         dateRange = new Date(formTimestamp) + ":"
                                     + new Date(currentTimestamp);
                     } catch (Exception ignore) {}
+                    getPageHandler().entrySectionOpen(request, entry, sb,
+                            "Entry Edit");
                     sb.append(
                         getPageHandler().showDialogError(
                             msg(
                             "Error: The entry you are editing has been edited since the time you began the edit:"
                             + dateRange)));
+                    getPageHandler().entrySectionClose(request, entry, sb);
 
                     return addEntryHeader(request, entry,
                                           new Result(msg("Entry Edit Error"),
@@ -2303,11 +2325,9 @@ public class EntryManager extends RepositoryManager {
                 filename = serverFile.toString();
             }
 
-
             if (resourceName.length() == 0) {
                 resourceName = IOUtil.getFileTail(resource);
             }
-
 
             //The type might accept a .zip file - e.g., shapefiles
             if (typeHandler.getTypeProperty("upload.zip", false)) {
@@ -2317,7 +2337,6 @@ public class EntryManager extends RepositoryManager {
                                 ? false
                                 : request.get(ARG_FILE_UNZIP, false));
             }
-
 
             if (serverFile != null) {
                 isFile   = true;
@@ -2339,47 +2358,20 @@ public class EntryManager extends RepositoryManager {
                 if ( !request.get(ARG_RESOURCE_DOWNLOAD, false)) {
                     unzipArchive = false;
                 } else {
-                    String url = resource;
-                    if ( !url.toLowerCase().startsWith("http:")
-                            && !url.toLowerCase().startsWith("https:")
-                            && !url.toLowerCase().startsWith("ftp:")) {
-                        fatalError(request, "Cannot download url:" + url);
-                    }
-                    getStorageManager().checkPath(url);
                     isFile = true;
-                    String tail = IOUtil.getFileTail(resource);
-                    File newFile = getStorageManager().getTmpFile(request,
-                                       tail);
-                    resourceName = tail;
-                    resource     = newFile.toString();
-                    URL           fromUrl    = new URL(url);
-                    URLConnection connection = fromUrl.openConnection();
-                    InputStream   fromStream = connection.getInputStream();
-                    if (actionId != null) {
-                        ucar.unidata.util.JobManager.getManager().startLoad(
-                            "File copy", actionId);
+                    File newFile = downloadUrl(request, resource, actionId,
+                                       parentEntry);
+                    if (newFile == null) {
+                        return new Result(
+                            request.entryUrl(
+                                getRepository().URL_ENTRY_SHOW, parentEntry,
+                                ARG_MESSAGE,
+                                getRepository().translate(
+                                    request, "Error downloading URL")));
                     }
-                    int length = connection.getContentLength();
-                    if (length > 0 & actionId != null) {
-                        getActionManager().setActionMessage(actionId,
-                                msg("Downloading") + " " + length + " "
-                                + msg("bytes"));
-                    }
-                    OutputStream toStream =
-                        getStorageManager().getFileOutputStream(newFile);
-                    try {
-                        long bytes = IOUtil.writeTo(fromStream, toStream,
-                                         actionId, length);
-                        if (bytes < 0) {
-                            return new Result(
-                                request.entryUrl(
-                                    getRepository().URL_ENTRY_SHOW,
-                                    parentEntry));
-                        }
-                    } finally {
-                        IOUtil.close(toStream);
-                        IOUtil.close(fromStream);
-                    }
+                    resourceName =
+                        getStorageManager().getFileTail(newFile.toString());
+                    resource = newFile.toString();
                 }
             }
 
@@ -2576,23 +2568,27 @@ public class EntryManager extends RepositoryManager {
 
 
                 if (name.indexOf("${") >= 0) {}
-
-                if (name.trim().length() == 0) {
-                    name = IOUtil.getFileTail(origName);
-                    if (request.get(ARG_MAKENAME, false)) {
-                        name = name.replaceAll("_", " ");
-                        name = IOUtil.stripExtension(name);
-                        StringBuilder tmp = new StringBuilder();
-                        for (String tok :
-                                StringUtil.split(name, " ", true, true)) {
-                            tok = StringUtil.camelCase(tok);
-                            tmp.append(tok);
-                            tmp.append(" ");
+                if ((name.trim().length() == 0)
+                        && typeHandler.okToSetNewNameDefault()) {
+                    String nameTemplate =
+                        typeHandler.getTypeProperty("nameTemplate",
+                            (String) null);
+                    if (nameTemplate == null) {
+                        name = IOUtil.getFileTail(origName);
+                        if (request.get(ARG_MAKENAME, false)) {
+                            name = name.replaceAll("_", " ");
+                            name = IOUtil.stripExtension(name);
+                            StringBuilder tmp = new StringBuilder();
+                            for (String tok :
+                                    StringUtil.split(name, " ", true, true)) {
+                                tok = StringUtil.camelCase(tok);
+                                tmp.append(tok);
+                                tmp.append(" ");
+                            }
+                            name = tmp.toString().trim();
                         }
-                        name = tmp.toString().trim();
                     }
                 }
-
 
                 Date[] theDateRange = { dateRange[0], dateRange[1] };
 
@@ -2608,7 +2604,6 @@ public class EntryManager extends RepositoryManager {
                     }
                     pattern = pattern.replaceAll("_DIGIT_", "\\\\d");
                     pattern = ".*(" + pattern + ").*";
-                    //                    System.err.println("Pattern:" + pattern + " " + origName);
                     Matcher matcher =
                         Pattern.compile(pattern).matcher(origName);
                     if (matcher.find()) {
@@ -2617,9 +2612,7 @@ public class EntryManager extends RepositoryManager {
                                         format).parse(dateString);
                         theDateRange[0] = dttm;
                         theDateRange[1] = dttm;
-                    } else {
-                        System.err.println("no match");
-                    }
+                    } else {}
                 }
 
                 String id           = getRepository().getGUID();
@@ -2651,9 +2644,14 @@ public class EntryManager extends RepositoryManager {
                                "Cannot create an entry of type "
                                + typeHandlerToUse.getDescription());
                 }
-
                 if (name.trim().length() == 0) {
-                    name = typeHandlerToUse.getDefaultEntryName(resourceName);
+                    String nameTemplate =
+                        typeHandlerToUse.getTypeProperty("nameTemplate",
+                            (String) null);
+                    if (nameTemplate == null) {
+                        name = typeHandlerToUse.getDefaultEntryName(
+                            resourceName);
+                    }
                 }
                 entry = typeHandlerToUse.createEntry(id);
 
@@ -2664,7 +2662,6 @@ public class EntryManager extends RepositoryManager {
                     //theDateRange[0] = theDateRange[1] =   Utils.extractDate(theResource);
                 }
 
-                //                System.err.println("date:" + theDateRange[0] + " " + theResource);
 
                 if (theDateRange[0] == null) {
                     theDateRange[0] = ((theDateRange[1] == null)
@@ -2695,8 +2692,6 @@ public class EntryManager extends RepositoryManager {
             String  newResourceName = request.getUploadedFile(ARG_FILE);
             String  newResourceType = null;
 
-            //TODO: If they select a URL to download we don't handle that now
-
             //Did they upload a new file???
             if (newResourceName != null) {
                 newResourceName = getStorageManager().moveToStorage(request,
@@ -2706,18 +2701,43 @@ public class EntryManager extends RepositoryManager {
                 newResourceName = serverFile.toString();
                 newResourceType = Resource.TYPE_LOCAL_FILE;
             } else if (request.defined(ARG_URL)) {
-                newResourceName = request.getAnonymousEncodedString(ARG_URL,
-                        null);
-                newResourceType = Resource.TYPE_URL;
+                String url = request.getAnonymousEncodedString(ARG_URL, null);
+                if (request.get(ARG_RESOURCE_DOWNLOAD, false)) {
+                    File newFile = downloadUrl(request, url, actionId, entry);
+                    if (newFile == null) {
+                        return new Result(
+                            request.entryUrl(
+                                getRepository().URL_ENTRY_SHOW, entry,
+                                ARG_MESSAGE,
+                                getRepository().translate(
+                                    request, "Error downloading URL")));
+
+                    }
+                    newResourceName =
+                        getStorageManager().moveToStorage(request,
+                            newFile).toString();
+                    newResourceType = Resource.TYPE_LOCAL_FILE;
+                } else {
+                    newResourceName = url;
+                    newResourceType = Resource.TYPE_URL;
+                }
             }
 
-            if (newResourceName != null) {
+
+
+
+            if ((newResourceName != null)
+                    || request.get(ARG_DELETEFILE, false)) {
                 //If it was a stored file then remove the old one
                 if (entry.getResource().isStoredFile()) {
                     getStorageManager().removeFile(entry.getResource());
                 }
-                entry.setResource(new Resource(newResourceName,
-                        newResourceType));
+                if (newResourceName != null) {
+                    entry.setResource(new Resource(newResourceName,
+                            newResourceType));
+                } else {
+                    entry.setResource(new Resource());
+                }
             }
 
             if (entry.isTopEntry()) {
@@ -2740,14 +2760,6 @@ public class EntryManager extends RepositoryManager {
                 }
             } else {
                 entry.setCategory(category);
-            }
-
-
-            if (request.defined(ARG_URL)) {
-                entry.setResource(new Resource(request.getString(ARG_URL,
-                        BLANK), Resource.TYPE_URL,
-                                request.getString(ARG_MD5, null),
-                                request.get(ARG_FILESIZE, (long) -1)));
             }
 
 
@@ -2838,6 +2850,59 @@ public class EntryManager extends RepositoryManager {
                               new StringBuilder(msg("No entries created")));
         }
 
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param url _more_
+     * @param actionId _more_
+     * @param entry _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    private File downloadUrl(Request request, String url, Object actionId,
+                             Entry entry)
+            throws Exception {
+        if ( !url.toLowerCase().startsWith("http:")
+                && !url.toLowerCase().startsWith("https:")
+                && !url.toLowerCase().startsWith("ftp:")) {
+            fatalError(request, "Cannot download url:" + url);
+        }
+        getStorageManager().checkPath(url);
+        String        tail       = IOUtil.getFileTail(url);
+        File          newFile = getStorageManager().getTmpFile(request, tail);
+
+        URL           fromUrl    = new URL(url);
+        URLConnection connection = fromUrl.openConnection();
+        InputStream   fromStream = connection.getInputStream();
+        if (actionId != null) {
+            ucar.unidata.util.JobManager.getManager().startLoad("File copy",
+                    actionId);
+        }
+        int length = connection.getContentLength();
+        if (length > 0 & actionId != null) {
+            getActionManager().setActionMessage(actionId,
+                    msg("Downloading") + " " + length + " " + msg("bytes"));
+        }
+        OutputStream toStream =
+            getStorageManager().getFileOutputStream(newFile);
+        try {
+            long bytes = IOUtil.writeTo(fromStream, toStream, actionId,
+                                        length);
+            if (bytes < 0) {
+                return null;
+            }
+        } finally {
+            IOUtil.close(toStream);
+            IOUtil.close(fromStream);
+        }
+
+        return newFile;
     }
 
 
@@ -2969,17 +3034,17 @@ public class EntryManager extends RepositoryManager {
         String[] macros = {
             "day", padZero(fromDay), "week", fromWeek + "", "month",
             padZero(fromMonth), "year", fromYear + "", "date",
-            getPageHandler().formatDate(fromDate), "fromdate",
-            getPageHandler().formatDate(fromDate), "monthname",
+            getDateHandler().formatDate(fromDate), "fromdate",
+            getDateHandler().formatDate(fromDate), "monthname",
             DateUtil.MONTH_NAMES[fromMonth - 1], "create_day",
             padZero(createDay), "from_day", padZero(fromDay), "to_day",
             padZero(toDay), "create_week", "" + createWeek, "from_week",
             "" + fromWeek, "to_week", "" + toWeek, "create_weekofyear",
             "" + createWeekOfYear, "from_weekofyear", "" + fromWeekOfYear,
             "to_weekofyear", "" + toWeekOfYear, "create_date",
-            getPageHandler().formatDate(createDate), "from_date",
-            getPageHandler().formatDate(fromDate), "to_date",
-            getPageHandler().formatDate(toDate), "create_month",
+            getDateHandler().formatDate(createDate), "from_date",
+            getDateHandler().formatDate(fromDate), "to_date",
+            getDateHandler().formatDate(toDate), "create_month",
             padZero(createMonth), "from_month", padZero(fromMonth),
             "to_month", padZero(toMonth), "create_year", createYear + "",
             "from_year", fromYear + "", "to_year", toYear + "",
@@ -3721,19 +3786,19 @@ public class EntryManager extends RepositoryManager {
         String oldType = entry.getCategory();
         entry.setCategory(CATEGORY_UPLOAD);
         //Note: the name and description have already been encoded to prevent xss attacks
-        //        entry.setName(RepositoryUtil.encodeUntrustedText(getEntryDisplayName(entry)));
+        //        entry.setName(Utils.encodeUntrustedText(getEntryDisplayName(entry)));
         //        entry.setDescription(
-        //            RepositoryUtil.encodeUntrustedText(entry.getDescription()));
+        //            Utils.encodeUntrustedText(entry.getDescription()));
 
-        //        System.err.println ("after:" + entry.getDescription());
-        String fromName = RepositoryUtil.encodeUntrustedText(
+        String fromName = Utils.encodeUntrustedText(
                               request.getString(
                                   ARG_CONTRIBUTION_FROMNAME, ""));
-        String fromEmail = RepositoryUtil.encodeUntrustedText(
+        String fromEmail = Utils.encodeUntrustedText(
                                request.getString(
                                    ARG_CONTRIBUTION_FROMEMAIL, ""));
         String user = fromName;
-        entry.addMetadata(
+        getMetadataManager().addMetadata(
+            entry,
             new Metadata(
                 getRepository().getGUID(), entry.getId(),
                 AdminMetadataHandler.TYPE_ANONYMOUS_UPLOAD, false, user,
@@ -3879,11 +3944,11 @@ public class EntryManager extends RepositoryManager {
             String img;
             if (icon == null) {
                 icon = ICON_BLANK;
-                img = HtmlUtils.img(typeHandler.iconUrl(icon), "",
+                img = HtmlUtils.img(typeHandler.getIconUrl(icon), "",
                                     HtmlUtils.attr(HtmlUtils.ATTR_WIDTH,
                                         "16"));
             } else {
-                img = HtmlUtils.img(typeHandler.iconUrl(icon));
+                img = HtmlUtils.img(typeHandler.getIconUrl(icon));
             }
 
 
@@ -3894,7 +3959,9 @@ public class EntryManager extends RepositoryManager {
                  && sessionTypes.contains(typeHandler.getType()));
             String category      = typeHandler.getCategory();
             String superCategory = typeHandler.getSuperCategory();
-
+            if (superCategory.equals("Basic")) {
+                superCategory = "";
+            }
             cats = superCatMap.get(superCategory);
             if (cats == null) {
                 cats = new CategoryBuffer();
@@ -3945,7 +4012,9 @@ public class EntryManager extends RepositoryManager {
 
         getPageHandler().entrySectionOpen(request, group, sb,
                                           "Choose entry type");
+        sb.append(HtmlUtils.open("div", " class='ramadda-links' "));
         sb.append(HtmlUtils.insetDiv(inner.toString(), 10, 20, 0, 0));
+        sb.append(HtmlUtils.close("div"));
         getPageHandler().entrySectionClose(request, group, sb);
 
         return makeEntryEditResult(request, group, "Create Entry", sb);
@@ -4093,7 +4162,6 @@ public class EntryManager extends RepositoryManager {
 
 
         String path = entry.getResource().getPath();
-
         String mimeType = getRepository().getMimeTypeFromSuffix(
                               IOUtil.getFileExtension(path));
 
@@ -4135,10 +4203,9 @@ public class EntryManager extends RepositoryManager {
                 getStorageManager().getFileInputStream(file);
 
             String range = (String) request.getHttpHeaderArgs().get("Range");
-            //            System.err.println("Range:" + range);
-            //            System.err.println("all:" +request.getHttpHeaderArgs());
-            long byteStart = -1;
-            long byteEnd   = -1;
+
+            long   byteStart = -1;
+            long   byteEnd   = -1;
             if (Utils.stringDefined(range)) {
                 //assume: bytes=start-end
                 List<String> toks1 = StringUtil.splitUpTo(range, "=", 2);
@@ -4164,12 +4231,27 @@ public class EntryManager extends RepositoryManager {
             result.addHttpHeader("Accept-Ranges", "bytes");
             result.addHttpHeader(HtmlUtils.HTTP_CONTENT_LENGTH, "" + length);
             result.setLastModified(new Date(file.lastModified()));
-            result.setCacheOk(getRepository().getProperty("ramadda.http.cachefile",false));
+            result.setCacheOk(
+                getRepository().getProperty("ramadda.http.cachefile", false));
+
             return result;
         }
 
     }
 
+
+    /**
+     * _more_
+     *
+     * @param entry _more_
+     * @param filename _more_
+     *
+     * @return _more_
+     */
+    public File getCacheFile(Entry entry, String filename) {
+        return getStorageManager().getCacheFile(entry.getId() + "_"
+                + entry.getChangeDate() + "_" + filename);
+    }
 
     /**
      * _more_
@@ -4326,7 +4408,7 @@ public class EntryManager extends RepositoryManager {
         }
 
         if ( !(isCopy || isMove || isLink)) {
-            isCopy = true;
+            isMove = true;
         }
         Entry  toEntry = null;
 
@@ -4345,9 +4427,19 @@ public class EntryManager extends RepositoryManager {
 
 
 
-
         if ( !request.exists(ARG_CONFIRM) || (toEntry == null)) {
+
+
             StringBuilder sb = new StringBuilder();
+            if (entries.size() == 1) {
+                getPageHandler().entrySectionOpen(request, entries.get(0),
+                        sb, null);
+            }
+            if (request.exists(ARG_CONFIRM) && (toEntry == null)) {
+                sb.append(
+                    getPageHandler().showDialogWarning(
+                        "Please select a destination"));
+            }
             request.formPostWithAuthToken(sb, getRepository().URL_ENTRY_COPY);
             if (force != null) {
                 sb.append(HtmlUtils.hidden(ARG_ACTION_FORCE, force));
@@ -4401,21 +4493,23 @@ public class EntryManager extends RepositoryManager {
                 sb.append(toEntry.getTypeHandler().getEntryName(toEntry));
                 sb.append(HtmlUtils.hidden(ARG_TO, toEntry.getId()));
             } else {
+                Entry parent = entries.get(0).getParentEntry();
                 String select =
                     getRepository().getHtmlOutputHandler().getSelect(
                         request, ARG_TO, HtmlUtils.img(
-                            getRepository().iconUrl(
+                            getRepository().getIconUrl(
                                 ICON_FOLDER_OPEN)) + HtmlUtils.space(1)
                                     + msg("Select")
                                     + HtmlUtils.space(
-                                        1), true, "", null, false);
+                                        1), true, "", parent, false);
 
-                sb.append(HtmlUtils.hidden(ARG_TO + "_hidden", "",
+                sb.append(HtmlUtils.hidden(ARG_TO + "_hidden",
+                                           parent.getId(),
                                            HtmlUtils.id(ARG_TO + "_hidden")));
 
                 sb.append(select);
                 sb.append(HtmlUtils.space(1));
-                sb.append(HtmlUtils.disabledInput(ARG_TO, "",
+                sb.append(HtmlUtils.disabledInput(ARG_TO, parent.getName(),
                         HtmlUtils.SIZE_60 + HtmlUtils.id(ARG_TO)));
 
             }
@@ -4437,6 +4531,11 @@ public class EntryManager extends RepositoryManager {
 
             sb.append(HtmlUtils.formClose());
             sb.append(HtmlUtils.sectionClose());
+
+            if (entries.size() == 1) {
+                getPageHandler().entrySectionClose(request, entries.get(0),
+                        sb);
+            }
 
             return addEntryHeader(request, entries.get(0),
                                   new Result(msg("Entry Move/Copy"), sb));
@@ -4597,7 +4696,7 @@ public class EntryManager extends RepositoryManager {
                 entry = changeType(request, entry, newTypeHandler);
                 String icon = newTypeHandler.getIconProperty(null);
                 if (icon != null) {
-                    icon = newTypeHandler.iconUrl(icon);
+                    icon = newTypeHandler.getIconUrl(icon);
                 }
                 sb.append(HtmlUtils.href(getEntryURL(request, entry),
                                          HtmlUtils.img(icon) + " "
@@ -5059,7 +5158,6 @@ public class EntryManager extends RepositoryManager {
         if (fromIds == null) {
             fromIds = request.getString("entries", "");
         }
-        //        System.err.println("fromids: " + fromIds);
         List<Entry> entries = new ArrayList<Entry>();
         for (String id : StringUtil.split(fromIds, ",", true, true)) {
             Entry entry = getEntry(request, id, false);
@@ -5087,8 +5185,6 @@ public class EntryManager extends RepositoryManager {
                                   ? ""
                                   : encoded);
 
-        //        System.err.println ("textFromUser:" + textFromUser);
-        //        System.err.println ("extra:" + extraDesc);
         String desc = textFromUser;
 
         if (extraDesc != null) {
@@ -5100,10 +5196,11 @@ public class EntryManager extends RepositoryManager {
                         : "");
             } else {
                 if (textFromUser.startsWith("<wiki>")) {
-                    textFromUser = HtmlUtils.concat("<wiki>", extraDesc,
+                    textFromUser = Utils.concatString("<wiki>", extraDesc,
                             textFromUser.substring("<wiki>".length()));
                 } else {
-                    textFromUser = HtmlUtils.concat(extraDesc, textFromUser);
+                    textFromUser = Utils.concatString(extraDesc,
+                            textFromUser);
                 }
             }
         } else {
@@ -5114,8 +5211,7 @@ public class EntryManager extends RepositoryManager {
             return new Result("", new StringBuilder("OK"));
         }
 
-        Entry parent = getParentEntry(request);
-        //        System.err.println("parent:" + parent);
+        Entry   parent  = getParentEntry(request);
 
         String  type    = request.getString(ARG_TYPE, "wikipage");
         boolean isWiki  = type.equals("wikipage");
@@ -5159,7 +5255,6 @@ public class EntryManager extends RepositoryManager {
                     desc = textFromUser;
                 }
 
-                //                System.err.println("final desc:" + desc);
                 entry.initEntry(name, desc, parent, request.getUser(),
                                 new Resource(), "", date.getTime(),
                                 date.getTime(), date.getTime(),
@@ -5237,7 +5332,7 @@ public class EntryManager extends RepositoryManager {
 
         String select = getRepository().getHtmlOutputHandler().getSelect(
                             request, ARG_TO, HtmlUtils.img(
-                                getRepository().iconUrl(
+                                getRepository().getIconUrl(
                                     ICON_FOLDER_OPEN)) + HtmlUtils.space(1)
                                         + msg("Select")
                                         + HtmlUtils.space(
@@ -5255,11 +5350,6 @@ public class EntryManager extends RepositoryManager {
                                       + HtmlUtils.disabledInput(ARG_TO, "",
                                           HtmlUtils.SIZE_60
                                           + HtmlUtils.id(ARG_TO))));
-
-
-
-
-
 
 
         sb.append(HtmlUtils.formTableClose());
@@ -5457,7 +5547,6 @@ public class EntryManager extends RepositoryManager {
                 ZipEntry ze;
                 while ((ze = zin.getNextEntry()) != null) {
                     String entryName = ze.getName();
-                    //                System.err.println ("ZIP: " + ze.getName());
                     if (entryName.endsWith("entries.xml")) {
                         InputStream entriesStream = zin;
                         //Check the import handlers
@@ -5555,9 +5644,10 @@ public class EntryManager extends RepositoryManager {
         }
 
         StringBuilder sb = new StringBuilder();
-        if(parent!=null)
-        getPageHandler().entrySectionOpen(request, parent, sb,
-                                          "Imported Entries", true);
+        if (parent != null) {
+            getPageHandler().entrySectionOpen(request, parent, sb,
+                    "Imported Entries", true);
+        }
 
         sb.append(msgHeader("Imported entries"));
         sb.append("<ul>");
@@ -5568,8 +5658,9 @@ public class EntryManager extends RepositoryManager {
                     parent));
         }
         sb.append("</ul>");
-        if(parent!=null)
+        if (parent != null) {
             getPageHandler().entrySectionClose(request, parent, sb);
+        }
 
 
         if (parent != null) {
@@ -5758,11 +5849,8 @@ public class EntryManager extends RepositoryManager {
 
         boolean doAnonymousUpload = false;
 
-        String name = cleanupEntryName(XmlUtil.getAttribute(node, ATTR_NAME,
-                          ""));
-
-
-
+        String name = cleanupEntryName(Utils.getAttributeOrTag(node,
+                          ATTR_NAME, ""));
 
         String originalId = XmlUtil.getAttribute(node, ATTR_ID,
                                 (String) null);
@@ -5809,7 +5897,6 @@ public class EntryManager extends RepositoryManager {
 
 
         if (file != null) {
-            //            System.err.println ("File:" + file +" files:" + files);
             File tmp = ((files == null)
                         ? null
                         : files.get(file));
@@ -5836,6 +5923,9 @@ public class EntryManager extends RepositoryManager {
                 file = newFile.toString();
             }
         }
+
+
+
         String url = Utils.getAttributeOrTag(node, ATTR_URL, (String) null);
         if (url == null) {
             url = XmlUtil.getGrandChildText(node, ATTR_URL, (String) null);
@@ -5848,6 +5938,20 @@ public class EntryManager extends RepositoryManager {
             }
         }
 
+        if ((url != null)
+                && XmlUtil.getAttribute(node, "download",
+                                        "").equals("true")) {
+            URL u = new URL(url);
+            File f = getStorageManager().getTmpFile(request,
+                         IOUtil.getFileTail(u.getFile()));
+            Utils.writeTo(u, f);
+            if ( !f.exists()) {
+                throw new IllegalArgumentException("Failed to download URL:"
+                        + u);
+            }
+            file = getStorageManager().moveToStorage(request, f,
+                    f.getName()).toString();
+        }
 
         String localFile = XmlUtil.getAttribute(node, ATTR_LOCALFILE,
                                (String) null);
@@ -5918,19 +6022,21 @@ public class EntryManager extends RepositoryManager {
 
         Date now        = new Date();
         Date createDate = (XmlUtil.hasAttribute(node, ATTR_CREATEDATE)
-                           ? getPageHandler().parseDate(
+                           ? getDateHandler().parseDate(
                                XmlUtil.getAttribute(node, ATTR_CREATEDATE))
                            : now);
         Date changeDate = (XmlUtil.hasAttribute(node, ATTR_CHANGEDATE)
-                           ? getPageHandler().parseDate(
+                           ? getDateHandler().parseDate(
                                XmlUtil.getAttribute(node, ATTR_CHANGEDATE))
                            : createDate);
+        //don't use the create and change date from the xml
+        createDate = changeDate = now;
         Date fromDate = (XmlUtil.hasAttribute(node, ATTR_FROMDATE)
-                         ? getPageHandler().parseDate(
+                         ? getDateHandler().parseDate(
                              XmlUtil.getAttribute(node, ATTR_FROMDATE))
                          : createDate);
         Date toDate = (XmlUtil.hasAttribute(node, ATTR_TODATE)
-                       ? getPageHandler().parseDate(
+                       ? getDateHandler().parseDate(
                            XmlUtil.getAttribute(node, ATTR_TODATE))
                        : fromDate);
 
@@ -5978,9 +6084,11 @@ public class EntryManager extends RepositoryManager {
         for (Element entryChild : (List<Element>) entryChildren) {
             String tag = entryChild.getTagName();
             if (tag.equals("tag")) {
-                entry.addMetadata(new Metadata(getRepository().getGUID(),
-                        entry.getId(), "enum_tag", true,
-                        XmlUtil.getChildText(entryChild), "", "", "", ""));
+                getMetadataManager().addMetadata(entry,
+                        new Metadata(getRepository().getGUID(),
+                                     entry.getId(), "enum_tag", true,
+                                     XmlUtil.getChildText(entryChild), "",
+                                     "", "", ""));
 
             } else if (tag.equals(TAG_METADATA)) {
                 getMetadataManager().processMetadataXml(entry, entryChild,
@@ -6174,10 +6282,10 @@ public class EntryManager extends RepositoryManager {
         if (forTreeView) {
             String label = getEntryListName(request, entry);
             label = label.replace("'", "\\'");
-            url = HtmlUtils.concat("javascript:",
-                                   HtmlUtils.call("treeViewClick",
-                                       HtmlUtils.jsMakeArgs(true,
-                                           entry.getId(), url, label)));
+            url = Utils.concatString("javascript:",
+                                     HtmlUtils.call("treeViewClick",
+                                         HtmlUtils.jsMakeArgs(true,
+                                             entry.getId(), url, label)));
             forTreeNavigation = false;
         }
 
@@ -6215,12 +6323,13 @@ public class EntryManager extends RepositoryManager {
                                     HtmlUtils.squote(getDownArrowIcon()))));
 
 
-            prefix = HtmlUtils.concat(HtmlUtils.open(HtmlUtils.TAG_SPAN,
-                    "class",
-                    "entry-arrow"), HtmlUtils.img(getRightArrowIcon(),
-                        msg(message),
-                        HtmlUtils.concat(HtmlUtils.id("img_" + uid),
-                                         imgClick)), HtmlUtils.close("span"));
+            prefix = Utils.concatString(
+                HtmlUtils.open(HtmlUtils.TAG_SPAN, "class", "entry-arrow"),
+                HtmlUtils.img(
+                    getRightArrowIcon(), msg(message),
+                    Utils.concatString(
+                        HtmlUtils.id("img_" + uid),
+                        imgClick)), HtmlUtils.close("span"));
         }
 
         //        if(true)
@@ -6275,8 +6384,15 @@ public class EntryManager extends RepositoryManager {
         }
         String imgUrl = null;
         if (entry.getResource().isUrl()) {
-            imgUrl = entry.getTypeHandler().getPathForEntry(request, entry);
-            imgText.append(msg("Click to view URL"));
+            try {
+                imgUrl = entry.getTypeHandler().getPathForEntry(request,
+                        entry);
+                imgText.append(msg("Click to view URL"));
+            } catch (Exception exc) {
+                imgUrl = "bad image";
+                imgText.append("Error:" + exc);
+            }
+
         } else if (entry.getResource().isFile()) {
             if (getAccessManager().canDownload(request, entry)) {
                 imgUrl = entry.getTypeHandler().getEntryResourceUrl(request,
@@ -6285,13 +6401,15 @@ public class EntryManager extends RepositoryManager {
             }
         }
 
+
         String img = HtmlUtils.img(entryIcon, imgText.toString(),
-                                   HtmlUtils.concat(HtmlUtils.id(iconId),
+                                   Utils.concatString(HtmlUtils.id(iconId),
                                        sourceEvent.toString()));
 
         StringBuilder sb = new StringBuilder();
         HtmlUtils.open(sb, HtmlUtils.TAG_SPAN,
-                       HtmlUtils.id(targetId) + targetEvent.toString());
+                       HtmlUtils.attr("title",linkText) +
+                       HtmlUtils.cssClass("entry-name") +HtmlUtils.id(targetId) + targetEvent.toString());
 
         sb.append(prefix);
         if (imgUrl != null) {
@@ -6302,7 +6420,6 @@ public class EntryManager extends RepositoryManager {
         if (textBeforeEntryLink != null) {
             sb.append(textBeforeEntryLink);
         }
-
         if (decorateMetadata) {
             getMetadataManager().decorateEntry(request, entry, sb, true);
         }
@@ -6310,11 +6427,9 @@ public class EntryManager extends RepositoryManager {
             HtmlUtils.span(sb, getTooltipLink(request, entry, linkText, url),
                            HtmlUtils.cssClass("entry-link"));
         } else {
-            HtmlUtils.span(
-                sb, linkText,
-                HtmlUtils.concat(
-                    targetEvent.toString(),
-                    HtmlUtils.cssClass("entry-link")));
+            HtmlUtils.span(sb, linkText,
+                           Utils.concatString(targetEvent.toString(),
+                               HtmlUtils.cssClass("entry-link")));
         }
 
         HtmlUtils.close(sb, HtmlUtils.TAG_SPAN);
@@ -6404,7 +6519,8 @@ public class EntryManager extends RepositoryManager {
             throws Exception {
         String theFile = getStorageManager().moveToEntryDir(entry,
                              file).getName();
-        entry.addMetadata(
+        getMetadataManager().addMetadata(
+            entry,
             new Metadata(
                 getRepository().getGUID(), entry.getId(),
                 ContentMetadataHandler.TYPE_ATTACHMENT, false, theFile, "",
@@ -6492,7 +6608,9 @@ public class EntryManager extends RepositoryManager {
             StringBuilder sb;
             if (link.isType(OutputType.TYPE_VIEW)) {
                 if (htmlSB == null) {
-                    htmlSB = new StringBuilder();
+                    htmlSB =
+                        new StringBuilder(HtmlUtils.open(HtmlUtils.TAG_DIV,
+                            HtmlUtils.cssClass(CSS_CLASS_MENU_GROUP)));
                     cnt++;
                 }
                 sb = htmlSB;
@@ -6501,35 +6619,49 @@ public class EntryManager extends RepositoryManager {
             } else if (link.isType(OutputType.TYPE_FEEDS)) {
                 if (exportSB == null) {
                     cnt++;
-                    exportSB = new StringBuilder();
+                    exportSB =
+                        new StringBuilder(HtmlUtils.open(HtmlUtils.TAG_DIV,
+                            HtmlUtils.cssClass(CSS_CLASS_MENU_GROUP)));
                 }
                 sb = exportSB;
             } else if (link.isType(OutputType.TYPE_FILE)) {
                 if (fileSB == null) {
                     cnt++;
-                    fileSB = new StringBuilder();
+                    fileSB =
+                        new StringBuilder(HtmlUtils.open(HtmlUtils.TAG_DIV,
+                            HtmlUtils.cssClass(CSS_CLASS_MENU_GROUP)));
                 }
                 sb = fileSB;
             } else if (link.isType(OutputType.TYPE_OTHER)) {
                 if (categorySB == null) {
                     cnt++;
-                    categorySB = new StringBuilder();
+                    categorySB =
+                        new StringBuilder(HtmlUtils.open(HtmlUtils.TAG_DIV,
+                            HtmlUtils.cssClass(CSS_CLASS_MENU_GROUP)));
                 }
                 sb = categorySB;
             } else {
                 if (actionSB == null) {
                     cnt++;
-                    actionSB = new StringBuilder();
+                    actionSB =
+                        new StringBuilder(HtmlUtils.open(HtmlUtils.TAG_DIV,
+                            HtmlUtils.cssClass(CSS_CLASS_MENU_GROUP)));
                     //                    actionSB.append("<tr><td class=entrymenulink>" + msg("Edit") +"</td></tr>");
                 }
                 sb = actionSB;
             }
             //Only add the hr if we have more things in the list
             if (needToAddHr && (sb.length() > 0)) {
+                sb.append("</div>");
+
                 sb.append(
                     HtmlUtils.div(
                         "",
                         HtmlUtils.cssClass(CSS_CLASS_MENUITEM_SEPARATOR)));
+                sb.append(
+                    HtmlUtils.open(
+                        HtmlUtils.TAG_DIV,
+                        HtmlUtils.cssClass(CSS_CLASS_MENU_GROUP)));
             }
             needToAddHr = link.getHr();
             if (needToAddHr) {
@@ -6566,17 +6698,20 @@ public class EntryManager extends RepositoryManager {
         menu.append("<table class=\"ramadda-menu\">");
         HtmlUtils.open(menu, HtmlUtils.TAG_TR, HtmlUtils.ATTR_VALIGN, "top");
         if (fileSB != null) {
+            fileSB.append("</div>");
             menu.append(HtmlUtils.tag(HtmlUtils.TAG_TD, "",
                                       HtmlUtils.b(msg("File")) + "<br>"
                                       + fileSB.toString()));
         }
         if (actionSB != null) {
+            actionSB.append("</div>");
             menu.append(HtmlUtils.tag(HtmlUtils.TAG_TD, "",
                                       HtmlUtils.b(msg("Edit")) + "<br>"
                                       + actionSB.toString()));
         }
 
         if (htmlSB != null) {
+            htmlSB.append("</div>");
             menu.append(HtmlUtils.tag(HtmlUtils.TAG_TD, "",
                                       HtmlUtils.b(msg("View")) + "<br>"
                                       + htmlSB.toString()));
@@ -6584,12 +6719,14 @@ public class EntryManager extends RepositoryManager {
 
 
         if (exportSB != null) {
+            exportSB.append("</div>");
             menu.append(HtmlUtils.tag(HtmlUtils.TAG_TD, "",
                                       HtmlUtils.b(msg("Links")) + "<br>"
                                       + exportSB.toString()));
         }
 
         if (categorySB != null) {
+            categorySB.append("</div>");
             menu.append(HtmlUtils.tag(HtmlUtils.TAG_TD, "",
                                       HtmlUtils.b(msg("Data")) + "<br>"
                                       + categorySB.toString()));
@@ -6899,16 +7036,15 @@ public class EntryManager extends RepositoryManager {
 
                 return getRemoteEntry(request, tuple[0], tuple[1]);
             } else if (isSynthEntry(entryId)) {
-                String[] pair          = getSynthId(entryId);
-                String   parentEntryId = pair[0];
-                String   syntheticPart = pair[1];
-                Entry    parentEntry   = null;
-                //                System.err.println("Parent:" + parentEntryId + " synth part:" + syntheticPart);
+                String[]    pair          = getSynthId(entryId);
+                String      parentEntryId = pair[0];
+                String      syntheticPart = pair[1];
+                Entry       parentEntry   = null;
 
-                TypeHandler typeHandler = getSynthTypeHandler(parentEntryId);
+                TypeHandler typeHandler   =
+                    getSynthTypeHandler(parentEntryId);
                 if (typeHandler != null) {
                     parentEntry = typeHandler.getSynthTopLevelEntry();
-                    //                    System.err.println("Got synth type handler:" + typeHandler.getType());
                 }
                 if (syntheticPart == null) {
                     return parentEntry;
@@ -6928,27 +7064,14 @@ public class EntryManager extends RepositoryManager {
                 }
 
 
-                //                System.err.println("synth type:" + typeHandler.getClass().getName());
                 entry = typeHandler.makeSynthEntry(request, parentEntry,
                         syntheticPart);
-                //                System.err.println("process parent:" + parentEntry);
-                //                System.err.println("process child:" + entry);
-
                 if (entry == null) {
                     return null;
                 }
             } else {
                 entry = createEntryFromDatabase(entryId, abbreviated);
                 debug("getEntry: from database:" + entry);
-                /*
-                for(int i=0;i<1000000;i++) {
-                    entry = createEntryFromDatabase(entryId, abbreviated);
-                    if ((i%10000)==0) {
-                        Misc.gc();
-                        getRepository().checkMemory("GC:" + i +" memory:");
-                    }
-                }
-                */
             }
         } catch (Exception exc) {
             logError("creating entry:" + entryId, exc);
@@ -6986,16 +7109,13 @@ public class EntryManager extends RepositoryManager {
             id = ProcessFileTypeHandler.TYPE_PROCESS;
         }
 
-        //        System.err.println("getSynthTypeHandler:" + id +":");
 
         TypeHandler typeHandler = getRepository().getTypeHandler(id);
         if (typeHandler == null) {
             typeHandler = getRepository().getTypeHandler("type_" + id);
-            //            System.err.println("trying type_" +id +" " + typeHandler);
         }
         if (typeHandler == null) {
             typeHandler = getSearchManager().getSearchProvider(id);
-            //            System.err.println("search provider:" + typeHandler);
         }
 
         return typeHandler;
@@ -7084,10 +7204,6 @@ public class EntryManager extends RepositoryManager {
         TypeHandler typeHandler = getRepository().getTypeHandler(request);
         List<Clause> where = typeHandler.assembleWhereClause(request,
                                  searchCriteriaSB);
-
-
-        //        System.err.println("Request:" + request);
-        //        System.err.println("Clause:" + where);
         if (extraClauses != null) {
             where.addAll(extraClauses);
         }
@@ -7657,6 +7773,36 @@ public class EntryManager extends RepositoryManager {
             for (Entry theNewEntry : entries) {
                 theNewEntry.getTypeHandler().initializeNewEntry(request,
                         theNewEntry);
+                String name = theNewEntry.getName();
+                if (name.trim().length() == 0) {
+                    String nameTemplate =
+                        theNewEntry.getTypeHandler().getTypeProperty(
+                            "nameTemplate", (String) null);
+                    if (nameTemplate != null) {
+                        Object[] values =
+                            theNewEntry.getTypeHandler().getEntryValues(
+                                theNewEntry);
+                        SimpleDateFormat sdf =
+                            RepositoryUtil.makeDateFormat("yyyy-MM-dd HH:mm");
+                        nameTemplate = nameTemplate.replace(
+                            "${date}",
+                            sdf.format(new Date(theNewEntry.getStartDate())));
+                        if (values != null) {
+                            List<Column> columns =
+                                theNewEntry.getTypeHandler().getColumns();
+                            if (columns != null) {
+                                for (Column c : columns) {
+                                    Object obj = c.getObject(values);
+                                    nameTemplate = nameTemplate.replace("${"
+                                            + c.getName()
+                                            + "}", obj.toString());
+                                }
+                            }
+                        }
+                        theNewEntry.setName(nameTemplate);
+                    }
+                }
+
             }
         }
 
@@ -7735,7 +7881,6 @@ public class EntryManager extends RepositoryManager {
                 }
                 tif.setStatement(typeStatement);
             }
-            //           System.err.println ("entry: " + entry.getId());
             setStatement(entry, entryStmt, isNew, typeHandler);
 
 
@@ -7837,7 +7982,6 @@ public class EntryManager extends RepositoryManager {
         }
 
         if (t2 > t1) {
-            //System.err.println("added:" + entries.size() + " entries in " + (t2-t1) + " ms  Rate:" + (entries.size()/(t2-t1)));
             double seconds = totalTime / 1000.0;
             //            if ((totalEntries % 100 == 0) && (seconds > 0)) {
             if (seconds > 0) {
@@ -7936,7 +8080,6 @@ public class EntryManager extends RepositoryManager {
                 if (seenResources.contains(key)) {
                     nonUniqueOnes.add(entry);
 
-                    //                    System.out.println("seen resource:" + path);
                     continue;
                 }
                 seenResources.add(key);
@@ -7959,8 +8102,6 @@ public class EntryManager extends RepositoryManager {
             getDatabaseManager().closeStatement(select);
             getDatabaseManager().closeConnection(connection);
             long t2 = System.currentTimeMillis();
-            //            System.err.println("Took:" + (t2 - t1) + "ms to check: "
-            //                               + entries.size() + " entries");
         } catch (Exception exc) {
             logError("Processing:" + query, exc);
 
@@ -8000,6 +8141,7 @@ public class EntryManager extends RepositoryManager {
     }
 
 
+
     /**
      * _more_
      *
@@ -8013,7 +8155,11 @@ public class EntryManager extends RepositoryManager {
     public String getEntryResourceUrl(Request request, Entry entry,
                                       boolean full, boolean addPath) {
         if (entry.getResource().isUrl()) {
-            return entry.getResource().getPath();
+            try {
+                return entry.getTypeHandler().getPathForEntry(request, entry);
+            } catch (Exception exc) {
+                return "Error:" + exc;
+            }
         }
 
         String fileTail = getStorageManager().getFileTail(entry);
@@ -8135,9 +8281,9 @@ public class EntryManager extends RepositoryManager {
         if ( !parentEntry.isGroup()) {
             return children;
         }
-        List<Entry>  entries = new ArrayList<Entry>();
-        List<String> ids     = getChildIds(request, parentEntry, select);
-        boolean doingOrderBy = request.exists(ARG_ORDERBY);
+        List<Entry>  entries      = new ArrayList<Entry>();
+        List<String> ids          = getChildIds(request, parentEntry, select);
+        boolean      doingOrderBy = request.exists(ARG_ORDERBY);
         for (String id : ids) {
             Entry entry = getEntry(request, id);
             if (entry == null) {
@@ -8232,15 +8378,13 @@ public class EntryManager extends RepositoryManager {
 
                 TypeHandler synthTypeHandler = getSynthTypeHandler(entryId);
 
-                //                System.err.println(" is synth entry mainEntry.getId=" + mainEntry.getId() +" th:" + (synthTypeHandler ==null?"null":synthTypeHandler.getClass().getName()));
 
-                Entry tmpMainEntry = null;
+                Entry       tmpMainEntry     = null;
                 if (synthTypeHandler != null) {
                     tmpMainEntry = synthTypeHandler.getSynthTopLevelEntry();
                 } else {
                     tmpMainEntry = (Entry) getEntry(request, entryId, false,
                             false);
-                    //                    System.err.println(" getEntry == null? :" + (mainEntry == null) +" " + entryId);
                 }
                 if (tmpMainEntry != null) {
                     mainEntry = tmpMainEntry;
@@ -8490,6 +8634,7 @@ public class EntryManager extends RepositoryManager {
                 theEntry.setNorth(Misc.getProperty(extra, ARG_MAXLAT, 0.0));
                 theEntry.setWest(Misc.getProperty(extra, ARG_MINLON, 0.0));
                 theEntry.setEast(Misc.getProperty(extra, ARG_MAXLON, 0.0));
+                theEntry.normalizeLongitude();
                 theEntry.trimAreaResolution();
 
                 changed = true;
@@ -8533,8 +8678,6 @@ public class EntryManager extends RepositoryManager {
         List<Element> associationNodes = new ArrayList<Element>();
         associationNodes.addAll((List<Element>) XmlUtil.findDescendants(root,
                 TAG_ASSOCIATION));
-        //        System.err.println("nodes:" + associationNodes.size());
-
 
         if (root.getTagName().equals(TAG_ENTRIES)) {
             //Look for the child entry
@@ -8669,7 +8812,6 @@ public class EntryManager extends RepositoryManager {
             File f = new File(IOUtil.joinDir(file, ".this.ramadda.xml"));
             if (f.exists()) {
                 Entry entry = parseEntryXml(f, true);
-                //                System.err.println("getTemplate:" + file + " file:" + f   + " entry: " + entry);
 
                 return entry;
             }
@@ -10166,7 +10308,8 @@ public class EntryManager extends RepositoryManager {
      */
     public String getRightArrowIcon() {
         if (rightArrowIcon == null) {
-            rightArrowIcon = getRepository().iconUrl(ICON_TOGGLEARROWRIGHT);
+            rightArrowIcon =
+                getRepository().getIconUrl(ICON_TOGGLEARROWRIGHT);
         }
 
         return rightArrowIcon;
@@ -10180,7 +10323,7 @@ public class EntryManager extends RepositoryManager {
      */
     public String getDownArrowIcon() {
         if (downArrowIcon == null) {
-            downArrowIcon = getRepository().iconUrl(ICON_TOGGLEARROWDOWN);
+            downArrowIcon = getRepository().getIconUrl(ICON_TOGGLEARROWDOWN);
         }
 
         return downArrowIcon;
@@ -10224,6 +10367,42 @@ public class EntryManager extends RepositoryManager {
         return parent;
     }
 
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param baseArg _more_
+     * @param value _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public String getEntryFormSelect(Request request, Entry entry,
+                                     String baseArg, String value)
+            throws Exception {
+        Entry theEntry = null;
+        if (value.length() > 0) {
+            theEntry = getRepository().getEntryManager().getEntry(request,
+                    value);
+        }
+        StringBuffer sb = new StringBuffer();
+        String select =
+            getRepository().getHtmlOutputHandler().getSelect(request,
+                baseArg, "Select", true, null, entry);
+        sb.append("\n");
+        sb.append(HtmlUtils.hidden(baseArg + "_hidden", value,
+                                   HtmlUtils.id(baseArg + "_hidden")));
+        sb.append("\n");
+        sb.append(HtmlUtils.disabledInput(baseArg, ((theEntry != null)
+                ? theEntry.getFullName()
+                : ""), HtmlUtils.id(baseArg) + HtmlUtils.SIZE_60) + select);
+        sb.append("\n");
+
+        return sb.toString();
+    }
 
 
 

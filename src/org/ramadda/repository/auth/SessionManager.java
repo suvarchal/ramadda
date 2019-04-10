@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -21,15 +21,15 @@ import org.ramadda.repository.*;
 
 
 import org.ramadda.repository.database.*;
-
-
-import org.ramadda.sql.Clause;
-
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.TTLCache;
 import org.ramadda.util.Utils;
+
+
+import org.ramadda.util.sql.Clause;
+
+
+import org.ramadda.util.sql.SqlUtil;
 
 import ucar.unidata.util.Cache;
 import ucar.unidata.util.DateUtil;
@@ -883,7 +883,7 @@ public class SessionManager extends RepositoryManager {
                                          ARG_REMOVESESSIONID,
                                          session.getId());
             sessionHtml.append(HtmlUtils.row(HtmlUtils.cols(HtmlUtils.href(url,
-                    HtmlUtils.img(iconUrl(ICON_DELETE))) + " "
+                    HtmlUtils.img(getIconUrl(ICON_DELETE))) + " "
                         + session.getUser().getLabel(), formatDate(request,
                             session.getCreateDate()), formatDate(request,
                                 session.getLastActivity()), session.getId())));

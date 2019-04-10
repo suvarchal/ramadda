@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@ import org.ramadda.repository.*;
 import org.ramadda.repository.output.XmlOutputHandler;
 import org.ramadda.repository.type.*;
 import org.ramadda.repository.util.ServerInfo;
-
-import org.ramadda.sql.Clause;
 import org.ramadda.util.HtmlUtils;
+
+import org.ramadda.util.sql.Clause;
 
 import org.w3c.dom.*;
 
@@ -190,12 +190,17 @@ public abstract class SearchProvider extends GenericTypeHandler {
     /**
      * _more_
      *
+     *
+     * @param includeId _more_
      * @return _more_
      */
-    public String getFormLabel() {
+    public String getFormLabel(boolean includeId) {
         String url = getSiteUrl();
         if (url != null) {
-            return HtmlUtils.href(url, getName());
+            return HtmlUtils.href(url, getName(), " class=black_href ")
+                   + (includeId
+                      ? " Id:" + getId()
+                      : "");
         }
 
         return getName();
@@ -226,8 +231,8 @@ public abstract class SearchProvider extends GenericTypeHandler {
      *
      * @return _more_
      */
-    public String getIconUrl() {
-        return null;
+    public String getSearchProviderIconUrl() {
+        return "${root}/favicon.png";
     }
 
 
@@ -310,7 +315,7 @@ public abstract class SearchProvider extends GenericTypeHandler {
          * @return _more_
          */
         @Override
-        public String getIconUrl() {
+        public String getSearchProviderIconUrl() {
             return "${root}/favicon.png";
         }
 
@@ -412,7 +417,7 @@ public abstract class SearchProvider extends GenericTypeHandler {
          * @return _more_
          */
         @Override
-        public String getIconUrl() {
+        public String getSearchProviderIconUrl() {
             return "${root}/favicon.png";
         }
 
@@ -421,11 +426,16 @@ public abstract class SearchProvider extends GenericTypeHandler {
         /**
          * _more_
          *
+         *
+         * @param includeId _more_
          * @return _more_
          */
         @Override
-        public String getFormLabel() {
-            return HtmlUtils.href(serverInfo.getUrl(), getName());
+        public String getFormLabel(boolean includeId) {
+            return HtmlUtils.href(serverInfo.getUrl(), getName(),
+                                  " class=black_href ") + (includeId
+                    ? " Id:" + getId()
+                    : "");
         }
 
 

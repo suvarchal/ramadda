@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -200,7 +200,7 @@ public class WaterMLFile extends PointFile {
             String var     = variableName + "-" + dataType;
             RecordField field = new RecordField(varName, var, var,
                                     i + 1 + OFFSET, "");
-            field.setType(RecordField.TYPE_NUMERIC);
+            field.setType(RecordField.TYPE_DOUBLE);
             field.setChartable(true);
             field.setSearchable(true);
             fields.add(field);
@@ -216,21 +216,21 @@ public class WaterMLFile extends PointFile {
                                     "Elevation", 3, "m");
         elevField.setDefaultDoubleValue(altitude =
             Double.parseDouble(elevation));
-        elevField.setType(RecordField.TYPE_NUMERIC);
+        elevField.setType(RecordField.TYPE_DOUBLE);
         fields.add(0, elevField);
 
         RecordField lonField = new RecordField("longitude", "longitude",
                                    "longitude", 2, "degrees");
         lonField.setDefaultDoubleValue(this.longitude =
             Double.parseDouble(longitude));
-        lonField.setType(RecordField.TYPE_NUMERIC);
+        lonField.setType(RecordField.TYPE_DOUBLE);
         fields.add(0, lonField);
 
         RecordField latField = new RecordField("latitude", "latitude",
                                    "latitude", 1, "degrees");
         latField.setDefaultDoubleValue(this.latitude =
             Double.parseDouble(latitude));
-        latField.setType(RecordField.TYPE_NUMERIC);
+        latField.setType(RecordField.TYPE_DOUBLE);
         fields.add(0, latField);
 
 

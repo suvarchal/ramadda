@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -71,6 +71,9 @@ public class YouTubeVideoTypeHandler extends GenericTypeHandler {
     public static final int IDX_DISPLAY = IDX++;
 
     /** _more_ */
+    public static final int IDX_AUTOPLAY = IDX++;
+
+    /** _more_ */
     private int idCnt = 0;
 
     /**
@@ -100,6 +103,7 @@ public class YouTubeVideoTypeHandler extends GenericTypeHandler {
     public Result getHtmlDisplay(Request request, Entry entry)
             throws Exception {
 
+        boolean autoPlay = entry.getValue(IDX_AUTOPLAY, false);
         String  sdisplay = entry.getValue(IDX_DISPLAY, "true");
         boolean display  = (sdisplay.length() == 0)
                            ? true
@@ -112,8 +116,8 @@ public class YouTubeVideoTypeHandler extends GenericTypeHandler {
         getPageHandler().entrySectionOpen(request, entry, sb, "");
 
 
-        sb.append(getRepository().getWikiManager().wikifyEntry(request, entry,
-                                                               entry.getDescription()));
+        sb.append(getRepository().getWikiManager().wikifyEntry(request,
+                entry, entry.getDescription()));
         String url = entry.getResource().getPath();
         String id  = entry.getValue(IDX_ID, (String) null);
         //For legacy entries
@@ -157,7 +161,9 @@ public class YouTubeVideoTypeHandler extends GenericTypeHandler {
         String playerId = "video_" + (idCnt++);
         String embedUrl = "//www.youtube.com/embed/" + id;
         embedUrl += "?enablejsapi=1";
-        embedUrl += "&autoplay=0";
+        embedUrl += "&autoplay=" + (autoPlay
+                                    ? 1
+                                    : 0);
         embedUrl += "&playerapiid=" + playerId;
         if (start > 0) {
             embedUrl += "&start=" + ((int) (start * 60));
@@ -269,8 +275,11 @@ public class YouTubeVideoTypeHandler extends GenericTypeHandler {
                 try {
                     IOUtil.writeTo(is, fos);
                     f = getStorageManager().moveToEntryDir(entry, f);
-                    entry.addMetadata(new Metadata(getRepository().getGUID(),
-                            entry.getId(),
+
+                    getMetadataManager().addMetadata(
+                        entry,
+                        new Metadata(
+                            getRepository().getGUID(), entry.getId(),
                             ContentMetadataHandler.TYPE_THUMBNAIL, false,
                             f.getName(), null, null, null, null));
 
@@ -313,8 +322,8 @@ public class YouTubeVideoTypeHandler extends GenericTypeHandler {
      * @param args _more_
      */
     public static void main(String[] args) {
-        String         pattern="^(http|https)://www.youtube.com/(watch\\?v=|v/).*";
-        String url = "https://www.youtube.com/v/q2H_fLuGZgo";
+        String pattern = "^(http|https)://www.youtube.com/(watch\\?v=|v/).*";
+        String url     = "https://www.youtube.com/v/q2H_fLuGZgo";
         //            "http://www.youtube.com/watch?v=sOU2WXaDEs0&feature=g-vrec";
         System.err.println(url.matches(pattern));
     }

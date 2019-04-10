@@ -12,39 +12,45 @@ index.html
 -examples/pdfbox.sh
 -examples/README.INSTALLER
 -map.html
->overview.html
->faq.html
 >user.html
->newentry.html
->download.html
->editing.html
->entries.html
->access.html
->configuration.html
+>title:RAMADDA Entries
+>>overview.html
+>>newentry.html
+>>editing.html
+>>access.html
+>>configuration.html
+>faq.html
+>title:RAMADDA Wiki Facilities
+>>wiki.html
+>>wikitext.html
+>>wikidisplay.html
+>>notebook.html
+>>pagestyle.html
 -exampletemplate.html.txt
 -exampletemplate.jar
 
 
->title:Entries:Documentation for how to use the different types of entries available
+#>title:Entries:Documentation for how to use the different types of entries available
 #>>localfileview.html
 #>>ftpview.html
->>wiki.html
->>wikitext.html
->>wikidisplay.html
->>gridaggregation.html
->>pagestyle.html
 
 
->title:Data ingest,  harvesters and import
+
+
+>title:Data ingest,  harvesters and import/export
+>>download.html
 >>dataingest.html
 >>entrytypes.html
 >>entryxml.html
 >>harvesters.html
 
->title:Geodata Facilities
+
+>title:Data Facilities
 #>>pointdata.html
+>>etl.html
 >>gridsubset.html
 >>gridatpoint.html
+>>gridaggregation.html
 #>>gridvisualization.html
 >>idvpublisher.html
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -150,12 +150,11 @@ public class ServiceTypeHandler extends OrderedGroupTypeHandler {
         }
         StringBuilder xml = new StringBuilder();
         service.toXml(xml, null);
-        System.out.println(xml);
-
 
         ServiceOutputHandler soh = new ServiceOutputHandler(repository,
                                        service);
         StringBuilder sb = new StringBuilder();
+        getPageHandler().entrySectionOpen(request, entry, sb, null);
 
         subGroups.addAll(entries);
         addListForm(request, entry, subGroups, sb);
@@ -180,6 +179,8 @@ public class ServiceTypeHandler extends OrderedGroupTypeHandler {
         if ( !soh.doExecute(request)) {
             soh.makeForm(request, service, entry, entries,
                          HtmlOutputHandler.OUTPUT_HTML, sb);
+
+            getPageHandler().entrySectionClose(request, entry, sb);
 
             return new Result("", sb);
         }

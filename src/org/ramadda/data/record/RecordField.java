@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -83,16 +83,20 @@ public class RecordField {
 
 
     /** _more_ */
-    public static final String TYPE_NUMERIC = "numeric";
-
-    /** _more_ */
     public static final String TYPE_STRING = "string";
+    public static final String TYPE_URL = "url";
+    public static final String TYPE_ENUMERATION = "enumeration";
+    public static final String TYPE_IMAGE = "image";
 
     /** _more_ */
     public static final String TYPE_DATE = "date";
 
+
     /** _more_ */
-    public static final String TYPE_INTEGER = "integer";
+    public static final String TYPE_DOUBLE = "double";
+
+    /** _more_ */
+    public static final String TYPE_INT = "int";
 
     /** _more_ */
     private boolean isTypeNumeric = true;
@@ -144,7 +148,10 @@ public class RecordField {
     private double scale = 1.0;
 
     /** _more_ */
-    private double offset = 1.0;
+    private double offset1 = 0.0;
+
+    /** _more_ */
+    private double offset2 = 0.0;
 
     /** _more_ */
     private String name;
@@ -195,7 +202,7 @@ public class RecordField {
     private String headerPattern = null;
 
     /** _more_ */
-    private String type = TYPE_NUMERIC;
+    private String type = TYPE_DOUBLE;
 
     /** _more_ */
     private double missingValue = Double.NaN;
@@ -236,12 +243,6 @@ public class RecordField {
         this.description = description;
         this.paramId     = paramId;
         this.unit        = unit;
-        /*      this.rawType = rawType;
-                this.typeName = typeName;
-                this.arity = arity;
-                this.searchable = searchable;
-                this.chartable  = chartable;
-        */
     }
 
 
@@ -400,15 +401,17 @@ public class RecordField {
     public void addJson(StringBuffer sb, int index) {
         List<String> items    = new ArrayList<String>();
         String       dataType = type;
-        if (type.equals(TYPE_NUMERIC)) {
-            dataType = "double";
-        }
         items.add("index");
         items.add("" + index);
         items.add("id");
         items.add(HtmlUtils.quote(name));
         items.add("label");
         items.add(Json.quote(label));
+        if(description!=null) {
+            items.add("description");
+            items.add(Json.quote(description.replaceAll("\n"," ")));
+        }
+
         items.add("type");
         items.add(Json.quote(dataType));
         items.add("unit");
@@ -506,7 +509,7 @@ public class RecordField {
             attr(pw, "size", "" + arity);
         }
         if (isTypeString) {
-            attr(pw, "type", TYPE_STRING);
+            attr(pw, "type", type);
         } else if (isTypeDate) {
             attr(pw, "type", TYPE_DATE);
         } else {
@@ -709,6 +712,23 @@ public class RecordField {
         properties.put(key, value);
     }
 
+    /**
+     * _more_
+     *
+     * @param key _more_
+     * @param dflt _more_
+     *
+     * @return _more_
+     */
+    public Object getProperty(String key, Object dflt) {
+        Object v = properties.get(key);
+        if (v == null) {
+            return dflt;
+        }
+
+        return v;
+    }
+
 
 
     /**
@@ -746,7 +766,9 @@ public class RecordField {
      * @return The RawType
      */
     public String getRawType() {
-        return rawType;
+        return ((rawType != null) && (rawType.length() > 0))
+               ? rawType
+               : getTypeName();
     }
 
 
@@ -797,7 +819,7 @@ public class RecordField {
      */
     public double convertValue(double v) {
         //TODO: or is this the other way around
-        return v * scale + offset;
+        return (v + offset1) * scale + offset2;
     }
 
 
@@ -820,21 +842,39 @@ public class RecordField {
     }
 
     /**
-     *  Set the Offset property.
+     *  Set the Offset1 property.
      *
-     *  @param value The new value for Offset
+     *  @param value The new value for Offset1
      */
-    public void setOffset(double value) {
-        offset = value;
+    public void setOffset1(double value) {
+        offset1 = value;
     }
 
     /**
-     *  Get the Offset property.
+     *  Get the Offset1 property.
      *
-     *  @return The Offset
+     *  @return The Offset1
      */
-    public double getOffset() {
-        return offset;
+    public double getOffset1() {
+        return offset1;
+    }
+
+    /**
+     *  Set the Offset2 property.
+     *
+     *  @param value The new value for Offset2
+     */
+    public void setOffset2(double value) {
+        offset2 = value;
+    }
+
+    /**
+     *  Get the Offset2 property.
+     *
+     *  @return The Offset2
+     */
+    public double getOffset2() {
+        return offset2;
     }
 
 
@@ -970,9 +1010,10 @@ public class RecordField {
      */
     public void setType(String value) {
         type = value;
-        isTypeNumeric = value.equals(TYPE_NUMERIC)
-                        || value.equals(TYPE_INTEGER);
-        isTypeString = value.equals(TYPE_STRING);
+        isTypeNumeric = value.equals("numeric") || value.equals("integer")
+                        || value.equals(TYPE_DOUBLE)
+                        || value.equals(TYPE_INT);
+        isTypeString = value.equals(TYPE_STRING) || value.equals(TYPE_URL)|| value.equals(TYPE_IMAGE) || value.equals(TYPE_ENUMERATION);
         isTypeDate   = value.equals(TYPE_DATE);
     }
 
@@ -1000,7 +1041,7 @@ public class RecordField {
      * @return _more_
      */
     public boolean isTypeInteger() {
-        return (isTypeNumeric && type.equals(TYPE_INTEGER));
+        return (type.equals(TYPE_INT));
     }
 
     /**

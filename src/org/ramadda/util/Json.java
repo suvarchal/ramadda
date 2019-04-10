@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -35,10 +35,11 @@ import java.io.*;
 import java.text.StringCharacterIterator;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
-import java.util.Arrays;
+
 
 /**
  * JSON Utility class
@@ -186,12 +187,17 @@ public class Json {
                            boolean quoteValue) {
         try {
             row.append(mapOpen());
+            int cnt = 0;
             for (int i = 0; i < values.size(); i += 2) {
-                if (i > 0) {
-                    row.append(",\n");
-                }
                 String name  = values.get(i);
                 String value = values.get(i + 1);
+                if (value == null) {
+                    continue;
+                }
+                if (cnt > 0) {
+                    row.append(",\n");
+                }
+                cnt++;
                 row.append(attr(name, value, quoteValue));
             }
             row.append(mapClose());
@@ -582,21 +588,32 @@ public class Json {
 
 
 
+
     /**
      * _more_
      *
-     * @param args _more_
+     * @param file _more_
+     * @param pw _more_
+     * @param colString _more_
      *
      * @throws Exception _more_
      */
-    public static void main(String[] args) throws Exception {
-        toCsv(args[0], System.out);
-    }
-
-    public static void toCsv(String file, PrintStream pw) throws Exception {
+    public static void toCsv(String file, PrintStream pw, String colString)
+            throws Exception {
+        InputStream is = IOUtil.getInputStream(file, Json.class);
         BufferedReader br = new BufferedReader(
                                 new InputStreamReader(
-                                                      new FileInputStream(file)));
+                                                      is));
+
+        HashSet cols = null;
+        if (colString != null) {
+            cols = new HashSet();
+            for (String tok : StringUtil.split(colString, ",", true, true)) {
+                cols.add(tok);
+            }
+
+        }
+
         StringBuilder json = new StringBuilder();
         String        input;
         while ((input = br.readLine()) != null) {
@@ -605,53 +622,139 @@ public class Json {
         }
         JSONObject obj      = new JSONObject(json.toString());
         JSONArray  features = readArray(obj, "features");
-        String[]names = null;
+        //        List<String> names    = null;
+        String[] names = null;
         for (int i = 0; i < features.length(); i++) {
             //            if((i%100)==0) System.err.println("cnt:" + i);
             JSONObject feature = features.getJSONObject(i);
-            JSONObject     props   = feature.getJSONObject("properties");
-            if(names == null) {
-                names= JSONObject.getNames(props);
-                Arrays.sort(names);
-                for(String name: names) {
+            JSONObject props   = feature.getJSONObject("properties");
+            if (names == null) {
+                names = JSONObject.getNames(props);
+                for (String name : names) {
+                    if ((cols != null) && !cols.contains(name)) {
+                        continue;
+                    }
                     pw.print(name);
                     pw.print(",");
                 }
-                pw.println("latitude,longitude");
+                //                pw.println("latitude,longitude");
+                pw.println("location");
             }
 
-
-            JSONArray  geom    = readArray(feature, "geometry.coordinates");
-            String     type    = readValue(feature, "geometry.type", "NULL");
-            double[] centroid=null;
-            if (type.equals("MultiPolygon") || type.equals("Polygon")) {
-                JSONArray  points  = geom.getJSONArray(0);
-                if (type.equals("MultiPolygon")) {
-                    points = points.getJSONArray(0);
+            Bounds    bounds   = getFeatureBounds(feature, null);
+            JSONArray geom     = readArray(feature, "geometry.coordinates");
+            String    type     = readValue(feature, "geometry.type", "NULL");
+            double[]  centroid = bounds.getCenter();
+            for (String name : names) {
+                String value = props.optString(name, "");
+                if (value.indexOf(",") >= 0) {
+                    value = "\"" + value + "\"";
                 }
-
-                List<double[]> pts     = new ArrayList<double[]>();
-                for (int j = 0; j < points.length(); j++) {
-                    JSONArray tuple = points.getJSONArray(j);
-                    double    v0    = tuple.getDouble(0);
-                    double    v1    = tuple.getDouble(1);
-                    pts.add(new double[] { v0, v1 });
-                }
-                centroid = Utils.calculateCentroid(pts);
-            } else {
-                centroid = new double[]{
-                    geom.getDouble(0), geom.getDouble(1)
-                };
-            }
-            for(String name: names) {
-                String value = props.optString(name,"");
-                if(value.indexOf(",")>=0) value = "\"" + value +"\"";
                 pw.print(value);
                 pw.print(",");
             }
-            pw.println(centroid[1] + ","
-                               + centroid[0]);
+            //            pw.println(centroid[1] + "," + centroid[0]);
+            pw.println(centroid[1] + ";" + centroid[0]);
         }
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param points _more_
+     * @param bounds _more_
+     *
+     * @return _more_
+     */
+    private static Bounds getBounds(JSONArray points, Bounds bounds) {
+        for (int j = 0; j < points.length(); j++) {
+            JSONArray tuple = points.getJSONArray(j);
+            double    lon   = tuple.getDouble(0);
+            double    lat   = tuple.getDouble(1);
+            if (bounds == null) {
+                bounds = new Bounds(lat, lon, lat, lon);
+            } else {
+                bounds.expand(lat, lon);
+            }
+        }
+
+        return bounds;
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param file _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static Bounds getBounds(String file) throws Exception {
+        Bounds bounds = null;
+        BufferedReader br = new BufferedReader(
+                                new InputStreamReader(
+                                    IOUtil.getInputStream(file, Json.class)));
+        StringBuilder json = new StringBuilder();
+        String        input;
+        while ((input = br.readLine()) != null) {
+            json.append(input);
+            json.append("\n");
+        }
+        JSONObject   obj      = new JSONObject(json.toString());
+        JSONArray    features = readArray(obj, "features");
+        List<String> names    = null;
+        for (int i = 0; i < features.length(); i++) {
+            //            if((i%100)==0) System.err.println("cnt:" + i);
+            JSONObject feature = features.getJSONObject(i);
+            bounds = getFeatureBounds(feature, bounds);
+        }
+
+        return bounds;
+    }
+
+    /**
+     * _more_
+     *
+     * @param feature _more_
+     * @param bounds _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static Bounds getFeatureBounds(JSONObject feature, Bounds bounds)
+            throws Exception {
+        JSONArray coords1 = readArray(feature, "geometry.coordinates");
+        String    type    = readValue(feature, "geometry.type", "NULL");
+        if (type.equals("Polygon") || type.equals("MultiLineString")) {
+            for (int idx1 = 0; idx1 < coords1.length(); idx1++) {
+                JSONArray coords2 = coords1.getJSONArray(idx1);
+                bounds = getBounds(coords2, bounds);
+            }
+        } else if (type.equals("MultiPolygon")) {
+            for (int idx1 = 0; idx1 < coords1.length(); idx1++) {
+                JSONArray coords2 = coords1.getJSONArray(idx1);
+                for (int idx2 = 0; idx2 < coords2.length(); idx2++) {
+                    JSONArray coords3 = coords2.getJSONArray(idx2);
+                    bounds = getBounds(coords3, bounds);
+                }
+            }
+        } else if (type.equals("LineString")) {
+            bounds = getBounds(coords1, bounds);
+        } else {
+            double lon = coords1.getDouble(0);
+            double lat = coords1.getDouble(1);
+            if (bounds == null) {
+                bounds = new Bounds(lat, lon, lat, lon);
+            } else {
+                bounds.expand(lat, lon);
+            }
+        }
+
+        return bounds;
     }
 
 
@@ -679,6 +782,10 @@ public class Json {
         for (int i = 0; i < cameras.length(); i++) {
             JSONObject camera = cameras.getJSONObject(i);
 
+            String     tourId = readValue(camera, "CameraTourId", null);
+            if (tourId != null) {
+                continue;
+            }
             double lat = Double.parseDouble(readValue(camera,
                              "Location.Latitude", "0.0"));
             double lon = Double.parseDouble(readValue(camera,
@@ -691,7 +798,7 @@ public class Json {
                 String dttm = readValue(view, "LastUpdatedDate", "");
                 String url = "http://www.cotrip.org/"
                              + readValue(view, "ImageLocation", "");
-                desc.append("\n");
+                desc.append("<br>");
                 String cameraName = readValue(view, "CameraName", "NA");
                 String roadName   = readValue(view, "RoadName", "NA");
                 String s1         = cameraName.toLowerCase();
@@ -705,14 +812,41 @@ public class Json {
                 }
                 //                System.out.println (cameraName);
                 desc.append("Mile marker:  "
-                            + readValue(view, "MileMarker", "NA") + "\n");
-                String name = "CDOT Camera - " + cameraName;
+                            + readValue(view, "MileMarker", "NA") + "<br>");
+                String name    = "CDOT Camera - " + cameraName;
+                String inner   = "";
+                String dirName = readValue(view, "Direction", "");
+                String dir     = null;
+                if (dirName.equals("North")) {
+                    dir = "0";
+                } else if (dirName.equals("Northeast")) {
+                    dir = "45";
+                } else if (dirName.equals("East")) {
+                    dir = "90";
+                } else if (dirName.equals("Southeast")) {
+                    dir = "135";
+                } else if (dirName.equals("South")) {
+                    dir = "180";
+                } else if (dirName.equals("Southwest")) {
+                    dir = "225";
+                } else if (dirName.equals("West")) {
+                    dir = "270";
+                } else if (dirName.equals("Northwest")) {
+                    dir = "315";
+                }
+                if (dir != null) {
+                    desc.append("Camera Direction:  " + dirName + "<br>");
+                    inner +=
+                        "<metadata inherited=\"false\" type=\"camera.direction\"><attr encoded=\"false\" index=\"1\">"
+                        + dir + "</attr></metadata>\n";
+                }
+                inner += HtmlUtils.tag("description", "",
+                                       "<![CDATA[" + desc + "]]>");
                 System.out.println(XmlUtil.tag("entry",
                         XmlUtil.attrs(new String[] {
-                    "type", "type_image", "url", url, "latitude", lat + "",
-                    "longitude", "" + lon, "name", name
-                }), HtmlUtils.tag("description", "",
-                                  "<![CDATA[" + desc + "]]>")));
+                    "type", "type_image_webcam", "url", url, "latitude",
+                    lat + "", "longitude", "" + lon, "name", name
+                }), inner));
 
             }
         }
@@ -906,6 +1040,92 @@ public class Json {
 
         return new JSONObject(new JSONTokener(json));
     }
+
+
+
+    /**
+     * _more_
+     *
+     * @param file _more_
+     * @param forHtml _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static String format(String file, boolean forHtml)
+            throws Exception {
+        String     json = IOUtil.readContents(file, Json.class);
+        JSONObject obj  = new JSONObject(json.toString());
+        //        String     s    = forHtml?obj.toString().replaceAll("\n"," "):obj.toString(3);
+        String s = forHtml
+                   ? obj.toString(1)
+                   : obj.toString(3);
+        if (forHtml) {
+            s = s.replaceAll("\t", "  ").replaceAll("<",
+                             "&lt;").replaceAll(">", "&gt;");
+
+            s = s.replaceAll(
+                "\\{",
+                "<span class=ramadda-json-openbracket>{</span><span class='ramadda-json-block'>");
+            s = s.replaceAll("( *)\\}( *)([^,])", "</span>$1$2}$3");
+            s = s.replaceAll("( *)\\}( *),", "</span>$1}$2,");
+            s = s.replaceAll("}}", "}</span>}");
+
+            s = s.replaceAll(
+                "\\[",
+                "<span class=ramadda-json-openbracket>[</span><span class='ramadda-json-block'>");
+            s = s.replaceAll("( *)\\]( *)([^,])", "</span>$1$2]$3");
+            s = s.replaceAll("( *)\\]( *),", "</span>$1]$2,");
+
+            s = s.replace(">\n", ">");
+            s = s.replaceAll("(?s)\n( *)</span", "</span");
+        }
+
+        return s;
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param args _more_
+     *
+     * @throws Exception _more_
+     */
+    public static void main(String[] args) throws Exception {
+        toCsv(args[0], System.out, (args.length > 1)
+                                   ? args[1]
+                                   : null);
+        if(true) return;
+
+
+        String  file = args[0];
+        boolean html = true;
+        if (file.equals("-plain")) {
+            html = false;
+            file = args[1];
+        }
+        String s = format(file, html);
+        if (s != null) {
+            System.out.println(s);
+        }
+        if (true) {
+            return;
+        }
+
+        System.err.println(getBounds(args[0]));
+        if (true) {
+            return;
+        }
+
+
+        toCsv(args[0], System.out, (args.length > 1)
+                                   ? args[1]
+                                   : null);
+        //        convertCameras(args);
+    }
+
 
 
 }

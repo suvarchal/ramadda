@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -23,15 +23,15 @@ import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.output.OutputHandler;
 import org.ramadda.repository.type.*;
 
-import org.ramadda.sql.Clause;
-
-
-import org.ramadda.sql.SqlUtil;
-import org.ramadda.sql.SqlUtil;
-
 import org.ramadda.util.FormInfo;
 
 import org.ramadda.util.HtmlUtils;
+
+import org.ramadda.util.sql.Clause;
+
+
+import org.ramadda.util.sql.SqlUtil;
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -268,8 +268,7 @@ public class PollTypeHandler extends BlobTypeHandler {
             responses = new ArrayList<PollResponse>();
         }
         StringBuffer sb = new StringBuffer();
-
-        sb.append(HtmlUtils.sectionOpen(entry.getName()));
+        getPageHandler().entrySectionOpen(request, entry, sb, null);
         if (canEditEntry) {
             sb.append(msgLabel("Use this link to allow others to edit"));
             sb.append(HtmlUtils.href(getEntryManager().getEntryURL(request,
@@ -280,7 +279,8 @@ public class PollTypeHandler extends BlobTypeHandler {
                                     + "/poll/style.css"));
 
         sb.append(HtmlUtils.p());
-        sb.append(entry.getDescription());
+        
+        sb.append(getWikiManager().wikifyEntry(request,entry,entry.getDescription()));
         sb.append(HtmlUtils.p());
         boolean changed = false;
 
@@ -397,7 +397,7 @@ public class PollTypeHandler extends BlobTypeHandler {
                             getEntryManager().getEntryURL(
                                 request, entry, ACTION_DELETERESPONSE,
                                 response.getId()), HtmlUtils.img(
-                                    getRepository().iconUrl(ICON_DELETE)));
+                                    getRepository().getIconUrl(ICON_DELETE)));
 
                     sb.append(HtmlUtils.col(deleteHref));
                 }
@@ -457,7 +457,8 @@ public class PollTypeHandler extends BlobTypeHandler {
             sb.append("</form>");
         }
 
-        sb.append(HtmlUtils.sectionClose());
+
+        getPageHandler().entrySectionClose(request, entry, sb);
 
         return new Result(entry.getName(), sb);
     }

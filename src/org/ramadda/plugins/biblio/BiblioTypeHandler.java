@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -199,7 +199,7 @@ public class BiblioTypeHandler extends GenericTypeHandler {
             if (doi != null) {
                 sb.append(" doi: ");
                 if ( !doi.startsWith("http")) {
-                    doi = "http://dx.doi.org/" + doi;
+                    doi = "https://doi.org/" + doi;
                 }
                 sb.append(HtmlUtils.href(doi, doi));
             }

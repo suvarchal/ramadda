@@ -1,4 +1,23 @@
+<<<<<<< HEAD
 [![Build Status](https://travis-ci.com/suvarchal/ramadda.svg?branch=master)](https://travis-ci.com/suvarchal/ramadda)
+=======
+
+
+
+RAMADDA is a freely available content and data management platform that is simple to install and use - in the cloud or even on your laptop. With its open and extensible framework, RAMADDA provides a place for all of your documents, data and digital stuff.
+
+See the main site [here](https://geodesystems.com).
+Check out the [Boulder Data Hub](https://boulderdata.org).
+Here are some [examples](https://geodesystems.com/repository/alias/example_charts) of what you can do with RAMADDA:
+
+<center><img src=content/gallery.png width="80%"></center>
+
+
+# Download
+You can build from source (below) or download prebuilt versions of RAMADDA at 
+[https://geodesystems.com/repository/alias/release/](https://geodesystems.com/repository/alias/release/)
+
+>>>>>>> d3cbf9ea6945df187b122e1932dbeea8bfd12faa
 
 # Building
 
@@ -73,7 +92,7 @@ dist/repositoryclient.zip  - To run the stand-alone command line client
 
 
 
-# RAMADDA SVN Tree
+# RAMADDA Source  Tree
 
 src:
 The main source of RAMADDA is in src/org/ramadda/repository
@@ -84,18 +103,11 @@ The plugins are in
 src/org/ramadda/plugins
 src/org/ramadda/geodata
 
-Some old Infocetera Java code for applets (e.g., chat, gantt chart, graph) is in:
-src/com/infocetera/
-
-
 lib:
 Contains all of the jars RAMADDA depends on.
 
 bin:
-Contains a copy of the IDV's document generation package.
-
-apps:
-Contains the start of an Android RAMADDA client.
+Contains a copy of the RAMADDA's document generation package.
 
 dist:
 This directory is  created during the build process. All build products

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -58,17 +58,5 @@ public class NoteTypeHandler extends GenericTypeHandler {
         super(repository, entryNode);
     }
 
-
-    /**
-     * _more_
-     *
-     * @param request _more_
-     * @param entry _more_
-     *
-     * @return _more_
-     */
-    public String getWikiTemplate(Request request, Entry entry) {
-        return "{{description}}";
-    }
 
 }

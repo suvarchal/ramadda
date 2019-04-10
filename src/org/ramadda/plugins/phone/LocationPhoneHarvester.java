@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -23,7 +23,9 @@ import org.ramadda.repository.harvester.*;
 import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.type.*;
 
+import org.ramadda.util.GeoUtils;
 import org.ramadda.util.HtmlUtils;
+import org.ramadda.util.Place;
 import org.ramadda.util.TTLCache;
 
 
@@ -136,10 +138,9 @@ public class LocationPhoneHarvester extends PhoneHarvester {
                         date.getTime(), values);
 
 
-        double[] location = org.ramadda.util.GeoUtils.getLocationFromAddress(
-                                info.getFromZip());
-        if (location != null) {
-            entry.setLocation(location[0], location[1], 0);
+        Place place = GeoUtils.getLocationFromAddress(info.getFromZip());
+        if (place != null) {
+            entry.setLocation(place.getLatitude(), place.getLongitude(), 0);
         }
 
         List<Entry> entries = (List<Entry>) Misc.newList(entry);

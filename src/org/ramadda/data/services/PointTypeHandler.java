@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -40,13 +40,12 @@ import org.ramadda.util.Json;
 import org.ramadda.util.Utils;
 import org.ramadda.util.grid.LatLonGrid;
 
-
-
 import org.w3c.dom.*;
 
 import ucar.unidata.ui.ImageUtils;
 import ucar.unidata.util.IOUtil;
 import ucar.unidata.util.Misc;
+import ucar.unidata.util.StringUtil;
 
 import java.awt.image.*;
 
@@ -58,6 +57,9 @@ import java.io.DataOutputStream;
 
 import java.io.File;
 import java.io.FileOutputStream;
+
+
+import java.text.SimpleDateFormat;
 
 
 import java.util.ArrayList;
@@ -76,7 +78,25 @@ import java.util.Properties;
 public class PointTypeHandler extends RecordTypeHandler {
 
     /** _more_ */
+    public static final int IDX_LAST = RecordTypeHandler.IDX_LAST;
+
+    /** _more_ */
     public static final String ARG_PROPERTIES_FILE = "properties.file";
+
+    /**
+     * _more_
+     *
+     * @param repository _more_
+     * @param type _more_
+     * @param description _more_
+     */
+    public PointTypeHandler(Repository repository, String type,
+                            String description) {
+        super(repository, type, description);
+    }
+
+
+
 
     /**
      * _more_
@@ -89,6 +109,8 @@ public class PointTypeHandler extends RecordTypeHandler {
             throws Exception {
         super(repository, node);
     }
+
+
 
 
     /**
@@ -127,9 +149,53 @@ public class PointTypeHandler extends RecordTypeHandler {
     public void initializeNewEntry(Request request, Entry entry)
             throws Exception {
 
-
         if ( !getTypeProperty("point.initialize", true)) {
             return;
+        }
+
+        String patterns = (String) getTypeProperty("record.patterns",
+                              (String) null);
+        if (patterns != null) {
+            String contents = IOUtil.readContents(entry.getFile());
+            for (String tok : StringUtil.split(patterns, ",", true, true)) {
+                List<String> toks2 = StringUtil.splitUpTo(tok, ":", 2);
+                if (toks2.size() != 2) {
+                    continue;
+                }
+                String field   = toks2.get(0);
+                String pattern = toks2.get(1);
+                String value   = StringUtil.findPattern(contents, pattern);
+                //                System.err.println ("p:"+ pattern +" v:" + value);
+                if (value != null) {
+                    if (field.equals("latitude")) {
+                        entry.setLatitude(Double.parseDouble(value));
+                    } else if (field.equals("longitude")) {
+                        entry.setLongitude(Double.parseDouble(value));
+                    } else if (field.equals("elevation")) {
+                        entry.setAltitude(Double.parseDouble(value));
+                    } else if (field.equals("date")) {
+                        String format =
+                            getTypeProperty("record.pattern.date.format",
+                                            "yyyyMMdd'T'HHmmss Z");
+                        SimpleDateFormat sdf =
+                            RepositoryUtil.makeDateFormat(format, null);
+                        entry.setStartAndEndDate(sdf.parse(value).getTime());
+                    } else {
+                        List<Column> columns = getColumns();
+                        if (columns != null) {
+                            for (Column c : columns) {
+                                if (c.getName().equals(field)) {
+                                    Object[] values = getEntryValues(entry);
+                                    c.setValue(entry, values, value);
+                                }
+                            }
+                        }
+
+                    }
+                }
+
+            }
+
         }
 
         if (entry.getXmlNode() != null) {
@@ -149,7 +215,7 @@ public class PointTypeHandler extends RecordTypeHandler {
             //            return;
         } else {
             //This finds any properties files next to the file
-            initializeRecordEntry(entry, file);
+            initializeRecordEntry(entry, file, false);
         }
 
 
@@ -190,6 +256,29 @@ public class PointTypeHandler extends RecordTypeHandler {
         ((PointTypeHandler) entry.getTypeHandler()).handleHarvestedMetadata(
             pointEntry, metadataHarvester);
         log("initialize new entry: done");
+
+
+    }
+
+
+
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public String getWikiEditorSidebar(Request request, Entry entry)
+            throws Exception {
+        //        PointOutputHandler outputHandler =
+        //            (PointOutputHandler) getRecordOutputHandler();
+        //TODO
+        return "";
 
     }
 
@@ -414,25 +503,64 @@ public class PointTypeHandler extends RecordTypeHandler {
      * @param request _more_
      * @param entry _more_
      * @param tag _more_
+     * @param props _more_
      *
      * @return _more_
      */
     @Override
-    public String getUrlForWiki(Request request, Entry entry, String tag) {
+    public String getUrlForWiki(Request request, Entry entry, String tag,
+                                Hashtable props) {
         if (tag.equals(WikiConstants.WIKI_TAG_CHART)
                 || tag.equals(WikiConstants.WIKI_TAG_DISPLAY)) {
             try {
+                if (props.get("max") == null) {
+                    props.put("max",
+                              "" + getDefaultMax(request, entry, tag, props));
+                }
+
                 return ((PointOutputHandler) getRecordOutputHandler())
-                    .getJsonUrl(request, entry);
+                    .getJsonUrl(request, entry, props);
             } catch (Exception exc) {
                 throw new RuntimeException(exc);
             }
         }
 
-        return super.getUrlForWiki(request, entry, tag);
+        return super.getUrlForWiki(request, entry, tag, props);
     }
 
 
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param tag _more_
+     * @param props _more_
+     *
+     * @return _more_
+     */
+    public int getDefaultMax(Request request, Entry entry, String tag,
+                             Hashtable props) {
+        try {
+            String fromProps;
+            fromProps = (String) props.get("maxPoints");
+            if (fromProps != null) {
+                return Integer.parseInt(fromProps);
+            }
+            Hashtable recordProps = getRecordProperties(entry);
+            if (recordProps != null) {
+                fromProps = (String) recordProps.get("maxPoints");
+                if (fromProps != null) {
+                    return Integer.parseInt(fromProps);
+                }
+            }
+
+            return getTypeProperty("point.default.max", 5000);
+        } catch (Exception exc) {
+            throw new IllegalArgumentException(exc);
+
+        }
+    }
 
     /**
      * _more_
@@ -450,50 +578,54 @@ public class PointTypeHandler extends RecordTypeHandler {
         Entry      entry      = pointEntry.getEntry();
 
         //We need to do the polygon thing here so we have the geo bounds to make the grid
-        if (pointEntry.isCapable(PointFile.ACTION_BOUNDINGPOLYGON)) {
-            if ( !entry.hasMetadataOfType(
-                    MetadataHandler.TYPE_SPATIAL_POLYGON)) {
-                LatLonGrid llg = new LatLonGrid(80, 40,
-                                     metadata.getMaxLatitude(),
-                                     metadata.getMinLongitude(),
-                                     metadata.getMinLatitude(),
-                                     metadata.getMaxLongitude());
 
-
-                PointMetadataHarvester metadata2 =
-                    new PointMetadataHarvester(llg);
-                //                System.err.println("PointTypeHandler: visiting binary file");
-                pointEntry.getBinaryPointFile().visit(metadata2,
-                        new VisitInfo(VisitInfo.QUICKSCAN_NO), null);
-                List<double[]> polygon = llg.getBoundingPolygon();
-                StringBuilder[] sb = new StringBuilder[] {
-                                         new StringBuilder(),
-                                         new StringBuilder(),
-                                         new StringBuilder(),
-                                         new StringBuilder() };
-                int idx = 0;
-                for (double[] point : polygon) {
-                    String toAdd = point[0] + "," + point[1] + ";";
-                    if ((sb[idx].length() + toAdd.length())
-                            >= (Metadata.MAX_LENGTH - 100)) {
-                        idx++;
-                        if (idx >= sb.length) {
-                            break;
-                        }
-                    }
-                    sb[idx].append(toAdd);
-                }
-                //                System.err.println ("sb length:" + sb[idx].length() +" " +Metadata.MAX_LENGTH);
-
-                Metadata polygonMetadata =
-                    new Metadata(getRepository().getGUID(), entry.getId(),
-                                 MetadataHandler.TYPE_SPATIAL_POLYGON,
-                                 DFLT_INHERITED, sb[0].toString(),
-                                 sb[1].toString(), sb[2].toString(),
-                                 sb[3].toString(), Metadata.DFLT_EXTRA);
-                entry.addMetadata(polygonMetadata, false);
-            }
-        }
+        /**
+         * lets not harvest the bounding polygon as this doesn't make sense for most point data
+         * if (pointEntry.isCapable(PointFile.ACTION_BOUNDINGPOLYGON)) {
+         *   if ( !entry.hasMetadataOfType(
+         *           MetadataHandler.TYPE_SPATIAL_POLYGON)) {
+         *       LatLonGrid llg = new LatLonGrid(80, 40,
+         *                            metadata.getMaxLatitude(),
+         *                            metadata.getMinLongitude(),
+         *                            metadata.getMinLatitude(),
+         *                            metadata.getMaxLongitude());
+         *
+         *       PointMetadataHarvester metadata2 =
+         *           new PointMetadataHarvester(llg);
+         *       //                System.err.println("PointTypeHandler: visiting binary file");
+         *       pointEntry.getBinaryPointFile().visit(metadata2,
+         *                                             new VisitInfo(VisitInfo.QUICKSCAN_NO), null);
+         *       List<double[]> polygon = llg.getBoundingPolygon();
+         *       StringBuilder[] sb = new StringBuilder[] {
+         *                                new StringBuilder(),
+         *                                new StringBuilder(),
+         *                                new StringBuilder(),
+         *                                new StringBuilder() };
+         *       int idx = 0;
+         *       for (double[] point : polygon) {
+         *           String toAdd = point[0] + "," + point[1] + ";";
+         *           if ((sb[idx].length() + toAdd.length())
+         *                   >= (Metadata.MAX_LENGTH - 100)) {
+         *               idx++;
+         *               if (idx >= sb.length) {
+         *                   break;
+         *               }
+         *           }
+         *           sb[idx].append(toAdd);
+         *       }
+         *       //                System.err.println ("sb length:" + sb[idx].length() +" " +Metadata.MAX_LENGTH);
+         *
+         *       Metadata polygonMetadata =
+         *           new Metadata(getRepository().getGUID(), entry.getId(),
+         *                        MetadataHandler.TYPE_SPATIAL_POLYGON,
+         *                        DFLT_INHERITED, sb[0].toString(),
+         *                        sb[1].toString(), sb[2].toString(),
+         *                        sb[3].toString(), Metadata.DFLT_EXTRA);
+         *       getMetadataManager().addMetadata(entry, polygonMetadata,
+         *               false);
+         *   }
+         * }
+         */
 
         String descriptionFromFile =
             pointEntry.getRecordFile().getDescriptionFromFile();
@@ -562,20 +694,33 @@ public class PointTypeHandler extends RecordTypeHandler {
 
 
 
+    /**
+     * _more_
+     *
+     * @param entry _more_
+     * @param name _more_
+     * @param dflt _more_
+     *
+     * @return _more_
+     */
     public String getProperty(Entry entry, String name, String dflt) {
         try {
-        if(name.equals("chart.wiki.map")) {
-            Hashtable props = getRecordProperties(entry);
-            if(props!=null) {
-                String prop = (String) props.get(name);
-                if(prop!=null) return prop;
+            if (name.equals("chart.wiki.map")) {
+                Hashtable props = getRecordProperties(entry);
+                if (props != null) {
+                    String prop = (String) props.get(name);
+                    if (prop != null) {
+                        return prop;
+                    }
+                }
             }
-        }
-        return super.getProperty(entry,name, dflt);
-        } catch(Exception exc) {
+
+            return super.getProperty(entry, name, dflt);
+        } catch (Exception exc) {
             return dflt;
         }
     }
+
     /**
      * _more_
      *
@@ -669,18 +814,24 @@ public class PointTypeHandler extends RecordTypeHandler {
      * @param entry _more_
      *
      * @return _more_
+     *
+     * @throws Exception _more_
      */
     @Override
-    public String getMapInfoBubble(Request request, Entry entry) {
+    public String getMapInfoBubble(Request request, Entry entry)
+            throws Exception {
 
+        //        String fromParent = super.getMapInfoBubble(request,  entry);
+        //        if(fromParent!=null) return fromParent;
         try {
             String chartType = getTypeProperty("map.chart.type", "linechart");
             if ( !Utils.stringDefined(chartType)
                     || chartType.equals("none")) {
                 return super.getMapInfoBubble(request, entry);
             }
-            String minSizeX = getTypeProperty("map.chart.minSizeX", "600");
-            String minSizeY = getTypeProperty("map.chart.minSizeY", "300");
+            String chartField = getTypeProperty("map.chart.field", "");
+            String minSizeX   = getTypeProperty("map.chart.minSizeX", "600");
+            String minSizeY   = getTypeProperty("map.chart.minSizeY", "300");
             String fields = getTypeProperty("map.chart.fields",
                                             (String) null);
             StringBuilder sb   = new StringBuilder();
@@ -695,11 +846,11 @@ public class PointTypeHandler extends RecordTypeHandler {
             sb.append(HtmlUtils.div("", HtmlUtils.id(id)));
 
             return Json.mapAndQuote("entryId", entry.getId(), "chartType",
-                                    chartType, "divId", id, "title", "",
-                                    "text", sb.toString(), "minSizeX",
-                                    minSizeX, "minSizeY", minSizeY,
-                                    "vAxisMinValue", "0", "showTitle",
-                                    "false", ((fields == null)
+                                    chartType, "fields", chartField, "divId",
+                                    id, "title", "", "text", sb.toString(),
+                                    "minSizeX", minSizeX, "minSizeY",
+                                    minSizeY, "vAxisMinValue", "0",
+                                    "showTitle", "false", ((fields == null)
                     ? "dummy"
                     : "fields"), ((fields == null)
                                   ? ""

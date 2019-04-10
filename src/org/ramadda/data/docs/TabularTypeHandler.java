@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -254,11 +254,15 @@ public class TabularTypeHandler extends MsDocTypeHandler {
      * @throws Exception _more_
      */
     @Override
-    public String getInnerWikiContent(Request request, Entry entry,
-                                      String wikiTemplate)
+    public Result getHtmlDisplay(Request request, Entry entry)
             throws Exception {
         //        Misc.printStack ("TabularTypeHandler.getInnerWikiContent");
-        return getSimpleDisplay(request, null, entry);
+        String s = getSimpleDisplay(request, null, entry);
+        if (s == null) {
+            return null;
+        }
+
+        return new Result("", new StringBuilder(s));
     }
 
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ import opendap.dap.DAP2Exception;
 
 import opendap.servlet.GuardedDataset;
 import opendap.servlet.ReqState;
+
+import org.ramadda.repository.DateHandler;
 
 
 
@@ -341,7 +343,8 @@ public class CdmDataOutputHandler extends OutputHandler implements CdmConstants 
         }
 
         //        System.err.println("cdm.getlinks-can load as grid:" + getCdmManager().canLoadAsGrid(entry) + " " + getCdmManager().canLoadAsCdmGrid(entry));
-        if (getCdmManager().canLoadAsGrid(entry) || getCdmManager().canLoadAsCdmGrid(entry) ) {
+        if (getCdmManager().canLoadAsGrid(entry)
+                || getCdmManager().canLoadAsCdmGrid(entry)) {
             addOutputLink(request, entry, links, OUTPUT_GRIDSUBSET_FORM);
             addOutputLink(request, entry, links,
                           GridPointOutputHandler.OUTPUT_GRIDASPOINT_FORM);
@@ -357,7 +360,8 @@ public class CdmDataOutputHandler extends OutputHandler implements CdmConstants 
         Object oldOutput = request.getOutput();
         request.put(ARG_OUTPUT, OUTPUT_OPENDAP);
         String opendapUrl = getOpendapUrl(entry);
-        links.add(new Link(opendapUrl, getRepository().iconUrl(ICON_OPENDAP),
+        links.add(new Link(opendapUrl,
+                           getRepository().getIconUrl(ICON_OPENDAP),
                            "OPeNDAP", OUTPUT_OPENDAP));
         request.put(ARG_OUTPUT, oldOutput);
 
@@ -760,7 +764,7 @@ public class CdmDataOutputHandler extends OutputHandler implements CdmConstants 
 
         String formId = HtmlUtils.getUniqueId("form_");
 
-        sb.append(HtmlUtils.sectionOpen("Subset Grid"));
+        getPageHandler().entrySectionOpen(request, entry, sb, "Subset Grid");
 
         sb.append(HtmlUtils.formPost(formUrl + "/" + fileName,
                                      HtmlUtils.id(formId)));
@@ -787,8 +791,8 @@ public class CdmDataOutputHandler extends OutputHandler implements CdmConstants 
         LatLonRect         llr   = dataset.getBoundingBox();
         if (llr != null) {
             MapInfo map = getRepository().getMapManager().createMap(request,
-                              true, null);
-            map.addBox("", "", llr,
+                              entry, true, null);
+            map.addBox("", "", "", llr,
                        new MapBoxProperties("blue", false, true));
             String[] points = new String[] { "" + llr.getLatMax(),
                                              "" + llr.getLonMin(),
@@ -845,7 +849,7 @@ public class CdmDataOutputHandler extends OutputHandler implements CdmConstants 
                           "[\".*OpenLayers_Control.*\",\".*original.*\"]");
         sb.append(HtmlUtils.formClose());
 
-        sb.append(HtmlUtils.sectionClose());
+        getPageHandler().entrySectionClose(request, entry, sb);
 
         getCdmManager().returnGridDataset(path, dataset);
 
@@ -1112,7 +1116,7 @@ public class CdmDataOutputHandler extends OutputHandler implements CdmConstants 
             List formattedDates = new ArrayList();
             formattedDates.add(new TwoFacedObject("---", ""));
             for (CalendarDate date : dates) {
-                //formattedDates.add(getPageHandler().formatDate(request, date.toDate()));
+                //formattedDates.add(getDateHandler().formatDate(request, date.toDate()));
                 formattedDates.add(formatDate(request, date));
             }
             String fromDate = request.getUnsafeString(ARG_FROMDATE, "");
@@ -1121,7 +1125,7 @@ public class CdmDataOutputHandler extends OutputHandler implements CdmConstants 
                 HtmlUtils.formEntry(
                     msgLabel("Time Range"),
                     HtmlUtils.select(ARG_FROMDATE, formattedDates, fromDate)
-                    + HtmlUtils.img(iconUrl(ICON_ARROW))
+                    + HtmlUtils.img(getIconUrl(ICON_ARROW))
                     + HtmlUtils.select(ARG_TODATE, formattedDates, toDate)));
         }
         //System.err.println("Times took "
@@ -1142,12 +1146,12 @@ public class CdmDataOutputHandler extends OutputHandler implements CdmConstants 
         }
         if (date instanceof CalendarDate) {
             String dateFormat = getRepository().getProperty(PROP_DATE_FORMAT,
-                                    PageHandler.DEFAULT_TIME_FORMAT);
+                                    DateHandler.DEFAULT_TIME_FORMAT);
 
             return new CalendarDateFormatter(dateFormat).toString(
                 (CalendarDate) date);
         } else if (date instanceof Date) {
-            return getPageHandler().formatDate(request, (Date) date);
+            return getDateHandler().formatDate(request, (Date) date);
         } else {
             return date.toString();
         }
@@ -1229,7 +1233,7 @@ public class CdmDataOutputHandler extends OutputHandler implements CdmConstants 
 
 
         MapInfo map = getRepository().getMapManager().createMap(request,
-                          false, null);
+                          entry, false, null);
         String              path = getPath(request, entry);
         FeatureDatasetPoint pod = getCdmManager().getPointDataset(entry,
                                       path);
@@ -1241,7 +1245,7 @@ public class CdmDataOutputHandler extends OutputHandler implements CdmConstants 
 
         int                  cnt            = 0;
         int                  total          = 0;
-        String               icon           = iconUrl("/icons/pointdata.gif");
+        String               icon = getIconUrl("/icons/pointdata.gif");
 
         PointFeatureIterator dataIterator   = getPointIterator(pod);
 
@@ -1298,7 +1302,7 @@ public class CdmDataOutputHandler extends OutputHandler implements CdmConstants 
                                + "}\n");
             map.addMarker("",
                           new LatLonPointImpl(el.getLatitude(),
-                              el.getLongitude()), icon, info.toString());
+                              el.getLongitude()), icon, "", info.toString());
         }
 
 
@@ -1441,8 +1445,8 @@ public class CdmDataOutputHandler extends OutputHandler implements CdmConstants 
             getCdmManager().getTrajectoryDataset(path);
         StringBuffer         sb   = new StringBuffer();
 
-        MapInfo map = getRepository().getMapManager().createMap(request, 800,
-                          600, false, null);
+        MapInfo map = getRepository().getMapManager().createMap(request,
+                          entry, 800, 600, false, null);
         List trajectories = tod.getTrajectories();
         //TODO: Use new openlayers map
         for (int i = 0; i < trajectories.size(); i++) {
@@ -1459,13 +1463,13 @@ public class CdmDataOutputHandler extends OutputHandler implements CdmConstants 
                 float lon = lons[ptIdx];
                 if (ptIdx > 0) {
                     if (ptIdx + stride >= lats.length) {
-                        map.addMarker("", lat, lon, null,
+                        map.addMarker("", lat, lon, null, "",
                                       "End time:" + todt.getEndDate());
                     }
                     //#FF0000
                     map.addLine(entry, "", lastLat, lastLon, lat, lon, null);
                 } else {
-                    map.addMarker("", lat, lon, null,
+                    map.addMarker("", lat, lon, null, "",
                                   "Start time:" + todt.getEndDate());
                 }
                 lastLat = lat;
@@ -1536,7 +1540,7 @@ public class CdmDataOutputHandler extends OutputHandler implements CdmConstants 
                 HtmlUtils.select(CdmConstants.ARG_FORMAT, formats, format)));
 
         MapInfo map = getRepository().getMapManager().createMap(request,
-                          true, null);
+                          entry, true, null);
         map.addBox(entry, new MapBoxProperties("blue", false, true));
         map.centerOn(entry);
         String llb = map.makeSelector(ARG_POINT_BBOX, true, null);
@@ -1578,14 +1582,14 @@ public class CdmDataOutputHandler extends OutputHandler implements CdmConstants 
                     "grid.point.json",
                     "Point time series - " + entry.getName(),
                     request.getAbsoluteUrl(url),
-                    request.getAbsoluteUrl(iconUrl("/icons/chart.png"))));
+                    request.getAbsoluteUrl(getIconUrl("/icons/chart.png"))));
         }
 
         String url = getAbsoluteOpendapUrl(request, entry);
         services.add(
             new ServiceInfo(
                 "opendap", "OPeNDAP Link", url,
-                request.getAbsoluteUrl(iconUrl(ICON_OPENDAP))));
+                request.getAbsoluteUrl(getIconUrl(ICON_OPENDAP))));
     }
 
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -65,9 +65,6 @@ public class FramesTypeHandler extends GenericTypeHandler {
      * _more_
      *
      * @param request _more_
-     * @param group _more_
-     * @param subGroups _more_
-     * @param entries _more_
      * @param entry _more_
      *
      * @return _more_
@@ -76,7 +73,8 @@ public class FramesTypeHandler extends GenericTypeHandler {
      */
     public Result getHtmlDisplay(Request request, Entry entry)
             throws Exception {
-        StringBuffer sb       = new StringBuffer();
+        StringBuffer sb = new StringBuffer();
+        getPageHandler().entrySectionOpen(request, entry, sb, null);
         String       urls     = entry.getValue(0, "");
         String       height   = entry.getValue(1, "300");
         String       layout   = entry.getValue(2, LAYOUT_TABLE);
@@ -151,6 +149,8 @@ public class FramesTypeHandler extends GenericTypeHandler {
 
 
         sb.append("</div>");
+
+        getPageHandler().entrySectionClose(request, entry, sb);
 
         return new Result(msg("Frames"), sb);
     }

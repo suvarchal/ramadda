@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -195,7 +195,7 @@ public class MailTypeHandler extends GenericTypeHandler {
                                 getRepository().getGUID(), entry.getId(),
                                 ContentMetadataHandler.TYPE_ATTACHMENT,
                                 false, fileName, null, null, null, null);
-                        entry.addMetadata(metadata);
+                        getMetadataManager().addMetadata(entry, metadata);
                     }
                 }
             }
@@ -240,7 +240,7 @@ public class MailTypeHandler extends GenericTypeHandler {
 
 
         sb.append(HtmlUtils.formEntry(msgLabel("Date"),
-                                      getPageHandler().formatDate(request,
+                                      getDateHandler().formatDate(request,
                                           new Date(entry.getStartDate()),
                                           (String) null)));
         StringBuffer attachmentsSB = new StringBuffer();

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -307,9 +307,11 @@ public class CalendarTypeHandler extends GdataTypeHandler {
 
 
             for (EventWho who : event.getParticipants()) {
-                newEntry.addMetadata(new Metadata(getRepository().getGUID(),
-                        newEntry.getId(), "gdata.participant", false,
-                        who.getValueString(), who.getEmail(), "", "", ""));
+                getMetadataManager().addMetadata(newEntry,
+                        new Metadata(getRepository().getGUID(),
+                                     newEntry.getId(), "gdata.participant",
+                                     false, who.getValueString(),
+                                     who.getEmail(), "", "", ""));
 
             }
 
@@ -318,9 +320,10 @@ public class CalendarTypeHandler extends GdataTypeHandler {
                 if ((s == null) || (s.length() == 0)) {
                     continue;
                 }
-                newEntry.addMetadata(new Metadata(getRepository().getGUID(),
-                        newEntry.getId(), "gdata.location", false, s, "", "",
-                        "", ""));
+                getMetadataManager().addMetadata(newEntry,
+                        new Metadata(getRepository().getGUID(),
+                                     newEntry.getId(), "gdata.location",
+                                     false, s, "", "", "", ""));
             }
 
             Resource resource = new Resource(event.getHtmlLink().getHref());
@@ -423,9 +426,11 @@ public class CalendarTypeHandler extends GdataTypeHandler {
      *
      * @throws Exception _more_
      */
-    public String getIconUrl(Request request, Entry entry) throws Exception {
+    @Override
+    public String getEntryIconUrl(Request request, Entry entry)
+            throws Exception {
         if (entry.getId().indexOf(TYPE_EVENT) >= 0) {
-            return iconUrl("/icons/calendar_view_day.png");
+            return getIconUrl("/icons/calendar_view_day.png");
         }
 
         return super.getIconUrl(request, entry);

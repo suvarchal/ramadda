@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -28,11 +28,12 @@ import org.ramadda.repository.output.*;
 import org.ramadda.repository.type.*;
 
 import org.ramadda.repository.util.DateArgument;
-import org.ramadda.sql.Clause;
+
 
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.JQuery;
-
+import org.ramadda.util.Utils;
+import org.ramadda.util.sql.Clause;
 
 import org.w3c.dom.*;
 
@@ -434,9 +435,13 @@ public class SpecialSearch extends RepositoryManager implements RequestHandler {
 
 
         MapInfo map = getRepository().getMapManager().createMap(request,
-                          contentsWidth, contentsHeight, true, null);
+                          null, contentsWidth, contentsHeight, true, null);
 
-        getMapManager().addToMap(request, map, allEntries, false, true);
+
+        getMapManager().addToMap(request, map, allEntries,
+                                 Utils.makeMap(MapManager.PROP_DETAILED,
+                                     "false", MapManager.PROP_SCREENBIGRECTS,
+                                     "true"));
         Rectangle2D.Double bounds = getEntryManager().getBounds(allEntries);
 
 
@@ -468,7 +473,7 @@ public class SpecialSearch extends RepositoryManager implements RequestHandler {
                             + "0";
         map.addJS(map.getVariableName() + ".setSelection(" + initParams
                   + ");\n");
-        map.centerOn(bounds);
+        map.centerOn(bounds, true);
 
 
         List<String> tabsToUse = tabs;
@@ -492,7 +497,7 @@ public class SpecialSearch extends RepositoryManager implements RequestHandler {
         getRepository().getCalendarOutputHandler().makeTimeline(request, null,  //Pass null for the main entry
                 allEntries, timelineSB,
                 "width:" + contentsWidth + "px; height: " + contentsHeight
-                + "px;");
+                + "px;", new Hashtable());
 
 
         StringBuffer mapSB = new StringBuffer(
@@ -527,20 +532,21 @@ public class SpecialSearch extends RepositoryManager implements RequestHandler {
                         tabContents.add(HtmlUtils.div(listSB.toString(),
                                 HtmlUtils.style("min-width:" + minWidth
                                     + "px")));
-                        tabTitles.add(HtmlUtils.img(iconUrl(ICON_LIST)) + " "
-                                      + msg("List"));
+                        tabTitles.add(HtmlUtils.img(getIconUrl(ICON_LIST))
+                                      + " " + msg("List"));
                     } else if (tab.equals(TAB_MAP)) {
                         tabContents.add(HtmlUtils.div(mapSB.toString(),
                                 HtmlUtils.style("min-width:" + minWidth
                                     + "px")));
-                        tabTitles.add(HtmlUtils.img(iconUrl(ICON_MAP)) + " "
-                                      + msg("Map"));
+                        tabTitles.add(HtmlUtils.img(getIconUrl(ICON_MAP))
+                                      + " " + msg("Map"));
                     } else if (tab.equals(TAB_TIMELINE)) {
                         tabContents.add(HtmlUtils.div(timelineSB.toString(),
                                 HtmlUtils.style("min-width:" + minWidth
                                     + "px")));
-                        tabTitles.add(HtmlUtils.img(iconUrl(ICON_TIMELINE))
-                                      + " " + msg("Timeline"));
+                        tabTitles.add(
+                            HtmlUtils.img(getIconUrl(ICON_TIMELINE)) + " "
+                            + msg("Timeline"));
                     } else if (tab.equals(TAB_EARTH)
                                && getMapManager().isGoogleEarthEnabled(
                                    request)) {
@@ -553,7 +559,7 @@ public class SpecialSearch extends RepositoryManager implements RequestHandler {
                                 HtmlUtils.style("min-width:" + minWidth
                                     + "px")));
                         tabTitles.add(
-                            HtmlUtils.img(iconUrl(ICON_GOOGLEEARTH)) + " "
+                            HtmlUtils.img(getIconUrl(ICON_GOOGLEEARTH)) + " "
                             + msg("Earth"));
                     }
                 }
@@ -646,7 +652,18 @@ public class SpecialSearch extends RepositoryManager implements RequestHandler {
             formSB.append(HtmlUtils.formEntry(msgLabel("Text"),
                     HtmlUtils.input(ARG_TEXT,
                                     request.getString(ARG_TEXT, ""),
-                                    HtmlUtils.SIZE_15 + " autofocus ")));
+                                    HtmlUtils.id("searchinput")
+                                    + HtmlUtils.SIZE_15
+                                    + " autocomplete='off'   autofocus ")));
+            formSB.append("<div id=searchpopup class=ramadda-popup></div>");
+            formSB.append(
+                HtmlUtils.script(
+                    "ramaddaSearchSuggestInit('searchinput',"
+                    + ((theType == null)
+                       ? "null"
+                       : "'" + theType + "'") + ");"));
+
+
         }
 
         if (showDefault && showName) {
@@ -677,8 +694,8 @@ public class SpecialSearch extends RepositoryManager implements RequestHandler {
                                 request.getString(ARG_AREA_EAST, ""), };
 
             MapInfo selectMap =
-                getRepository().getMapManager().createMap(request, true,
-                    null);
+                getRepository().getMapManager().createMap(request, null,
+                    true, null);
             String mapSelector = selectMap.makeSelector(ARG_AREA, true, nwse);
             formSB.append(formEntry(request, msgLabel("Location"),
                                     mapSelector));
@@ -733,7 +750,7 @@ public class SpecialSearch extends RepositoryManager implements RequestHandler {
             }) {
                 if (outputType.getIcon() != null) {
                     links.append(
-                        HtmlUtils.img(iconUrl(outputType.getIcon())));
+                        HtmlUtils.img(getIconUrl(outputType.getIcon())));
                     links.append(" ");
                 }
 

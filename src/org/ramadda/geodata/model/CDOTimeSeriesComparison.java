@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -610,6 +610,27 @@ public class CDOTimeSeriesComparison extends CDODataService {
         //TODO:  implemented since it's abstract in CDODataService.
         //       Eventually, this needs to be reconciled with processModelData
         //       But this is not that day.
+        return null;
+    }
+
+    /**
+     * Process the daily data request
+     *
+     * @param request  the request
+     * @param dpi      the ServiceInput
+     * @param op _more_
+     * @param opNum _more_
+     * @param type _more_
+     * @param climSample _more_
+     *
+     * @return  some output
+     *
+     * @throws Exception problem processing the daily data
+     */
+    protected ServiceOperand evaluateDailyRequest(Request request,
+            ServiceInput dpi, ServiceOperand op, int opNum, String type,
+            Entry climSample)
+            throws Exception {
         return null;
     }
 

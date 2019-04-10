@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -274,11 +274,11 @@ public class EntryMonitor implements Constants {
         stateSB.append(
             HtmlUtils.formEntry(
                 getRepository().msgLabel("Valid Date Range"),
-                getRepository().getPageHandler().makeDateInput(
+                getRepository().getDateHandler().makeDateInput(
                     request, MonitorManager.ARG_MONITOR_FROMDATE,
                     "monitorform", getFromDate()) + " "
                         + getRepository().msg("To") + " "
-                        + getRepository().getPageHandler().makeDateInput(
+                        + getRepository().getDateHandler().makeDateInput(
                             request, MonitorManager.ARG_MONITOR_TODATE,
                             "monitorform", getToDate())));
 

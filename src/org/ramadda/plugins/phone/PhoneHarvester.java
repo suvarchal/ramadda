@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.ramadda.repository.search.SearchProvider;
 import org.ramadda.repository.type.*;
 
 import org.ramadda.util.HtmlUtils;
+import org.ramadda.util.Place;
 import org.ramadda.util.TTLCache;
 import org.ramadda.util.Utils;
 
@@ -289,7 +290,7 @@ public class PhoneHarvester extends Harvester {
      * @return _more_
      */
     private String cleanUpText(String text) {
-        text = RepositoryUtil.encodeUntrustedText(text);
+        text = Utils.encodeUntrustedText(text);
         text = text.replaceAll("\n", "<br>");
 
         return text;
@@ -518,7 +519,7 @@ public class PhoneHarvester extends Harvester {
                         }
                         if (toks.size() > 2) {
                             Hashtable props =
-                                StringUtil.parseHtmlProperties(toks.get(2));
+                                HtmlUtils.parseHtmlProperties(toks.get(2));
                             request.putAll(props);
                         }
                     }
@@ -669,7 +670,7 @@ public class PhoneHarvester extends Harvester {
                                      false, tag, "", "", "", null);
                     System.err.println("metadata:" + currentEntry + " "
                                        + metadata + " " + tag);
-                    currentEntry.addMetadata(metadata);
+                    getMetadataManager().addMetadata(currentEntry, metadata);
                     getMetadataManager().insertMetadata(metadata);
                 }
 
@@ -1019,10 +1020,10 @@ public class PhoneHarvester extends Harvester {
                                           values);
 
 
-        double[] location = org.ramadda.util.GeoUtils.getLocationFromAddress(
-                                info.getFromZip());
-        if (location != null) {
-            entry.setLocation(location[0], location[1], 0);
+        Place place = org.ramadda.util.GeoUtils.getLocationFromAddress(
+                          info.getFromZip());
+        if (place != null) {
+            entry.setLocation(place.getLatitude(), place.getLongitude(), 0);
         }
 
         List<Entry> entries = (List<Entry>) Misc.newList(entry);
@@ -1122,8 +1123,8 @@ public class PhoneHarvester extends Harvester {
         }
 
         String name = "Voice Message  - "
-                      + getPageHandler().formatDate(request, new Date());
-        String       type             = "media_audiofile";
+                      + getDateHandler().formatDate(request, new Date());
+        String       type             = "phone_message";
         TypeHandler  typeHandler      = getRepository().getTypeHandler(type);
         Entry entry = typeHandler.createEntry(getRepository().getGUID());
         Date         date             = new Date();
@@ -1144,10 +1145,10 @@ public class PhoneHarvester extends Harvester {
                         date.getTime(), values);
 
 
-        double[] location = org.ramadda.util.GeoUtils.getLocationFromAddress(
-                                info.getFromZip());
-        if (location != null) {
-            entry.setLocation(location[0], location[1], 0);
+        Place place = org.ramadda.util.GeoUtils.getLocationFromAddress(
+                          info.getFromZip());
+        if (place != null) {
+            entry.setLocation(place.getLatitude(), place.getLongitude(), 0);
         }
 
         List<Entry> entries = (List<Entry>) Misc.newList(entry);

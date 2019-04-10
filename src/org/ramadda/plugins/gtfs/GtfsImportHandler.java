@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -52,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
@@ -123,7 +124,7 @@ public class GtfsImportHandler extends ImportHandler {
         }
 
         Hashtable<String, String> props =
-            StringUtil.parseHtmlProperties(request.getString("extra", ""));
+            HtmlUtils.parseHtmlProperties(request.getString("extra", ""));
         List<String> files = new ArrayList<String>();
         String       path  = props.get("directory");
         if ((path != null) && request.getUser().getAdmin()) {
@@ -208,15 +209,93 @@ public class GtfsImportHandler extends ImportHandler {
                                                       new File(dir,
                                                           "calendar.txt"));
 
+        Hashtable<String, String> stopToTrip = new Hashtable<String,
+                                                   String>();
         Hashtable<String, List<String[]>> stopTimes =
             processStopTimes(request,
                              new FileInputStream(new File(dir,
-                                 "stop_times.txt")));
+                                 "stop_times.txt")), stopToTrip);
+
+        Hashtable<String, Entry> stopToAgency = new Hashtable<String,
+                                                    Entry>();
+
+        if (agencies.size() > 1) {
+            List<String> stopIds = new ArrayList<String>();
+            Hashtable<String, List<String>> parentToChild =
+                new Hashtable<String, List<String>>();
+            getParentToChild(request, parentToChild, stopIds,
+                             new FileInputStream(new File(dir, "stops.txt")));
+
+            Hashtable<String, String> tripToRoute = new Hashtable<String,
+                                                        String>();
+            getTripToRoute(request, tripToRoute,
+                           new FileInputStream(new File(dir, "trips.txt")));
+
+            Hashtable<String, String> routeToAgency = new Hashtable<String,
+                                                          String>();
+            getRouteToAgency(request, routeToAgency,
+                             new FileInputStream(new File(dir,
+                                 "routes.txt")));
+
+            for (String stopId : stopIds) {
+                String tripId = stopToTrip.get(stopId);
+                if (tripId == null) {
+                    List<String> childs = parentToChild.get(stopId);
+                    if (childs != null) {
+                        for (String child : childs) {
+                            tripId = stopToTrip.get(child);
+                            if (tripId != null) {
+                                break;
+                            }
+                        }
+                    }
+                    if (tripId == null) {
+                        System.err.println("no trip for stop:" + stopId
+                                           + " found from children:" + tripId
+                                           + " " + parentToChild.get(stopId));
+                    }
+                }
+                if (tripId == null) {
+                    //                throw new IllegalArgumentException("Could not find trip for stop:" + stopId);
+                    continue;
+                }
+                String routeId = tripToRoute.get(tripId);
+                if (routeId == null) {
+                    if (true) {
+                        throw new IllegalArgumentException(
+                            "Could not find route for stop:" + stopId
+                            + " trip:" + tripId);
+                    }
+
+                    continue;
+                }
+                String agencyId = routeToAgency.get(routeId);
+                if (agencyId == null) {
+                    if (true) {
+                        throw new IllegalArgumentException(
+                            "Could not find agencyID for stop:" + stopId
+                            + " trip:" + tripId + " route:" + routeId);
+                    }
+
+                    continue;
+                }
+                Entry agency = agencyMap.get(agencyId);
+                if (agency == null) {
+                    if (true) {
+                        throw new IllegalArgumentException(
+                            "Could not find agency for stop:" + stopId
+                            + " trip:" + tripId + " route:" + routeId);
+                    }
+
+                    continue;
+                }
+                stopToAgency.put(stopId, agency);
+            }
+        }
+
         Hashtable<String, List<float[]>> pts = processShapes(request,
                                                    new File(dir,
                                                        "shapes.txt"));
-
-
 
         Hashtable<String, Entry> stopsMap = new Hashtable<String, Entry>();
         if (agencies.size() == 0) {
@@ -224,17 +303,17 @@ public class GtfsImportHandler extends ImportHandler {
 
             return;
         }
-        processStops(request, agencies.get(0), entries, stopsMap,
+        processStops(request, stopToAgency, agencies.get(0), entries,
+                     stopsMap,
                      new FileInputStream(new File(dir, "stops.txt")));
         List<Entry>              routes   = new ArrayList<Entry>();
         Hashtable<String, Entry> routeMap = new Hashtable<String, Entry>();
-
         processRoutes(request, props, agencyMap, routes, routeMap,
                       new FileInputStream(new File(dir, "routes.txt")));
         entries.addAll(routes);
 
-        processTrips(request, entries, agencyMap, routeMap, pts, services, stopsMap,
-                     stopTimes,
+        processTrips(request, entries, agencyMap, routeMap, pts, services,
+                     stopsMap, stopTimes,
                      new FileInputStream(new File(dir, "trips.txt")));
 
         for (Entry route : routes) {
@@ -243,11 +322,10 @@ public class GtfsImportHandler extends ImportHandler {
             Object   names  = route.getProperty("stop_names");
             if (names != null) {
                 String s = names.toString();
-                if(s.length()>30000) {
-                    s = s.substring(0,29999);
+                if (s.length() > 30000) {
+                    s = s.substring(0, 29999);
                 }
-                values[GtfsRouteTypeHandler.IDX_STOP_NAMES] =
-                    s;
+                values[GtfsRouteTypeHandler.IDX_STOP_NAMES] = s;
             }
         }
         if (routes.size() > 0) {
@@ -284,7 +362,8 @@ public class GtfsImportHandler extends ImportHandler {
      * _more_
      *
      * @param request _more_
-     * @param agencyEntry _more_
+     * @param stopToAgency _more_
+     * @param dfltAgency _more_
      * @param entries _more_
      * @param stopsMap _more_
      * @param is _more_
@@ -292,8 +371,9 @@ public class GtfsImportHandler extends ImportHandler {
      *
      * @throws Exception _more_
      */
-    private void processStops(final Request request, final Entry agencyEntry,
-                              final List<Entry> entries,
+    private void processStops(final Request request,
+                              final Hashtable<String, Entry> stopToAgency,
+                              Entry dfltAgency, final List<Entry> entries,
                               final Hashtable<String, Entry> stopsMap,
                               InputStream is)
             throws Exception {
@@ -343,6 +423,22 @@ public class GtfsImportHandler extends ImportHandler {
                     values[GtfsStopTypeHandler.IDX_WHEELCHAIR_BOARDING] =
                         getValue("wheelchair_boarding", map, toks, "");
 
+                    Entry agencyEntry = stopToAgency.get(id);
+                    if (agencyEntry == null) {
+                        if (stopToAgency.size() > 0) {
+                            System.err.println(
+                                "could not find agency for stop:" + id
+                                + " using default");
+                        }
+                        //                        if(true) throw new IllegalArgumentException("could not find agency for stop:" + id);
+                        agencyEntry = dfltAgency;
+                    }
+
+                    if (agencyEntry == null) {
+                        throw new IllegalArgumentException(
+                            "Could not find agency for stop:" + id);
+                    }
+
                     values[GtfsStopTypeHandler.IDX_AGENCY_ID] =
                         agencyEntry.getId();
                     Resource resource = Utils.stringDefined(url)
@@ -360,7 +456,7 @@ public class GtfsImportHandler extends ImportHandler {
                         agencyEntry.getValue(
                             GtfsAgencyTypeHandler.IDX_AGENCY_ID, "");
                     Gtfs.addAlias(request, entry,
-                                  "stop-" + id + "." + agencyId);
+                                  "gtfs." + agencyId + ".stop." + id);
                     stops.add(entry);
                     stopsMap.put(id, entry);
                 } catch (Exception exc) {
@@ -419,7 +515,6 @@ public class GtfsImportHandler extends ImportHandler {
      * _more_
      *
      * @param request _more_
-     * @param is _more_
      * @param file _more_
      *
      * @return _more_
@@ -518,6 +613,7 @@ public class GtfsImportHandler extends ImportHandler {
      *
      * @param request _more_
      * @param is _more_
+     * @param stopToTrip _more_
      *
      * @return _more_
      *
@@ -525,7 +621,8 @@ public class GtfsImportHandler extends ImportHandler {
      */
     private Hashtable<String,
                       List<String[]>> processStopTimes(final Request request,
-                          InputStream is)
+                          InputStream is,
+                          final Hashtable<String, String> stopToTrip)
             throws Exception {
         final Hashtable<String, List<String[]>> stops = new Hashtable<String,
                                                             List<String[]>>();
@@ -550,6 +647,9 @@ public class GtfsImportHandler extends ImportHandler {
                                            "");
                     String stopId = getValue("stop_id", map, toks, "");
 
+                    if (stopToTrip.get(stopId) == null) {
+                        stopToTrip.put(stopId, tripId);
+                    }
                     int seq = Integer.parseInt(getValue("stop_sequence", map,
                                   toks, "0"));
 
@@ -577,7 +677,6 @@ public class GtfsImportHandler extends ImportHandler {
      * _more_
      *
      * @param request _more_
-     * @param is _more_
      * @param file _more_
      *
      * @return _more_
@@ -689,8 +788,7 @@ public class GtfsImportHandler extends ImportHandler {
                                       "");
                     values[GtfsRouteTypeHandler.IDX_ID] = id;
                     String name;
-                    String rawAgencyId = getValue("agency_id", map, toks,
-                                             "").toLowerCase();
+                    String rawAgencyId = getValue("agency_id", map, toks, "");
 
                     String shortName = getValue("route_short_name", map,
                                            toks, "");
@@ -727,6 +825,11 @@ public class GtfsImportHandler extends ImportHandler {
 
                     Entry    agencyEntry = agencyMap.get(rawAgencyId);
                     if (agencyEntry == null) {
+                        agencyEntry =
+                            agencyMap.get(rawAgencyId.toLowerCase());
+                    }
+
+                    if (agencyEntry == null) {
                         System.err.println(name + " agency id:" + rawAgencyId
                                            + " map:" + agencyMap);
                     } else {
@@ -750,9 +853,9 @@ public class GtfsImportHandler extends ImportHandler {
                     entries.add(entry);
                     entry.putProperty("agencyid", agencyId);
 
-                    Gtfs.addHostAlias(request, entry, props.get("host"),
-                                      id + "." + agencyId);
-                    Gtfs.addAlias(request, entry, id + "." + agencyId);
+                    //Gtfs.addHostAlias(request, entry, props.get("host"),     "gtfs." + agencyId +"." + id);
+                    Gtfs.addAlias(request, entry,
+                                  "gtfs." + agencyId + ".route." + id);
 
 
                     routeMap.put(id, entry);
@@ -816,10 +919,9 @@ public class GtfsImportHandler extends ImportHandler {
 
                     //agency_id,agency_name,agency_url,agency_timezone,agency_lang,agency_phone, agency_fare_url
                     //                    debug = true;
-                    String rawAgencyId = getValue("agency_id", map, toks,
-                                             "").toLowerCase();
+                    String rawAgencyId = getValue("agency_id", map, toks, "");
                     String agencyId = Misc.getProperty(props, "agency",
-                                          rawAgencyId);
+                                          rawAgencyId.toLowerCase());
                     String attr = "agency_name";
                     String name = getValue(attr, map, toks, "DFLTNAME");
                     if (debug) {
@@ -843,8 +945,6 @@ public class GtfsImportHandler extends ImportHandler {
                         System.err.println("new AgencyId:" + agencyId);
                     }
 
-
-
                     String desc = getValue("agency_desc", map, toks, "");
                     String timezone = getValue("agency_timezone", map, toks,
                                           "");
@@ -863,17 +963,18 @@ public class GtfsImportHandler extends ImportHandler {
                     values[GtfsAgencyTypeHandler.IDX_TIMEZONE]  = timezone;
                     values[GtfsAgencyTypeHandler.IDX_LANGUAGE]  = lang;
 
-                    if(Utils.stringDefined(timezone)) {
-                        entry.addMetadata(new Metadata(request.getRepository().getGUID(),
-                                                       entry.getId(),
-                                                       ContentMetadataHandler.TYPE_TIMEZONE,
-                                                       true, timezone, null,
-                                                       null, null, null));
+                    if (Utils.stringDefined(timezone)) {
+                        getMetadataManager().addMetadata(
+                            entry,
+                            new Metadata(
+                                request.getRepository().getGUID(),
+                                entry.getId(),
+                                ContentMetadataHandler.TYPE_TIMEZONE, true,
+                                timezone, null, null, null, null));
                     }
                     agencies.add(entry);
-                    Gtfs.addHostAlias(request, entry,
-                                      (String) props.get("host"), agencyId);
-                    Gtfs.addAlias(request, entry, agencyId);
+                    //Gtfs.addHostAlias(request, entry,(String) props.get("host"), agencyId);
+                    Gtfs.addAlias(request, entry, "gtfs." + agencyId);
 
                     Resource resource = Utils.stringDefined(url)
                                         ? new Resource(new URL(url))
@@ -885,6 +986,7 @@ public class GtfsImportHandler extends ImportHandler {
                     entry.setChildren(new ArrayList<Entry>());
                     entries.add(entry);
                     agencyMap.put(rawAgencyId, entry);
+                    agencyMap.put(agencyId, entry);
                     if (agencyMap.get("") == null) {
                         agencyMap.put("", entry);
                     }
@@ -934,11 +1036,152 @@ public class GtfsImportHandler extends ImportHandler {
     }
 
 
+
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param parentToChild _more_
+     * @param stopIds _more_
+     * @param is _more_
+     *
+     * @throws Exception _more_
+     */
+    private void getParentToChild(
+            final Request request,
+            final Hashtable<String, List<String>> parentToChild,
+            final List<String> stopIds, InputStream is)
+            throws Exception {
+        TextReader textReader = new TextReader();
+        textReader.setInput(is);
+        textReader.getProcessor().addProcessor(new MyProcessor() {
+            public org.ramadda.util.text.Row processRow(
+                    TextReader textReader, org.ramadda.util.text.Row row,
+                    String line) {
+                try {
+                    if (checkMap(row)) {
+                        return row;
+                    }
+                    //route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id,wheelchair_accessible,bikes_allowed
+
+                    List<String> toks = row.getValues();
+                    String parentId = getValue("parent_station", map, toks,
+                                          "");
+                    String stopId = getValue("stop_id", map, toks, "");
+                    stopIds.add(stopId);
+                    if (parentId.length() > 0) {
+                        List<String> childs = parentToChild.get(parentId);
+                        if (childs == null) {
+                            childs = new ArrayList<String>();
+                            parentToChild.put(parentId, childs);
+                        }
+                        childs.add(stopId);
+                    }
+                } catch (Exception exc) {
+                    throw new RuntimeException(exc);
+                }
+
+                return row;
+            }
+        });
+        CsvUtil csvUtil = new CsvUtil(new ArrayList<String>());
+        csvUtil.process(textReader);
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param tripToRoute _more_
+     * @param is _more_
+     *
+     * @throws Exception _more_
+     */
+    private void getTripToRoute(final Request request,
+                                final Hashtable<String, String> tripToRoute,
+                                InputStream is)
+            throws Exception {
+        TextReader textReader = new TextReader();
+        textReader.setInput(is);
+        textReader.getProcessor().addProcessor(new MyProcessor() {
+            public org.ramadda.util.text.Row processRow(
+                    TextReader textReader, org.ramadda.util.text.Row row,
+                    String line) {
+                try {
+                    if (checkMap(row)) {
+                        return row;
+                    }
+                    //route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id,wheelchair_accessible,bikes_allowed
+
+                    List<String> toks    = row.getValues();
+                    String       routeId = getValue("route_id", map, toks,
+                                               "");
+                    String       tripId  = getValue("trip_id", map, toks, "");
+                    if (tripToRoute.get(tripId) == null) {
+                        tripToRoute.put(tripId, routeId);
+                    }
+                } catch (Exception exc) {
+                    throw new RuntimeException(exc);
+                }
+
+                return row;
+            }
+        });
+        CsvUtil csvUtil = new CsvUtil(new ArrayList<String>());
+        csvUtil.process(textReader);
+    }
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param idMap _more_
+     * @param is _more_
+     *
+     * @throws Exception _more_
+     */
+    private void getRouteToAgency(final Request request,
+                                  final Hashtable<String, String> idMap,
+                                  InputStream is)
+            throws Exception {
+        TextReader textReader = new TextReader();
+        textReader.setInput(is);
+        textReader.getProcessor().addProcessor(new MyProcessor() {
+            public org.ramadda.util.text.Row processRow(
+                    TextReader textReader, org.ramadda.util.text.Row row,
+                    String line) {
+                try {
+                    if (checkMap(row)) {
+                        return row;
+                    }
+                    List<String> toks = row.getValues();
+                    //route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url,route_color,route_text_color
+
+                    String routeId  = getValue("route_id", map, toks, "");
+                    String agencyId = getValue("agency_id", map, toks, "");
+                    if (idMap.get(routeId) == null) {
+                        idMap.put(routeId, agencyId);
+                    }
+                } catch (Exception exc) {
+                    throw new RuntimeException(exc);
+                }
+
+                return row;
+            }
+        });
+        CsvUtil csvUtil = new CsvUtil(new ArrayList<String>());
+        csvUtil.process(textReader);
+    }
+
+
     /**
      * _more_
      *
      * @param request _more_
      * @param entries _more_
+     * @param agencyMap _more_
      * @param routeMap _more_
      * @param pts _more_
      * @param services _more_
@@ -1043,15 +1286,17 @@ public class GtfsImportHandler extends ImportHandler {
                     if (stops == null) {
                         stops = new ArrayList<String[]>();
                     }
-                    StringBuilder stopIds = new StringBuilder();
+                    StringBuilder stopIds     = new StringBuilder();
                     String agencyId = (String) route.getProperty("agencyid");
-                    Entry    agencyEntry = agencyMap.get(agencyId);
+                    Entry         agencyEntry = agencyMap.get(agencyId);
 
-                    if(agencyEntry!=null) {
+                    if (agencyEntry != null) {
                         values[GtfsTripTypeHandler.IDX_AGENCY_ID] =
                             agencyEntry.getId();
                     }
 
+                    Entry firstStop = null;
+                    Entry lastStop  = null;
                     for (String[] tuple : stops) {
                         stopIds.append("[");
                         stopIds.append(agencyId);
@@ -1061,12 +1306,19 @@ public class GtfsImportHandler extends ImportHandler {
                         stopIds.append("]");
 
                         Entry stop = stopsMap.get(stopId);
+                        if (firstStop == null) {
+                            firstStop = stop;
+                        }
+                        lastStop = stop;
                         if (stop != null) {
-                            String routes = (String)stop.getValue(GtfsStopTypeHandler.IDX_ROUTES,"");
-                            if(routes.indexOf(route.getId())<0) {
+                            String routes =
+                                (String) stop.getValue(
+                                    GtfsStopTypeHandler.IDX_ROUTES, "");
+                            if (routes.indexOf(route.getId()) < 0) {
                                 routes += route.getId();
                                 routes += ",";
-                                stop.setValue(GtfsStopTypeHandler.IDX_ROUTES,routes);
+                                stop.setValue(GtfsStopTypeHandler.IDX_ROUTES,
+                                        routes);
                             }
                             HashSet seen =
                                 (HashSet) route.getProperty("seen_stops");
@@ -1093,13 +1345,24 @@ public class GtfsImportHandler extends ImportHandler {
                     }
 
                     String s = stopIds.toString();
-                    if(s2.length()>30000 || s.length()>30000) {
-                        System.err.println("err:" + stops.size()+" " + s2.length() +" " + s.length()+" " + 
-                                           s.substring(0,200));
-                        
+                    if ((s2.length() > 30000) || (s.length() > 30000)) {
+                        System.err.println("err:" + stops.size() + " "
+                                           + s2.length() + " " + s.length()
+                                           + " " + s.substring(0, 200));
+
                     }
-                    values[GtfsTripTypeHandler.IDX_STOPS] = s2;
+                    values[GtfsTripTypeHandler.IDX_STOPS]    = s2;
                     values[GtfsTripTypeHandler.IDX_STOP_IDS] = s;
+
+                    if (firstStop != null) {
+                        values[GtfsTripTypeHandler.IDX_FIRST_STOP] =
+                            firstStop.getId();
+                    }
+                    if (lastStop != null) {
+                        values[GtfsTripTypeHandler.IDX_LAST_STOP] =
+                            lastStop.getId();
+                    }
+
                     String startTime = null;
                     String endTime   = null;
                     for (String[] tuple : stops) {
@@ -1196,14 +1459,14 @@ public class GtfsImportHandler extends ImportHandler {
 
             return;
         }
-        int skipEvery=0;
-        while(true) {
+        int skipEvery = 0;
+        while (true) {
             StringBuilder all     = new StringBuilder();
             int           idx     = 0;
             float         north   = 0,
-                south   = 0,
-                west    = 0,
-                east    = 0;
+                          south   = 0,
+                          west    = 0,
+                          east    = 0;
             float         lastLat = Float.NaN;
             float         lastLon = Float.NaN;
             int           numPts  = 0;
@@ -1213,11 +1476,13 @@ public class GtfsImportHandler extends ImportHandler {
                 float lon = point[1];
                 if ((lat == lastLat) && (lon == lastLon)) {
                     skipped++;
+
                     continue;
                 }
                 numPts++;
-                if(skipEvery>0 && (numPts%skipEvery)==0) {
+                if ((skipEvery > 0) && (numPts % skipEvery) == 0) {
                     skipped++;
+
                     continue;
                 }
 
@@ -1229,17 +1494,17 @@ public class GtfsImportHandler extends ImportHandler {
                 all.append(";");
 
                 north = (idx == 0)
-                    ? lat
-                    : Math.max(north, lat);
+                        ? lat
+                        : Math.max(north, lat);
                 south = (idx == 0)
-                    ? lat
-                    : Math.min(south, lat);
+                        ? lat
+                        : Math.min(south, lat);
                 west  = (idx == 0)
-                    ? lon
-                    : Math.min(west, lon);
+                        ? lon
+                        : Math.min(west, lon);
                 east  = (idx == 0)
-                    ? lon
-                    : Math.max(east, lon);
+                        ? lon
+                        : Math.max(east, lon);
 
                 idx++;
             }
@@ -1254,15 +1519,22 @@ public class GtfsImportHandler extends ImportHandler {
                   + compressed2.length());
                 */
             }
-            if(compressed.length()>35000) {
+            if (compressed.length() > 35000) {
                 /*
                 System.out.println("Points:" + numPts + " skipevery:" + skipEvery+" skipped:" + skipped
                                    + " text length:" + all.length() + " compressed:"
                                    + compressed.length());
                 */
-                if(skipEvery==0) skipEvery=10;
-                else skipEvery--;
-                if(skipEvery<0) throw new IllegalArgumentException("Too many points in polygon:" + poly.size());
+                if (skipEvery == 0) {
+                    skipEvery = 10;
+                } else {
+                    skipEvery--;
+                }
+                if (skipEvery < 0) {
+                    throw new IllegalArgumentException(
+                        "Too many points in polygon:" + poly.size());
+                }
+
                 continue;
             }
             Object[] values = entry.getTypeHandler().getEntryValues(entry);
@@ -1273,6 +1545,7 @@ public class GtfsImportHandler extends ImportHandler {
                 entry.setSouth(south);
                 entry.setEast(east);
             }
+
             break;
         }
     }

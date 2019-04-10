@@ -2,7 +2,7 @@
 
 <project basedir="../../../.." default="all" name="Ramadda">
 
-    <target name="all" depends="ramadda.jar,repository.war,ramadda.zip,installer">
+    <target name="all" depends="ramadda.jar,repository.war,ramadda.zip,installer,htdocs">
     </target>
 
 
@@ -22,6 +22,7 @@
         <property name="tika_jar" value="tika-app-1.13.jar" />
         <property name="jfreechart_jar" value="jfreechart-1.0.19.jar" />
         <property name="unidata_jar" value="idv.jar" />
+
 
         <property name="clientbase" value="ramaddaclient" />
 
@@ -230,6 +231,11 @@
         </javac>
     </target>
 
+    <target name="htdocs" depends="init">
+        <exec executable="${ramadda_dir}/htdocs/build.sh"/>
+    </target>
+
+
     <target name="ramadda.jar" depends="init,compile">
         <copy overwrite="true" file="LICENSE" tofile="${ramadda_dir}/resources/ramadda_license.txt"/>
         <copy overwrite="true" file="${ramadda_dir}/resources/version.properties" tofile="${ramadda_dir}/resources/build.properties">
@@ -347,11 +353,25 @@
         <unjar src="${lib_dir}/javadiff.jar" dest="${tmpjar_dir}"/>
         <unjar src="${lib_dir}/smtp.jar" dest="${tmpjar_dir}"/>
         <unjar src="${lib_dir}/gson-2.2.4.jar" dest="${tmpjar_dir}"/>
+        <unjar src="${lib_dir}/ij.jar" dest="${tmpjar_dir}"/>
+
+<!--
         <unjar src="${lib_dir}/postgres.jar" dest="${tmpjar_dir}"/>
+-->
+
+        <unjar src="${lib_dir}/postgresql-42.2.5.jre7.jar" dest="${tmpjar_dir}"/>
+
+
+
         <unjar src="${lib_dir}/mysql-connector-java-5.1.32-bin.jar" dest="${tmpjar_dir}"/>
+<!--
+        <unjar src="${lib_dir}/mysql-connector-java-8.0.15.jar" dest="${tmpjar_dir}"/>
+-->
+
         <unjar src="${lib_dir}/h2.jar" dest="${tmpjar_dir}"/>
         <unjar src="${lib_dir}/derby.jar" dest="${tmpjar_dir}"/>
         <unjar src="${lib_dir}/derbytools.jar" dest="${tmpjar_dir}"/>
+        <unjar src="${lib_dir}/abom.jar" dest="${tmpjar_dir}"/>
         <unjar src="${lib_dir}/commons-lang3-3.1.jar" dest="${tmpjar_dir}"/>
         <unjar src="${lib_dir}/commons-net-3.3.jar" dest="${tmpjar_dir}"/>
         <unjar src="${lib_dir}/commons-io-1.4.jar" dest="${tmpjar_dir}"/>
@@ -367,8 +387,16 @@
         <unjar src="${lib_dir}/httpclient-4.4.1.jar" dest="${tmpjar_dir}"/>
 
 -->
+<!--
         <unjar src="${lib_dir}/httpmime-4.5.5.jar" dest="${tmpjar_dir}"/>
+-->
+        <unjar src="${lib_dir}/httpmime-4.5.7.jar" dest="${tmpjar_dir}"/>
+
+<!--
         <unjar src="${lib_dir}/httpcore-4.4.9.jar" dest="${tmpjar_dir}"/>
+-->
+        <unjar src="${lib_dir}/httpcore-4.4.1.jar" dest="${tmpjar_dir}"/>
+
 
 <!--
         <unjar src="${lib_dir}/metadata-extractor-2.6.2.jar" dest="${tmpjar_dir}"/>

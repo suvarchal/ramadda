@@ -1,0 +1,463 @@
+<html>
+<head>
+<title>RAMADDA Notebooks</title>
+  <link rel="stylesheet" type="text/css" href="./default.css" title="Style">
+
+</head>
+
+<body>
+<div class="ramadda-documentation">
+<table width=100% cellspacing=0 cellpadding=0 ><tr><td width=30%>
+<a href="wikidisplay.html"><img src="images/previous.png" border="0"   alt="Previous: Wiki Display Components" title="Previous: Wiki Display Components"></a> <a href="pagestyle.html"><img src="images/next.png" border="0"   alt="Next: Page Styles" title="Next: Page Styles"></a>  <a href="toc.html#notebook.html"><img src="images/table.png" border="0"   alt="Table of contents" title="Table of contents"></a>
+</td>
+<td width=40% align=center>
+<div class="ramadda-page-title"><a href="${root}/userguide/index.html">RAMADDA User Guide</a></div>
+</td>
+<td width=30%>&nbsp;</td>
+</tr></table>
+<div class="ramadda-page-heading">Section 5.3: RAMADDA Notebooks</div>
+
+<style type="text/css">
+pre {
+    margin-left:15px;
+}
+</style>
+
+<div style="margin-left:20px;">
+
+
+
+
+
+
+The Notebook display provides an interactive notebook that can display html, execute javascript and perform other "shell" functions.
+
+<a name="overview"></a><p><div class="ramadda-help-heading">5.3.0 <a href="#overview">Quick Overview</a></div> 
+View this in action on <a href="/repository/entry/show?entryid=14bb9793-bc3d-4b3f-8eda-b6c046e39983">RAMADDA</a>.
+<br>
+Notebooks are created with the wiki tag:
+<pre>{{display type="notebook"}}</pre> 
+<ul>
+<li> Notebooks are made up of any number of cells
+<li> A cell has an input area and an output area
+<ul> 
+<li> The input area can be shown or hidden
+<li> To toggle the input click on the header above the menubar 
+<li> Click on the <img src=/repository/icons/menu.png> link to show the notebook menu. 
+<li> A notebook can be laid out horizontally (like this) or vertically
+<li> A message console is shown at the bottom of the notebook
+</ul>
+<li> Cells can contain any number of chunks of different types - 
+<ul>
+<li> HTML, wiki text, markdown, raw text, special shell and fetch commands, Javascript and Python. 
+<li> The different chunks within a cell are delineated with "%% type", e.g. "%%html"
+<li> Markdown and HTML chunks feature wysiwig editing
+<li>Evaluate the current chunk and step to the next chunk with <i>shift-return</i>.
+<li> Evaluate the whole cell or the whole notebook with the links above  <img src="/repository/icons/run.png"> <img src="/repository/icons/runall.png">
+</ul>
+</ul>
+
+
+
+
+<a name="creating"></a><p><div class="ramadda-help-heading">5.3.1 <a href="#creating">Creating a notebook</a></div> 
+
+A notebook can be created for any entry with the following wiki text:
+<div style="margin:10p;"><pre>
+{{display type=&quot;notebook&quot; showMenu=&quot;false&quot; showTitle=&quot;false&quot;}}
+</pre></div>
+
+Notebooks are always associated with an entry. You can have multiple notebooks for an entry using the notebookId attribute:
+
+<div style="margin:10p;"><pre>
+//This is the default notebook
+{{display type=&quot;notebook&quot; showMenu=&quot;false&quot; showTitle=&quot;false&quot;}}
+
+{{display type=&quot;notebook&quot; notebookId=&quot;notebook2&quot; showMenu=&quot;false&quot; showTitle=&quot;false&quot;}}
+
+{{display type=&quot;notebook&quot; notebookId=&quot;notebook3&quot; showMenu=&quot;false&quot; showTitle=&quot;false&quot;}}
+</pre></div>
+
+
+When a notebook is saved (see below) it is saved as a JSON file and is  attached to the entry as a property. 
+The notebook file be accessed and/or deleted through the entry's Edit Properties menu.
+
+<p>
+
+A notebook is made up of a number of notebook cells. Initially there is just one cell.
+Each cell has an input area, output area and cell menu. The menu can either be accessed through
+the Notebook menu or from the left side link that is shown on mouseover:
+
+<a name="image1"></a><div class="cimg"><a href="images/notebook1.png"><img  src="images/notebook1.png"  alt="Notebook Menu" ></a><br><span class="caption">Image 1: Notebook Menu</span></div>
+
+The icons on the left allow you to popup the cell menu, show the cell input, run the cell and run all cells.
+
+
+
+
+
+<a name="editing"></a><p><div class="ramadda-help-heading">5.3.2 <a href="#editing">Editing a notebook</a></div> 
+The menubar at the top of the input area is just RAMADADA's wiki text <a href="wiki.html#menubar">menu bar</a>.
+Use the following tags to denote and separate the contents within a notebook cell:
+<p>
+The input of a notebook cell can be any combination of html, wiki text, markdown, raw text, javascript, python, 
+or special "shell" commands and "fetch" commands.
+The input can either be all one type or a mix of different input types. Each type is delineated by a "%%".
+
+<pre>
+<i>%% html</i>
+Regular html text
+
+<i>%% css</i>
+CSS
+
+<i>%% wiki</i>
+RAMADDA wiki text
+
+<i>%% md</i>
+Markdown text
+
+<i>%% fetch</i>
+Fetch commands
+
+<i>%% js</i>
+Javascript
+
+<i>%% py</i>
+Javascript
+
+<i>%% sh</i>
+Shell commands
+
+<i>%% fetch</i>
+Fetch commands
+
+<i>%% raw</i>
+Raw text
+
+</pre>
+
+A command can be on the same line
+<pre>
+<i>%% html</i> some html
+<i>%% wiki</i> some wiki
+<i>%% js</i> some javascript
+</pre>
+
+
+<a name="context"></a><p><div class="ramadda-help-heading">5.3.3 <a href="#context">Cell Context</a></div> 
+Within a cell there is an entry context, a number of entries that can be accessed within the javascript
+input and that the wiki is created from. The following entries are available:
+<ul>
+<li> "base" -  This is the entry that the notebook is defined for
+<li> "current"  - The current entry. By default this the base entry base entry but can be changed with the
+shell commands.
+<li> "parent"  - the parent of the current entry
+<li> "root"  - the top-level entry
+</ul>
+
+
+<a name="html"></a><p><div class="ramadda-help-heading">5.3.4 <a href="#html">Html Input</a></div> 
+To specify html text start the input with "%% html".  
+<pre>
+<i>%% html</i>
+html text
+</pre>
+
+
+<a name="wiki"></a><p><div class="ramadda-help-heading">5.3.5 <a href="#wiki">Wiki Input</a></div> 
+To specify wiki text start the input with "%% wiki" - 
+<pre>
+<i>%% wiki</i>
+RAMADDA wiki text
+</pre>
+
+The wiki text is just regular RAMADDA wiki text. More information <a href="wikitext.html">here</a>.
+
+
+<a name="markdown"></a><p><div class="ramadda-help-heading">5.3.6 <a href="#markdown">Markdown Input</a></div> 
+To specify markdown  text start the input with "%% md" - 
+<pre>
+<i>%% md</i>
+# markdown 1
+# markdown 2
+</pre>
+
+
+
+<a name="fetch"></a><p><div class="ramadda-help-heading">5.3.7 <a href="#fetch">Fetch Input</a></div> 
+The fetch command allow you to import javascript, css or html files
+
+<pre>
+<i>%% fetch</i>
+js: /url/to/javascript
+css: /url/to/css
+html: /url/to/html
+</pre>
+
+
+You can also load the contents of a RAMADDA entry file by providing the entry id or 
+path names as defined for the shell commands below
+<pre>
+<i>%%fetch</i>
+text: somevar=3cc5aa82-7fac-467d-b285-5212625296d6
+text: somevar=../../files/file.txt
+text: somevar=files/file.txt
+...
+</pre>
+
+
+
+
+<a name="sh"></a><p><div class="ramadda-help-heading">5.3.8 <a href="#sh">Shell Input</a></div> 
+To specify shell text start the input with "%% sh" - 
+<pre>
+<i>%% sh</i>
+shell commands
+</pre>
+
+The shell commands allow for easy navigation around the RAMADDA entry hierarchy. 
+
+The following shell commands are supported. All of the "cd" commands change the cell's current entry.
+<pre>
+<i>%% sh</i>
+#change current entry to the base entry
+cd  
+
+#change current entry to the root
+cd  /
+
+#change current entry to the parent of the current entry
+cd  ..
+
+
+#change current entry to the parent of the parent of the current entry
+cd  ../..
+
+#change current entry to the "Test" entry under the root
+cd  /Test
+
+#change current entry to the first entry found under the root with name that begins with "foo" 
+cd  /foo*
+
+#change current entry to the first entry found under the root with name that ends with "bar" 
+cd  /*bar
+
+#change current entry to the "Test" entry relative to the current entry
+cd  ../Test
+
+#change current entry to the child of the current entry with name "Child" 
+cd  Child
+
+#change current entry to the grandchild entry with name "Grandchild" 
+cd  Child/Grandchild
+
+#print the current entry
+pwd
+
+#show the children tree of the current entry
+ls
+
+#print output
+echo any output
+
+
+#shell commands can be on one line, e.g.:
+cd /;pwd;ls;cd;pwd
+
+</pre>
+
+
+<a name="js"></a><p><div class="ramadda-help-heading">5.3.9 <a href="#js">Javascript Input</a></div> 
+To specify javascript start the input with "%% js" - 
+<pre>
+<i>%% js</i>
+javascript code
+</pre>
+
+Javacsript input comes in 3 forms - single line expression, single line with a return  or multiple lines with a return.
+For example, the below will display the number "3":
+<pre>
+<i>%% js</i>
+1+2
+</pre>
+
+Here is a single line with a return:
+<pre>
+<i>%% js</i>
+return "some string"
+</pre>
+
+Here is a multiple line input:
+<pre>
+<i>%% js</i>
+var x;
+x = 1+2;
+return x;
+</pre>
+
+The javascript input can have function definitions:
+<pre>
+<i>%% js</i>
+function result() {
+   return "the result";
+}
+return result();
+</pre>
+
+
+There are a number of helper functions and pre-defined variables that can be accessed from javascript.
+The above described entry context can be accessed with the variables:
+<pre>
+<i>%% js</i>
+base
+current
+parent
+root
+</pre>
+
+The state object holds the state of this JS cell execution and provides a number of methods.
+<pre>
+<i>%% js</i>
+//TODO
+</pre>
+
+<pre>
+<i>%% js</i>
+state.getCell() // return the cell
+state.getNotebook() // return the cell
+state.clear() //clear the output
+state.ls() //List the current entry
+state.stop() //Stop cell execution
+
+//make wiki text. This is applicable to the current entry if the 
+//optionalEntry is not provided. If optionalCallback is not provided then 
+//the wiki text is displayed on the page. Else the wiki text is passed to
+//the callback
+state.wiki(wikiText,optionalEntry,optionalCallback); 
+
+state.write(html); //write the html to the page
+</pre>
+
+Putting the entry state and the functions together we can do:
+<pre>
+state.write(base.getName());
+state.write(root.getName());
+state.write(current.getName());
+state.write(parent.getName());
+
+//Create wiki text for the given entry
+state.wiki("{{tree}}", current);
+state.wiki(":title {{name}}", root);
+</pre>
+
+
+
+<a name="py"></a><p><div class="ramadda-help-heading">5.3.10 <a href="#py">Python Input</a></div> 
+The notebook Python runs in the browser using the <a href="http://www.skulpt.org/">Skulpt</a> package.
+To specify python start the input with "%% py" - 
+<pre>
+<i>%% py</i>
+print "hello world"
+</pre>
+
+
+
+<a name="plugin"></a><p><div class="ramadda-help-heading">5.3.11 <a href="#plugin">Defining new languages</a></div> 
+The <i>plugin</i> chunk type allows you to define new languages.
+This follows the <a href="https://iodide-project.github.io/docs/language_plugins/">Iodide Plugins</a> model.
+<pre>
+%% plugin
+{
+  "languageId": "jsx",
+  "displayName": "React JSX",
+  "url": "https://raw.githubusercontent.com/hamilton/iodide-jsx/master/docs/evaluate-jsx.js",
+  "module": "jsx",
+  "evaluator": "evaluateJSX",
+  "pluginType": "language"
+}
+</pre>
+
+
+<a name="running"></a><p><div class="ramadda-help-heading">5.3.12 <a href="#running">Running a notebook</a></div> 
+To run a notebook cell either press shift-return in the cell input area or choose "Run This Cell" in the notebook menu.
+All of the cells can be run through the notebook menu with the "Run All" command.
+A notebook can be configured to run all of the cells when the notebook is first loaded through the "Run on load"
+command in the notebook menu.
+
+
+<a name="commands"></a><p><div class="ramadda-help-heading">5.3.13 <a href="#commands">Notebook Menu Commands</a></div> 
+The notebook menu allows one to configure the display and behavior of individual cells or all of the cells.
+
+<a name="image2"></a><div class="cimg"><a href="images/notebookmenu.png"><img  src="images/notebookmenu.png"  alt="Notebook Menu" ></a><br><span class="caption">Image 2: Notebook Menu</span></div>
+
+<ul>
+<li> Cell name: Name the current cell. The name is shown in the header (see below)
+<li> Run: Either run the current cell or run all cells
+<li> New cell: Create a new cell either above the current cell or below the current cell
+<li> Clear: Clear the output for the current cell or for all cells
+<li> Move: Move the current cell either up or down. Note: when in the cell input pressing control-^ will move the cell up. Pressing control-v will move the cell down.
+<li> Show
+<ul>
+<li> Edit: Show the input edit field
+<li> Header: Show the header. Only the cell name is shown in the header
+<li> Border: display a line border between cells
+</ul>
+<li> Inputs: Show or hide all of the input fields
+<li> Run on load: Run all of the cells when the notebook is first viewed
+<li> Display mode: When true don't show any input fields or the left side menu if the user is not logged in
+<li> Save notebook: Save the notebook either without or with the generated output. It is suggested that notebooks are saved without output
+and that the cells are ran on notebook load. This is due to that some of the notebook operations (notably javascript) don't get recreated correctly
+with just the notebook output saved
+<li> Delete: Delete this cell
+<li> Help: Show this help
+</ul>
+
+
+<a name="macros"></a><p><div class="ramadda-help-heading">5.3.14 <a href="#macros">Macros</a></div> 
+Cell values can be used as macros in other cells. There are 2 ways of doing this. 
+First, you can set the name of a cell (through the popup menu) to be some macro name, e.g., the_value.
+The cells that define the macro values need to be run before the cells that reference the macro values. Do this
+by setting the "Run first" checkbox in the source cell's menu.
+<p>
+
+Assume we have cell content as some html, and the name of the cell is "the_value", e.g.:
+<pre>
+%%html
+Some html
+</pre>
+
+In another cell you can insert the HTML with the macro:
+<pre>
+%%html
+Some other cell
+Here is the macro: ${the_value}
+</pre>
+
+If you have a JS cell then the "the_value" will be set as a variable that can be referenced, e.g.:
+<pre>
+%%js
+var x = the_value;
+</pre>
+
+The macro values can also be set within a cell using the "raw" chunk type by adding a var=&lt;var name&gt; line like:
+<pre>
+%%raw var=id
+Some macro value
+
+</pre>
+
+
+
+
+
+</div>
+<p>
+
+<p>&nbsp;<p>
+<a href="wikidisplay.html"><img src="images/previous.png" border="0"   alt="Previous: Wiki Display Components" title="Previous: Wiki Display Components"></a> <a href="pagestyle.html"><img src="images/next.png" border="0"   alt="Next: Page Styles" title="Next: Page Styles"></a>  <a href="toc.html#notebook.html"><img src="images/table.png" border="0"   alt="Table of contents" title="Table of contents"></a>
+<p>
+</div>
+</body>
+</html>
+

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -303,7 +303,7 @@ public class PhotosTypeHandler extends GdataTypeHandler {
                                  ContentMetadataHandler.TYPE_THUMBNAIL,
                                  false, thumbs.get(0).getUrl(), null, null,
                                  null, null);
-                newEntry.addMetadata(thumbnailMetadata);
+                getMetadataManager().addMetadata(newEntry, thumbnailMetadata);
             }
             getEntryManager().cacheSynthEntry(newEntry);
         }
@@ -386,12 +386,14 @@ public class PhotosTypeHandler extends GdataTypeHandler {
      *
      * @throws Exception _more_
      */
-    public String getIconUrl(Request request, Entry entry) throws Exception {
+    @Override
+    public String getEntryIconUrl(Request request, Entry entry)
+            throws Exception {
         if (entry.getId().indexOf(TYPE_PHOTO) >= 0) {
-            return iconUrl("/icons/jpg.png");
+            return getIconUrl("/icons/jpg.png");
         }
 
-        return iconUrl("/gdata/picasa.png");
+        return getIconUrl("/gdata/picasa.png");
     }
 
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ public class ResearchFacilityTypeHandler extends ExtensibleGroupTypeHandler {
                   new Link(
                            request.entryUrl(
                                             getRepository().URL_ENTRY_ACCESS, entry, "type",
-                                            "kml"), getRepository().iconUrl(ICON_KML),
+                                            "kml"), getRepository().getIconUrl(ICON_KML),
                            "Convert GPX to KML", OutputType.TYPE_FILE));
     }
 

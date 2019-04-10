@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -74,8 +74,30 @@ public interface RecordConstants extends Constants {
     /** url argument */
     public static final String ARG_GRID_PREFIX = "grid.";
 
+
     /** _more_ */
     public static final String ARG_FILLMISSING = "fillmissing";
+
+    /** _more_ */
+    public static final String ARG_THRESHOLD = "threshold";
+
+    /** _more_ */
+    public static final String ARG_GRID_POWER = ARG_GRID_PREFIX + "power";
+
+    /** _more_ */
+    public static final String ARG_GRID_MINPOINTS = ARG_GRID_PREFIX
+                                                    + "minpoints";
+
+    /** _more_ */
+    public static final String ARG_GRID_RANGE_MIN = ARG_GRID_PREFIX
+                                                    + "range_min";
+
+    /** _more_ */
+    public static final String ARG_GRID_RANGE_MAX = ARG_GRID_PREFIX
+                                                    + "range_max";
+
+    /** _more_ */
+    public static final String ARG_GRID_SUM = ARG_GRID_PREFIX + "sum";
 
     /** url argument */
     public static final String ARG_GRID_MIN = ARG_GRID_PREFIX + "min";
@@ -91,6 +113,10 @@ public interface RecordConstants extends Constants {
 
     /** url argument */
     public static final String ARG_GRID_IDW = ARG_GRID_PREFIX + "idw";
+
+
+    /** _more_ */
+    public static final String ARG_GRID_BARNES = ARG_GRID_PREFIX + "barnes";
 
 
 
@@ -221,28 +247,38 @@ public interface RecordConstants extends Constants {
 
 
     /** defines the different gridding functions the user can choose */
-    public static final String[] GRID_ARGS = { ARG_GRID_MIN, ARG_GRID_MAX,
-            ARG_GRID_AVERAGE, ARG_GRID_COUNT, ARG_GRID_IDW, };
+    public static final String[] GRID_ARGS = {
+        ARG_GRID_SUM, ARG_GRID_MIN, ARG_GRID_MAX, ARG_GRID_AVERAGE,
+        ARG_GRID_COUNT,
+        ARG_GRID_IDW  /*,ARG_GRID_BARNES*/
+    };
 
     /** corresponds toe the GRID_ARGS */
-    public static final String[] GRID_HELP = { "Each grid cell holds the minimum value of all points within the cell",
-            "Each grid cell holds the maximum value of all points within the cell",
-            "Each grid cell holds the average value of all points within the cell",
-            "Each grid cell holds the number of points within the cell",
-            "Each grid cell Inverse Distance Weighted average of the point values within the radius around the cell", };
+    public static final String[] GRID_HELP = {
+        "Each grid cell holds the sum of the values",
+        "Each grid cell holds the minimum value of all points within the cell",
+        "Each grid cell holds the maximum value of all points within the cell",
+        "Each grid cell holds the average value of all points within the cell",
+        "Each grid cell holds the number of points within the cell",
+        "Each grid cell Inverse Distance Weighted average of the point values within the radius around the cell"
+        /*,   "Do Barnes analysis"*/
+    };
 
 
     /** corresponds toe the GRID_ARGS */
-    public static final String[] GRID_LABELS = { "Minimum value",
-            "Maximum value", "Average value", "Point count", "IDW average", };
+    public static final String[] GRID_LABELS = {
+        "Sum of Values", "Minimum value", "Maximum value", "Average value",
+        "Point count",
+        "IDW average"  /*, "Barnes Grid"*/
+    };
 
 
 
     /** _more_ */
-    public static final int DFLT_WIDTH = 1000;
+    public static final int DFLT_WIDTH = 500;
 
     /** _more_ */
-    public static final int DFLT_HEIGHT = 1000;
+    public static final int DFLT_HEIGHT = 500;
 
     /** constants */
     public static final int TIMESERIES_POINTS = 500;

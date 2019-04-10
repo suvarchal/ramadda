@@ -8,6 +8,7 @@ package gov.noaa.esrl.psd.repository;
 
 
 import org.ramadda.repository.*;
+import org.ramadda.repository.output.WikiConstants;
 import org.ramadda.repository.map.MapInfo;
 import org.ramadda.repository.map.MapLayer;
 import org.ramadda.repository.output.MapOutputHandler;
@@ -33,7 +34,7 @@ import java.util.List;
  * @author RAMADDA Development Team
  * @version $Revision: 1.3 $
  */
-public class EsrlMapPageDecorator extends PageDecorator {
+public class EsrlMapPageDecorator extends PageDecorator implements WikiConstants {
 
     /**
      * _more_
@@ -70,24 +71,26 @@ public class EsrlMapPageDecorator extends PageDecorator {
                             -100);
             int height = getWikiManager().getDimension(props, ATTR_HEIGHT,
                              300);
-            List<Entry> children = getWikiManager().getEntries(request,
+            List<Entry> children = getWikiManager().getEntries(request,null,
                                        originalEntry, entry, props, false,
                                        "");
             MapOutputHandler mapOutputHandler =
                 (MapOutputHandler) getRepository().getOutputHandler(
                     MapOutputHandler.OUTPUT_MAP);
-            List<Object[]> mapProps = new ArrayList<Object[]>();
-            mapProps.add(new Object[] {"scrollToZoom", "true"});
+            Hashtable mapProps = new Hashtable();
+            mapProps.put("scrollToZoom", "true");
             /*
-            mapProps.add(new Object[] { "entryClickHandler",
-                                        Json.quote(
-                                            "handlePsdStationClick") });
-                                            */
-            MapInfo map = getMapManager().getMap(request, children, sb,
-                              width, height, mapProps, "detailed", "true",
-                              "listEntries", Misc.getProperty(props, "listentries", "true"));
+              mapProps.put("entryClickHandler",
+              Json.quote(
+              "handlePsdStationClick"));
+            */
+            Hashtable argProps  = new Hashtable();
+            argProps.put(ATTR_DETAILS,"true");
+            argProps.put(ATTR_LISTENTRIES, Misc.getProperty(props, ATTR_LISTENTRIES, "true"));
+            MapInfo map = getMapManager().getMap(request, entry, children, sb,
+                                                 width, height, mapProps, argProps);
 
-            sb.append(HtmlUtils.importJS(htdocsUrl("/noaa/psdstations.js")));
+            sb.append(HtmlUtils.importJS(getHtdocsUrl("/noaa/psdstations.js")));
 
             return sb.toString();
         } catch (Exception exc) {

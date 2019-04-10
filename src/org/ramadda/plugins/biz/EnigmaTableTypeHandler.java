@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -29,12 +29,12 @@ import org.ramadda.data.services.PointTypeHandler;
 import org.ramadda.repository.*;
 import org.ramadda.repository.database.*;
 import org.ramadda.repository.type.*;
-
-import org.ramadda.sql.*;
 import org.ramadda.util.FormInfo;
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.Json;
 import org.ramadda.util.Utils;
+
+import org.ramadda.util.sql.*;
 import org.ramadda.util.text.Row;
 
 
@@ -133,7 +133,7 @@ public class EnigmaTableTypeHandler extends PointTypeHandler {
                     myType = RecordField.TYPE_STRING;
                 } else if (type.equals("type_numeric")
                            || type.equals("type_integer")) {
-                    myType = RecordField.TYPE_NUMERIC;
+                    myType = RecordField.TYPE_DOUBLE;
                     extra.append(TextFile.attrChartable());
                 } else if (type.equals("type_date")) {
                     myType = RecordField.TYPE_DATE;

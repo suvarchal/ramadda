@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -22,18 +22,18 @@ import org.ramadda.repository.auth.*;
 import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.output.OutputHandler;
 import org.ramadda.repository.type.*;
-
-
-import org.ramadda.sql.Clause;
-
-
-import org.ramadda.sql.SqlUtil;
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.FormInfo;
 
 import org.ramadda.util.HtmlUtils;
 
 import org.ramadda.util.WikiUtil;
+
+
+import org.ramadda.util.sql.Clause;
+
+
+import org.ramadda.util.sql.SqlUtil;
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -71,7 +71,7 @@ public class WikiPageTypeHandler extends ExtensibleGroupTypeHandler {
      * _more_
      */
     public static final String ARG_WIKI_TEXTAREA = Column.ARG_EDIT_PREFIX
-                                                   + "wikipage.wikitext";
+                                                   + "wikipage_wikitext";
 
 
     /** _more_ */
@@ -94,6 +94,18 @@ public class WikiPageTypeHandler extends ExtensibleGroupTypeHandler {
         super(repository, entryNode);
     }
 
+
+    /**
+     * _more_
+     *
+     * @param entry _more_
+     *
+     * @return _more_
+     */
+    @Override
+    public String getEntryText(Entry entry) {
+        return (String) entry.getValue(0);
+    }
 
     /**
      * _more_
@@ -153,14 +165,48 @@ public class WikiPageTypeHandler extends ExtensibleGroupTypeHandler {
     }
 
 
+    /**
+     * _more_
+     *
+     * @param wikiUtil _more_
+     * @param request _more_
+     * @param originalEntry _more_
+     * @param entry _more_
+     * @param tag _more_
+     * @param props _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
     public String getWikiInclude(WikiUtil wikiUtil, Request request,
                                  Entry originalEntry, Entry entry,
                                  String tag, Hashtable props)
             throws Exception {
         if (tag.equals("wikitext")) {
-            return (String) entry.getValue(0,"");
+            return (String) entry.getValue(0, "");
         }
-        return super.getWikiInclude(wikiUtil, request, originalEntry, entry, tag, props);
+
+        return super.getWikiInclude(wikiUtil, request, originalEntry, entry,
+                                    tag, props);
+    }
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param properties _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    @Override
+    public String getTextForWiki(Request request, Entry entry,
+                                 Hashtable properties)
+            throws Exception {
+        return (String) entry.getValue(0, "");
     }
 
 
@@ -195,6 +241,7 @@ public class WikiPageTypeHandler extends ExtensibleGroupTypeHandler {
     @Override
     public boolean convertIdsFromImport(Entry newEntry,
                                         List<String[]> idList) {
+
         boolean  changed = super.convertIdsFromImport(newEntry, idList);
         Object[] values  = newEntry.getValues();
         if (values != null) {
@@ -203,8 +250,7 @@ public class WikiPageTypeHandler extends ExtensibleGroupTypeHandler {
                 String converted = convertIdsFromImport(wikiText, idList);
                 if ( !converted.equals(wikiText)) {
                     values[0] = converted;
-
-                    return true;
+                    changed   = true;
                 }
             }
         }
@@ -257,7 +303,7 @@ public class WikiPageTypeHandler extends ExtensibleGroupTypeHandler {
 
 
             getRepository().getWikiManager().wikifyEntry(request, entry,
-                                                         wikiUtil, newText, true, null, null,null);
+                    wikiUtil, newText, true, null, null, null);
 
             List categories = (List) wikiUtil.getProperty("wikicategories");
             if (categories == null) {
@@ -333,6 +379,31 @@ public class WikiPageTypeHandler extends ExtensibleGroupTypeHandler {
 
     }
 
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param tabTitles _more_
+     * @param tabContents _more_
+     */
+    @Override
+    public void addToInformationTabs(Request request, Entry entry,
+                                     List<String> tabTitles,
+                                     List<String> tabContents) {
+        super.addToInformationTabs(request, entry, tabTitles, tabContents);
+        try {
+            StringBuilder sb = new StringBuilder();
+            addWikiEditor(request, entry, sb, null, "dummy",
+                          entry.getValue(0, ""), null, false, 256000);
+            //       sb.append(HtmlUtils.textArea("dummy", entry.getValue(0, ""), 10,   120));
+            tabTitles.add("Wiki Text");
+            tabContents.add(sb.toString());
+        } catch (Exception exc) {
+            throw new IllegalArgumentException(exc);
+        }
+    }
+
 
     /**
      * _more_
@@ -388,7 +459,7 @@ public class WikiPageTypeHandler extends ExtensibleGroupTypeHandler {
                 HtmlUtils.formEntry(
                     "",
                     msgLabel("Editing with text from version")
-                    + getPageHandler().formatDate(wph.getDate())));
+                    + getDateHandler().formatDate(wph.getDate())));
         }
 
         sb.append(HtmlUtils.formEntry(msgLabel("Title"),
@@ -416,13 +487,9 @@ public class WikiPageTypeHandler extends ExtensibleGroupTypeHandler {
         help.append("<i>{{&lt;output identifier&gt;}}</i><br>");
 
 
-        String textAreaId = ARG_WIKI_TEXTAREA.replaceAll("\\.", "_");
-        String buttons =
-            getRepository().getWikiManager().makeWikiEditBar(request, entry,
-                textAreaId);
-        String textWidget = buttons + HtmlUtils.br()
-                            + HtmlUtils.textArea(ARG_WIKI_TEXTAREA, wikiText,
-                                50, 100, HtmlUtils.id(textAreaId));
+        addWikiEditor(request, entry, sb, formInfo, ARG_WIKI_TEXTAREA,
+                      wikiText, "Wiki Text", false, 256000);
+
 
         /*
         String right = HtmlUtils.div(help.toString(),
@@ -431,11 +498,9 @@ public class WikiPageTypeHandler extends ExtensibleGroupTypeHandler {
         textWidget = "<table><tr valign=\"top\"><td>" + textWidget
                      + "</td><td>" + right + "</td></tr></table>";
         */
-        sb.append(HtmlUtils.formEntryTop(msgLabel("Wiki Text"), textWidget));
         addDateToEntryForm(request, sb, entry);
         addAreaWidget(request, entry, sb, formInfo);
         //super.addToEntryForm(request, sb, parentEntry, entry, formInfo);
-
     }
 
 

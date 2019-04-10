@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import org.ramadda.repository.map.*;
 import org.ramadda.repository.metadata.Metadata;
 import org.ramadda.repository.output.*;
 import org.ramadda.util.HtmlUtils;
+import org.ramadda.util.Utils;
 
 import ucar.unidata.geoloc.Bearing;
 import ucar.unidata.geoloc.LatLonPointImpl;
@@ -176,7 +177,7 @@ public class RecordFormHandler extends RepositoryManager implements RecordConsta
         if (t.getIcon() != null) {
             return new HtmlUtils.Selector(
                 t.getLabel(), t.getId(),
-                getRepository().iconUrl(t.getIcon()));
+                getRepository().getIconUrl(t.getIcon()));
         }
 
         return new HtmlUtils.Selector(t.getLabel(), t.getId(), null);
@@ -228,7 +229,11 @@ public class RecordFormHandler extends RepositoryManager implements RecordConsta
                                       RecordEntry recordEntry)
             throws Exception {
         StringBuffer sb = new StringBuffer();
+        request.getRepository().getPageHandler().entrySectionOpen(request,
+                recordEntry.getEntry(), sb, "Metadata");
         getEntryMetadata(request, recordEntry, sb);
+        request.getRepository().getPageHandler().entrySectionClose(request,
+                recordEntry.getEntry(), sb);
 
         return new Result("", sb);
     }
@@ -305,11 +310,11 @@ public class RecordFormHandler extends RepositoryManager implements RecordConsta
         sb.append(recordFile.getHtmlDescription());
         List<RecordField> fields = null;
 
-        //Don't do this for now
-        //recordEntry.getRecordFile().getFields(true);
-
+        fields = recordEntry.getRecordFile().getFields(true);
 
         if (fields == null) {
+            sb.append("No metadata available");
+
             return;
         }
         long numRecords = recordEntry.getNumRecords();
@@ -317,16 +322,25 @@ public class RecordFormHandler extends RepositoryManager implements RecordConsta
             sb.append(HtmlUtils.b(msgLabel("Number of points")));
             sb.append(" " + numRecords);
         } else {
-            sb.append(HtmlUtils.b(msgLabel("Number of points")));
-            sb.append(" " + msg("unknown"));
+            //            sb.append(HtmlUtils.b(msgLabel("Number of points")));
+            //            sb.append(" " + msg("unknown"));
         }
-        sb.append(msgHeader("Fields"));
+        StringBuilder forDisplay =
+            new StringBuilder("<b>For wiki displays:</b><br>fields=\"");
         sb.append(HtmlUtils.formTable());
         sb.append(HtmlUtils.row(HtmlUtils.cols(new Object[] {
             HtmlUtils.b(msg("Field Name")),
-            HtmlUtils.b(msg("Label")), HtmlUtils.b(msg("Description")),
-            HtmlUtils.b(msg("Unit")), HtmlUtils.b(msg("Type")) })));
+            HtmlUtils.b(msg("Label")), 
+            HtmlUtils.b(msg("Unit")),
+            HtmlUtils.b(msg("Description")),
+            HtmlUtils.b(msg("Type")) })));
+
+        int cnt = 0;
         for (RecordField field : fields) {
+            if (cnt++ > 0) {
+                forDisplay.append(",");
+            }
+            forDisplay.append(field.getName());
             String type = field.getRawType();
             if (field.getArity() > 1) {
                 //              type = type +" [" + field.getArity() +"]";
@@ -335,15 +349,20 @@ public class RecordFormHandler extends RepositoryManager implements RecordConsta
             if (unit == null) {
                 unit = "";
             }
-
+            String typeLabel = Utils.stringDefined(type)
+                               ? type
+                               : field.getType();
             sb.append(HtmlUtils.rowTop(HtmlUtils.cols(new Object[] {
                 field.getName(),
-                field.getLabel(), field.getDescription(), unit,
-                ((type == null)
+                field.getLabel(), unit, field.getDescription(), 
+                ((typeLabel == null)
                  ? ""
-                 : type) })));
+                 : typeLabel) })));
         }
         sb.append(HtmlUtils.formTableClose());
+        forDisplay.append("\"");
+        sb.append("<br>");
+        sb.append(forDisplay);
 
         StringBuffer info = new StringBuffer();
         recordEntry.getRecordFile().getInfo(info);
@@ -373,6 +392,8 @@ public class RecordFormHandler extends RepositoryManager implements RecordConsta
         final StringBuffer sb = new StringBuffer();
         final List<RecordField> fields =
             recordEntry.getRecordFile().getFields();
+        request.getRepository().getPageHandler().entrySectionOpen(request,
+                recordEntry.getEntry(), sb, "View Data");
         int start = request.get(ARG_START, 0);
         request.put(ARG_START, start + 50);
         int step = 50;
@@ -507,6 +528,8 @@ public class RecordFormHandler extends RepositoryManager implements RecordConsta
                 visitInfo);
 
         sb.append("</table>");
+        request.getRepository().getPageHandler().entrySectionClose(request,
+                recordEntry.getEntry(), sb);
 
         return new Result("", sb);
 

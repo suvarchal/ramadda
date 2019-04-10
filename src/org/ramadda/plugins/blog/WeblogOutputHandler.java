@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@ package org.ramadda.plugins.blog;
 import org.ramadda.repository.*;
 import org.ramadda.repository.auth.*;
 import org.ramadda.repository.output.*;
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
+
+import org.ramadda.util.sql.SqlUtil;
 
 import org.w3c.dom.*;
 
@@ -193,7 +193,7 @@ public class WeblogOutputHandler extends OutputHandler {
                     "\n:title " + group.getName() + "\n"
                     + HtmlUtils.div(
                         HtmlUtils.img(
-                            getRepository().fileUrl(
+                            getRepository().getFileUrl(
                                 "/blog/header.png")), HtmlUtils.attrs(
                                     "style",
                                     "text-align:center;")) + "\n<p>\n";
@@ -216,8 +216,9 @@ public class WeblogOutputHandler extends OutputHandler {
                                         BlogEntryTypeHandler
                                             .TYPE_BLOGENTRY), HtmlUtils
                                                 .img(getRepository()
-                                                    .iconUrl(ICON_NEW), msg(
-                                                        "New Weblog Entry"))));
+                                                    .getIconUrl(
+                                                        ICON_NEW), msg(
+                                                            "New Weblog Entry"))));
             }
         }
 
@@ -238,7 +239,7 @@ public class WeblogOutputHandler extends OutputHandler {
             links.add(
                 HtmlUtils.href(
                     rssLink,
-                    HtmlUtils.img(iconUrl(RssOutputHandler.ICON_RSS))));
+                    HtmlUtils.img(getIconUrl(RssOutputHandler.ICON_RSS))));
 
 
             sb.append(StringUtil.join(" ", links));
@@ -287,12 +288,12 @@ public class WeblogOutputHandler extends OutputHandler {
             //            subject = HtmlUtils.div(entry.getLabel(),
             //                                    HtmlUtils.cssClass("blog-subject"));
             subject = HtmlUtils.div(
-                    HtmlUtils.href(
+                HtmlUtils.href(
                     entryUrl, entry.getLabel(), HtmlUtils.cssClass(
                         "blog-subject")), HtmlUtils.cssClass("blog-subject"));
         } else {
             subject = HtmlUtils.div(
-                    HtmlUtils.href(
+                HtmlUtils.href(
                     entryUrl, entry.getLabel(), HtmlUtils.cssClass(
                         "blog-subject")), HtmlUtils.cssClass("blog-subject"));
         }

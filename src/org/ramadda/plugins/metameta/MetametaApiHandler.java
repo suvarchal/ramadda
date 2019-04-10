@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ public class MetametaApiHandler extends RepositoryManager implements RequestHand
             StringBuilder buff = new StringBuilder();
             String icon = typeHandler.getTypeProperty("icon", (String) null);
             if (icon != null) {
-                buff.append(HtmlUtils.img(getRepository().iconUrl(icon)));
+                buff.append(HtmlUtils.img(getRepository().getIconUrl(icon)));
                 buff.append(HtmlUtils.space(1));
             }
             buff.append(
@@ -91,10 +91,17 @@ public class MetametaApiHandler extends RepositoryManager implements RequestHand
         }
 
         StringBuilder sb = new StringBuilder();
+
+        sb.append(HtmlUtils.sectionOpen("Metameta Listing"));
         sb.append(
-            "Below are RAMADDA entry import files that allow you to view and modify the entry metadata<p>");
+            "Below are RAMADDA entry import files that allow you to view and modify the entry metadata<br>");
+        sb.append(
+            "Download the file or the URL and then do a File Import of the file. This will create a collection of entries based on the metadata of the selected entry type. You can then modify that metadata and regenerate an types.xml that defines a new entry type");
+        sb.append("<hr>");
 
         getPageHandler().doTableLayout(request, sb, cb);
+
+        sb.append(HtmlUtils.sectionClose());
 
         return new Result("Metameta", sb);
     }

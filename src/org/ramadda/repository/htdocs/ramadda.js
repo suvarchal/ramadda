@@ -1,21 +1,15 @@
 /**
- * Copyright (c) 2008-2015 Geode Systems LLC
-*/
+ * Copyright (c) 2008-2019 Geode Systems LLC
+ */
 
-
-
-//
-//This is the remnant of the original (and pretty crappy) js
-//lots of globals, not much jq
-//
 
 var popupObject;
-var popupSrcId;
 var popupTime;
+var popupId;
 
 document.onmousemove = mouseMove;
 document.onmousedown = mouseDown;
-document.onmouseup   = mouseUp;
+document.onmouseup = mouseUp;
 
 
 var mouseIsDown = 0;
@@ -23,63 +17,173 @@ var dragSource;
 var draggedEntry;
 var draggedEntryName;
 var draggedEntryIcon;
-var mouseMoveCnt =0;
-var objectToHide;
+var mouseMoveCnt = 0;
+
 
 function hidePopupObject() {
-    if(objectToHide!=popupObject) {
-        //	return;
-    }
-    if(popupObject) {
-        hideObject(popupObject);
+    if (popupObject) {
+        popupObject.hide();
         popupObject = null;
-        popupSrcId = null;
     }
 }
-
 
 
 function mouseDown(event) {
-    if(popupObject) {
-        if(checkToHidePopup()) {
-            theObjectToHide = popupObject;
-            thePopupSrcId  = popupSrcId;
-            var callback = function() {
-                var shouldClear = (popupObject == theObjectToHide);
-                hideObject(theObjectToHide);
-                if(shouldClear) {
-                    popupSrcId = null;
-                    popupObject = null;
-                }
+    if (popupObject) {
+        var thisId = popupObject.attr("id");
+        setTimeout(() => {
+            if (checkToHidePopup() && popupObject && thisId == popupObject.attr("id")) {
+                hidePopupObject()
             }
-            setTimeout(callback,250);
-        }
+        }, 250);
     }
-    event = GuiUtils.getEvent(event);
     mouseIsDown = 1;
-    mouseMoveCnt =0;
+    mouseMoveCnt = 0;
     return true;
 }
 
+
+var ramaddSearchLastInput = "";
+
+function ramaddaSearchSuggestInit(id, type, icon) {
+    let searching = false;
+    let input = $("#" + id);
+    ramaddSearchLastInput = input.val();
+    input.keyup(function(e) {
+        var keyCode = e.keyCode || e.which;
+        if (keyCode == 27) {
+            var popup = $("#searchpopup");
+            popup.hide();
+            return;
+        }
+
+        if (keyCode == 13) {
+            var popup = $("#searchpopup");
+            popup.hide();
+            return;
+        }
+
+        e.stopPropagation();
+        if (searching) return;
+
+        var newVal = input.val();
+        if (newVal != ramaddSearchLastInput) {
+            ramaddSearchLastInput = newVal;
+            searching = true;
+            var url = ramaddaBaseUrl + "/search/suggest?string=" + encodeURIComponent(newVal);
+            if (type) url += "&type=" + type;
+
+            var jqxhr = $.getJSON(url, function(data) {
+                var popup = $("#searchpopup");
+                searching = false;
+                if (data.values.length == 0) {
+                    popup.hide();
+                    return;
+                }
+                var html = "";
+                var even = true;
+                for (var i = 0; i < data.values.length; i++) {
+                    var value = data.values[i];
+                    var v = value.replace(/\"/g, "_quote_");
+                    html += HtmlUtils.div(["class", "ramadda-search-suggestion " + (even ? "ramadda-row-even" : "ramadda-row-odd"), "title", v, "suggest", v], value);
+                    even = !even;
+                }
+                popup.html(html);
+                popup.find(".ramadda-search-suggestion").mousedown(function(e) {
+                    e.stopPropagation();
+                });
+                popup.find(".ramadda-search-suggestion").click(function(e) {
+                    popupTime = new Date();
+                    var v = $(this).attr("suggest");
+                    v = v.replace(/_quote_/g, "\"");
+                    ramaddSearchLastInput = v;
+                    input.val(v);
+                    input.focus();
+                    e.stopPropagation();
+                    popup.hide();
+                });
+                popup.show();
+                var my = "left top";
+                var at = "left bottom+1";
+                popup.position({
+                    of: input,
+                    my: my,
+                    at: at,
+                    collision: "fit none"
+                });
+            }).fail(function(jqxhr, textStatus, error) {
+                console.log("fail");
+            });
+
+        }
+    });
+}
+
+
+function ramaddaSearchLink() {
+    var input = $("#popup_search_input");
+    var val = input.val().trim();
+    var url = $(this).attr('url');
+    if (val != "") {
+        url += "?text=" + encodeURIComponent(val);
+    }
+    window.location = url;
+}
+
+function ramaddaSearchPopup(id) {
+    var value = "";
+    if (ramaddSearchLastInput)
+        value = " value='" + ramaddSearchLastInput + "' ";
+    var html = "<form action='" + ramaddaBaseUrl + "/search/do'><input " + value + " autocomplete=off autofocus id='popup_search_input' size='30' style='border: 1px #ccc solid;' placeholder=' Search text' name='text'></form><div id=searchpopup class=ramadda-popup ></div>";
+    var linkStyle = "font-size:13px;";
+    html += "\n";
+    var linksId = HtmlUtils.getUniqueId();
+    html += " ";
+    html += HtmlUtils.span(["class", "ramadda-links", "id", linksId],
+        HtmlUtils.leftCenterRight(
+            HtmlUtils.link(ramaddaBaseUrl + "/search/do", "Search", ["title", "Do search", "style", linkStyle]),
+            HtmlUtils.link(ramaddaBaseUrl + "/search/form", "Form", ["title", "Go to form", "style", linkStyle]),
+            HtmlUtils.link(ramaddaBaseUrl + "/search/type", "By Type", ["title", "Go to search by type form", "style", linkStyle])));
+    html = HtmlUtils.div(["style", "padding:5px;"], html);
+    var selectDiv = $("#ramadda-selectdiv");
+    var icon = $("#" + id);
+    popupTime = new Date();
+    popupObject = selectDiv;
+    selectDiv.html(html);
+    $("#" + linksId).find(".ramadda-link").click(ramaddaSearchLink);
+    var input = $("#popup_search_input");
+    input.mousedown(function(evt) {
+        evt.stopPropagation();
+    });
+    selectDiv.show();
+    selectDiv.position({
+        of: icon,
+        my: "right top",
+        at: "right bottom",
+        collision: "none none"
+    });
+    ramaddaSearchSuggestInit('popup_search_input', null, true);
+    input.focus();
+}
 
 
 function mouseUp(event) {
     event = GuiUtils.getEvent(event);
     mouseIsDown = 0;
-    draggedEntry   = null;
+    draggedEntry = null;
     GuiUtils.setCursor('default');
     var obj = GuiUtils.getDomObject('ramadda-floatdiv');
-    if(obj) {
-        var dragSourceObj= GuiUtils.getDomObject(dragSource);
-        if(dragSourceObj) {
+    if (obj) {
+        var dragSourceObj = GuiUtils.getDomObject(dragSource);
+        if (dragSourceObj) {
             var tox = GuiUtils.getLeft(dragSourceObj.obj);
             var toy = GuiUtils.getTop(dragSourceObj.obj);
             var fromx = parseInt(obj.style.left);
             var fromy = parseInt(obj.style.top);
             var steps = 10;
-            var dx=(tox-fromx)/steps;
-            var dy=(toy-fromy)/steps;
-            flyBackAndHide('ramadda-floatdiv',0,steps,fromx,fromy,dx,dy);
+            var dx = (tox - fromx) / steps;
+            var dy = (toy - fromy) / steps;
+            flyBackAndHide('ramadda-floatdiv', 0, steps, fromx, fromy, dx, dy);
         } else {
             hideObject(obj);
         }
@@ -90,92 +194,91 @@ function mouseUp(event) {
 
 
 
-function flyBackAndHide(id, step,steps,fromx,fromy,dx,dy) {
+function flyBackAndHide(id, step, steps, fromx, fromy, dx, dy) {
     var obj = GuiUtils.getDomObject(id);
-    if(!obj) {
+    if (!obj) {
         return;
     }
-    step=step+1;
-    obj.style.left = fromx+dx*step+"px";
-    obj.style.top = fromy+dy*step+"px";
-    var opacity = 80*(steps-step)/steps;
+    step = step + 1;
+    obj.style.left = fromx + dx * step + "px";
+    obj.style.top = fromy + dy * step + "px";
+    var opacity = 80 * (steps - step) / steps;
     //    GuiUtils.print(opacity);
     //    obj.style.filter="alpha(opacity="+opacity+")";
     //    obj.style.opacity="0." + opacity;
 
-    if(step<steps) {
-        var callback = "flyBackAndHide('" + id +"'," + step+","+steps+","+fromx+","+fromy+","+dx+","+dy+");"
-        setTimeout(callback,30);
+    if (step < steps) {
+        var callback = "flyBackAndHide('" + id + "'," + step + "," + steps + "," + fromx + "," + fromy + "," + dx + "," + dy + ");"
+        setTimeout(callback, 30);
     } else {
-        setTimeout("finalHide('" + id+"')",150);
-        //        hideObject(obj);
+        setTimeout("finalHide('" + id + "')", 150);
     }
 }
 
 function finalHide(id) {
     var obj = GuiUtils.getDomObject(id);
-    if(!obj) {
+    if (!obj) {
         return;
     }
     hideObject(obj);
-    obj.style.filter="alpha(opacity=80)";
-    obj.style.opacity="0.8";
+    obj.style.filter = "alpha(opacity=80)";
+    obj.style.opacity = "0.8";
 }
 
 function mouseMove(event) {
     event = GuiUtils.getEvent(event);
-    if(draggedEntry && mouseIsDown) {
+    if (draggedEntry && mouseIsDown) {
         mouseMoveCnt++;
         var obj = GuiUtils.getDomObject('ramadda-floatdiv');
-        if(mouseMoveCnt==6) {
+        if (mouseMoveCnt == 6) {
             GuiUtils.setCursor('move');
         }
-        if(mouseMoveCnt>=6&& obj) {
-            moveFloatDiv(GuiUtils.getEventX(event),GuiUtils.getEventY(event));
+        if (mouseMoveCnt >= 6 && obj) {
+            moveFloatDiv(GuiUtils.getEventX(event), GuiUtils.getEventY(event));
         }
-    }    
+    }
     return false;
 }
 
 
 
-function moveFloatDiv(x,y) {
+function moveFloatDiv(x, y) {
     var obj = GuiUtils.getDomObject('ramadda-floatdiv');
-    if(obj) {
-        if(obj.style.visibility!="visible") {
+    if (obj) {
+        if (obj.style.visibility != "visible") {
             obj.style.visibility = "visible";
             obj.style.display = "block";
             var icon = "";
-            if(draggedEntryIcon) {
-                icon = "<img src=\"" +draggedEntryIcon+"\"/> ";
+            if (draggedEntryIcon) {
+                icon = "<img src=\"" + draggedEntryIcon + "\"/> ";
             }
-            obj.obj.innerHTML = icon +draggedEntryName+"<br>Drag to a group to copy/move/associate";
+            obj.obj.innerHTML = icon + draggedEntryName + "<br>Drag to a group to copy/move/associate";
         }
         obj.style.top = y;
-        obj.style.left = x+10;
+        obj.style.left = x + 10;
     }
 }
 
 
 function mouseOverOnEntry(event, entryId, targetId) {
     event = GuiUtils.getEvent(event);
-    if(entryId == draggedEntry) return;
-    if(mouseIsDown)  {
+    if (entryId == draggedEntry) return;
+    if (mouseIsDown) {
         var obj = GuiUtils.getDomObject(targetId);
-        if(!obj)  return;
+        if (!obj) return;
         //       if(obj.style && obj.style.borderBottom) {
-        obj.style.borderBottom="2px black solid";
+        obj.style.borderBottom = "2px black solid";
         //        }
     }
 }
 
-function mouseOutOnEntry(event, entryId,targetId) {
+function mouseOutOnEntry(event, entryId, targetId) {
     event = GuiUtils.getEvent(event);
-    if(entryId == draggedEntry) return;
+    if (entryId == draggedEntry) return;
     var obj = GuiUtils.getDomObject(targetId);
-    if(!obj)  return;
-    if(mouseIsDown)  {
-        obj.style.borderBottom="";
+    if (!obj) return;
+    if (mouseIsDown) {
+        obj.style.borderBottom = "";
     }
 }
 
@@ -184,15 +287,15 @@ function mouseOutOnEntry(event, entryId,targetId) {
 
 function mouseDownOnEntry(event, entryId, name, sourceIconId, icon) {
     event = GuiUtils.getEvent(event);
-    dragSource  = sourceIconId;
+    dragSource = sourceIconId;
     draggedEntry = entryId;
-    draggedEntryName=name;
+    draggedEntryName = name;
     draggedEntryIcon = icon;
     mouseIsDown = 1;
-    if(event.preventDefault) {
+    if (event.preventDefault) {
         event.preventDefault();
     } else {
-	event.returnValue = false;
+        event.returnValue = false;
         return false;
     }
 }
@@ -200,37 +303,25 @@ function mouseDownOnEntry(event, entryId, name, sourceIconId, icon) {
 
 function mouseUpOnEntry(event, entryId, targetId) {
     event = GuiUtils.getEvent(event);
-    if(entryId == draggedEntry) {
+    if (entryId == draggedEntry) {
         return;
     }
     var obj = GuiUtils.getDomObject(targetId);
-    if(!obj)  {
+    if (!obj) {
         return;
     }
-    if(mouseIsDown)  {
-        obj.style.borderBottom="";
+    if (mouseIsDown) {
+        obj.style.borderBottom = "";
     }
-    if(draggedEntry && draggedEntry!=entryId) {
-        /*
-        $("#ramadda-dialog").html("what to do....");
-        $("#ramadda-dialog").dialog({
-                resizable: false,
-                modal: true,
-                buttons: {
-                   Cancel: function() {$( this ).dialog( "close" );}
-                }}
-        );
-        */
-        url = ramaddaBaseUrl +"/entry/copy?action=action.move&from=" + draggedEntry +"&to=" + entryId;
-        //        alert(url);
-        //        window.open(url,'move window','') ;
+    if (draggedEntry && draggedEntry != entryId) {
+        url = ramaddaBaseUrl + "/entry/copy?action=action.move&from=" + draggedEntry + "&to=" + entryId;
         document.location = url;
     }
 }
 
 
 function getTooltip() {
-    return $("#ramadda-tooltipdiv");
+    return $("#ramadda-popupdiv");
 }
 
 function handleKeyPress(event) {
@@ -246,14 +337,14 @@ var groupList = new Array();
 
 
 
-function EntryFormList(formId,img,selectId, initialOn) {
+function EntryFormList(formId, img, selectId, initialOn) {
 
     this.entryRows = new Array();
-    this.lastEntryRowClicked=null;
+    this.lastEntryRowClicked = null;
     groups[formId] = this;
     groupList[groupList.length] = this;
     this.formId = formId;
-    this.toggleImg  = img;
+    this.toggleImg = img;
     this.on = initialOn;
     this.entries = new Array();
 
@@ -264,29 +355,29 @@ function EntryFormList(formId,img,selectId, initialOn) {
     this.addEntryRow = function(entryRow) {
         this.groupAddEntry(entryRow.cbxWrapperId);
         this.entryRows[this.entryRows.length] = entryRow;
-        if(!this.on) {
+        if (!this.on) {
             entryRow.getCbx().hide();
         } else {
             entryRow.getCbx().show();
-	}
+        }
     }
 
     this.groupAddEntry(selectId);
-    if(!this.on) {
+    if (!this.on) {
         hideObject(selectId);
     }
 
-    this.groupToggleVisibility = function  () {
+    this.groupToggleVisibility = function() {
         this.on = !this.on;
         this.setVisibility();
     }
 
 
-    this.findEntryRow =function(rowId) {
+    this.findEntryRow = function(rowId) {
         var i;
         for (i = 0; i < this.entryRows.length; i++) {
-            if(this.entryRows[i].rowId == rowId) {
-                return  this.entryRows[i];
+            if (this.entryRows[i].rowId == rowId) {
+                return this.entryRows[i];
             }
         }
         return null;
@@ -294,41 +385,41 @@ function EntryFormList(formId,img,selectId, initialOn) {
 
 
 
-    this.checkboxClicked = function(event,cbxId) {
-        if(!event) return;
+    this.checkboxClicked = function(event, cbxId) {
+        if (!event) return;
         var entryRow;
         for (i = 0; i < this.entryRows.length; i++) {
-            if(this.entryRows[i].cbxId ==cbxId) {
+            if (this.entryRows[i].cbxId == cbxId) {
                 entryRow = this.entryRows[i];
                 break;
             }
         }
 
-        if(!entryRow) return;
+        if (!entryRow) return;
 
 
         var value = entryRow.isSelected();
 
-        if(event.ctrlKey) {
+        if (event.ctrlKey) {
             for (i = 0; i < this.entryRows.length; i++) {
                 this.entryRows[i].setCheckbox(value);
             }
         }
 
-        if(event.shiftKey) {
+        if (event.shiftKey) {
 
-            if(this.lastEntryRowClicked) {
+            if (this.lastEntryRowClicked) {
                 var pos1 = this.lastEntryRowClicked.getCbx().offset().top;
                 var pos2 = entryRow.getCbx().offset().top;
-                if(pos1>pos2) {
-		    var tmp = pos1;
-		    pos1 =pos2;
-		    pos2=tmp;
+                if (pos1 > pos2) {
+                    var tmp = pos1;
+                    pos1 = pos2;
+                    pos2 = tmp;
                 }
 
                 for (i = 0; i < this.entryRows.length; i++) {
                     var top = this.entryRows[i].getCbx().offset().top;
-                    if(top>=pos1 && top<=pos2) {
+                    if (top >= pos1 && top <= pos2) {
                         this.entryRows[i].setCheckbox(value);
                     }
                 }
@@ -338,32 +429,27 @@ function EntryFormList(formId,img,selectId, initialOn) {
         this.lastEntryRowClicked = entryRow;
     }
 
-    this.setVisibility = function  () {
-        if(this.toggleImg) {
-            if(this.on) {
-                $("#" + this.toggleImg).attr('src',  icon_downdart);
+    this.setVisibility = function() {
+        if (this.toggleImg) {
+            if (this.on) {
+                $("#" + this.toggleImg).attr('src', icon_downdart);
             } else {
-                $("#" + this.toggleImg).attr('src',  icon_rightdart);
+                $("#" + this.toggleImg).attr('src', icon_rightdart);
             }
         }
 
-        var form = GuiUtils.getDomObject(this.formId);
-        if(form) {
-            form = form.obj;
-            for(i=0;i<form.elements.length;i++) { 
-                if(this.on) {
-                    showObject(form.elements[i],"inline");
-                } else {
-                    hideObject(form.elements[i]);
-                }
-            }
-        }
 
-        for(i=0;i<this.entries.length;i++) {
+        var form = $("#"+this.formId);
+        if(this.on) {
+            form.find(':input').show();
+        }   else {
+            form.find(':input').hide();
+        }
+        for (i = 0; i < this.entries.length; i++) {
             obj = GuiUtils.getDomObject(this.entries[i]);
-            if(!obj) continue;
-            if(this.on) {
-                showObject(obj,"block");
+            if (!obj) continue;
+            if (this.on) {
+                showObject(obj, "block");
             } else {
                 hideObject(obj);
             }
@@ -372,29 +458,29 @@ function EntryFormList(formId,img,selectId, initialOn) {
 }
 
 
-function entryRowCheckboxClicked(event,cbxId) {
+function entryRowCheckboxClicked(event, cbxId) {
 
     var cbx = GuiUtils.getDomObject(cbxId);
-    if(!cbx) return;
+    if (!cbx) return;
     cbx = cbx.obj;
-    if(!cbx.form) return;
+    if (!cbx.form) return;
     var visibilityGroup = groups[cbx.form.id];
 
-    if(visibilityGroup) {
-        visibilityGroup.checkboxClicked(event,cbxId);
+    if (visibilityGroup) {
+        visibilityGroup.checkboxClicked(event, cbxId);
     }
 }
 
 function initEntryListForm(formId) {
     var visibilityGroup = groups[formId];
-    if(visibilityGroup) {
+    if (visibilityGroup) {
         visibilityGroup.on = 0;
         visibilityGroup.setVisbility();
     }
 }
 
 
-function EntryRow (entryId, rowId, cbxId,cbxWrapperId, showDetails) {
+function EntryRow(entryId, rowId, cbxId, cbxWrapperId, showDetails) {
     this.entryId = entryId;
 
     this.onColor = "#FFFFCC";
@@ -415,9 +501,9 @@ function EntryRow (entryId, rowId, cbxId,cbxWrapperId, showDetails) {
     }
 
     var form = this.getCbx().closest('form');
-    if(form.size()) {
+    if (form.length) {
         var visibilityGroup = groups[form.attr('id')];
-        if(visibilityGroup) {
+        if (visibilityGroup) {
             visibilityGroup.addEntryRow(this);
         }
     } else {
@@ -430,13 +516,13 @@ function EntryRow (entryId, rowId, cbxId,cbxWrapperId, showDetails) {
         this.setRowColor();
     }
 
-    
+
     this.isSelected = function() {
         return this.getCbx().is(':checked');
     }
 
     this.setRowColor = function() {
-        if(this.isSelected()) {
+        if (this.isSelected()) {
             this.getRow().css("background-color", this.onColor);
         } else {
             this.getRow().css("background-color", "#ffffff");
@@ -445,12 +531,12 @@ function EntryRow (entryId, rowId, cbxId,cbxWrapperId, showDetails) {
 
 
     this.mouseOver = function(event) {
-        $("#" + "entrymenuarrow_" +rowId).attr('src',icon_menuarrow);
-        this.getRow().css('background-color',  this.overColor);
+        $("#" + "entrymenuarrow_" + rowId).attr('src', icon_menuarrow);
+        this.getRow().css('background-color', this.overColor);
     }
 
     this.mouseOut = function(event) {
-        $("#entrymenuarrow_" +rowId).attr('src',icon_blank);
+        $("#entrymenuarrow_" + rowId).attr('src', icon_blank);
         this.setRowColor();
     }
 
@@ -459,45 +545,45 @@ function EntryRow (entryId, rowId, cbxId,cbxWrapperId, showDetails) {
         eventX = GuiUtils.getEventX(event);
         var position = this.getRow().offset();
         //Don't pick up clicks on the left side
-        if(eventX-position.left<150) return;
+        if (eventX - position.left < 150) return;
         this.lastClick = eventX;
-        var url = ramaddaBaseUrl +"/entry/show?entryid=" + entryId +"&output=metadataxml";
-        if(this.showDetails) {
-            url+="&details=true";
+        var url = ramaddaBaseUrl + "/entry/show?entryid=" + entryId + "&output=metadataxml";
+        if (this.showDetails) {
+            url += "&details=true";
         } else {
-            url+="&details=false";
+            url += "&details=false";
         }
-	GuiUtils.loadXML( url, this.handleTooltip,this);
+        GuiUtils.loadXML(url, this.handleTooltip, this);
     }
 
-    this.handleTooltip = function(request,entryRow) {
-        var xmlDoc=request.responseXML.documentElement;
+    this.handleTooltip = function(request, entryRow) {
+        var xmlDoc = request.responseXML.documentElement;
         text = getChildText(xmlDoc);
-        var leftSide  = entryRow.getRow().offset().left;
-        var offset = entryRow.lastClick-leftSide;
-        getTooltip().html("<div class=ramadda-tooltip-inner><div id=\"tooltipwrapper\" ><table><tr valign=top><img width=\"16\" onmousedown=\"hideEntryPopup();\" id=\"tooltipclose\"  src=" + icon_close +"></td><td>" + text+"</table></div></div>");
+        var leftSide = entryRow.getRow().offset().left;
+        var offset = entryRow.lastClick - leftSide;
+        getTooltip().html("<div class=ramadda-popup-inner><div id=\"tooltipwrapper\" ><table><tr valign=top><img width=\"16\" class=\"ramadda-popup-close\" onmousedown=\"hideEntryPopup();\" id=\"tooltipclose\"  src=" + icon_close + "></td><td>" + text + "</table></div></div>");
         checkTabs(text);
 
-        var pos = entryRow.getRow().offset();    
+        var pos = entryRow.getRow().offset();
         var eWidth = entryRow.getRow().outerWidth();
         var eHeight = entryRow.getRow().outerHeight();
         var mWidth = getTooltip().outerWidth();
-        var wWidth = $( window ).width();
-        
+        var wWidth = $(window).width();
+
         var x = entryRow.lastClick;
 
-        if(entryRow.lastClick + mWidth > wWidth) {
-            x -= (entryRow.lastClick+mWidth-wWidth);
+        if (entryRow.lastClick + mWidth > wWidth) {
+            x -= (entryRow.lastClick + mWidth - wWidth);
         }
-        var left =   x + "px";
-        var top = (3+pos.top+eHeight) + "px";
+        var left = x + "px";
+        var top = (3 + pos.top + eHeight) + "px";
 
-        getTooltip().css( { 
-                position: 'absolute',
-                zIndex: 5000,
-                left: left, 
-                top: top
-               } );
+        getTooltip().css({
+            position: 'absolute',
+            zIndex: 5000,
+            left: left,
+            top: top
+        });
         getTooltip().show();
     }
 
@@ -507,23 +593,23 @@ function EntryRow (entryId, rowId, cbxId,cbxWrapperId, showDetails) {
 
 
 function checkTabs(html) {
-    while(1) {
+    while (1) {
         var re = new RegExp("id=\"(tabId[^\"]+)\"");
         var m = re.exec(html);
-        if(!m) {
+        if (!m) {
             break;
         }
-        var s =   m[1];
-        if(s.indexOf("-")<0) {
-            jQuery(function(){
-                    jQuery('#'+ s).tabs();
-                });
+        var s = m[1];
+        if (s.indexOf("-") < 0) {
+            jQuery(function() {
+                jQuery('#' + s).tabs();
+            });
         }
         var idx = html.indexOf("id=\"tabId");
-        if(idx<0) {
+        if (idx < 0) {
             break;
         }
-        html = html.substring(idx+20);
+        html = html.substring(idx + 20);
     }
 }
 
@@ -534,9 +620,9 @@ function hideEntryPopup() {
 
 function findEntryRow(rowId) {
     var idx;
-    for(idx=0;idx<groupList.length;idx++) {
+    for (idx = 0; idx < groupList.length; idx++) {
         var entryRow = groupList[idx].findEntryRow(rowId);
-        if(entryRow) return entryRow;
+        if (entryRow) return entryRow;
     }
     return null;
 }
@@ -544,27 +630,27 @@ function findEntryRow(rowId) {
 
 function entryRowOver(rowId) {
     var entryRow = findEntryRow(rowId);
-    if(entryRow) entryRow.mouseOver();
+    if (entryRow) entryRow.mouseOver();
 }
 
 
 function entryRowOut(rowId) {
     var entryRow = findEntryRow(rowId);
-    if(entryRow) entryRow.mouseOut();
+    if (entryRow) entryRow.mouseOut();
 }
 
-function entryRowClick(event,rowId) {
+function entryRowClick(event, rowId) {
     var entryRow = findEntryRow(rowId);
-    if(entryRow) entryRow.mouseClick(event);
+    if (entryRow) entryRow.mouseClick(event);
 }
 
 
 
 
 
-function indexOf(array,object) {
+function indexOf(array, object) {
     for (i = 0; i <= array.length; i++) {
-        if(array[i] == object) return i;
+        if (array[i] == object) return i;
     }
     return -1;
 }
@@ -574,53 +660,53 @@ var lastCbxClicked;
 var lastCbxIdClicked;
 
 function checkboxClicked(event, cbxPrefix, id) {
-    if(!event) return;
+    if (!event) return;
     var cbx = GuiUtils.getDomObject(id);
-    if(!cbx) return;
+    if (!cbx) return;
     cbx = cbx.obj;
     var checkBoxes = new Array();
-    if(!cbx.form) return;
+    if (!cbx.form) return;
     var elements = cbx.form.elements;
-    for(i=0;i<elements.length;i++) {
-        if(elements[i].name.indexOf(cbxPrefix)>=0 || elements[i].id.indexOf(cbxPrefix)>=0) {
+    for (i = 0; i < elements.length; i++) {
+        if (elements[i].name.indexOf(cbxPrefix) >= 0 || elements[i].id.indexOf(cbxPrefix) >= 0) {
             checkBoxes.push(elements[i]);
         }
     }
 
 
     var value = cbx.checked;
-    if(event.ctrlKey) {
+    if (event.ctrlKey) {
         for (i = 0; i < checkBoxes.length; i++) {
-	    checkBoxes[i].checked = value;
+            checkBoxes[i].checked = value;
         }
     }
 
 
-    if(event.shiftKey) {
-        if(lastCbxClicked) {
-	    var pos1 = GuiUtils.getTop(cbx);
-	    var pos2 = GuiUtils.getTop(lastCbxClicked);
+    if (event.shiftKey) {
+        if (lastCbxClicked) {
+            var pos1 = GuiUtils.getTop(cbx);
+            var pos2 = GuiUtils.getTop(lastCbxClicked);
 
-            var lastCbx =     $("#" + lastCbxIdClicked);            
-            var thisCbx =     $("#" + id);
+            var lastCbx = $("#" + lastCbxIdClicked);
+            var thisCbx = $("#" + id);
 
-            if(lastCbx.position()) {
+            if (lastCbx.position()) {
                 pos2 = lastCbx.position().top;
             }
-            if(thisCbx.position()) {
+            if (thisCbx.position()) {
                 pos1 = thisCbx.position().top;
             }
 
-	    if(pos1>pos2) {
-		var tmp = pos1;
-		pos1 =pos2;
-		pos2=tmp;
-	    }
-	    for (i = 0; i < checkBoxes.length; i++) {
+            if (pos1 > pos2) {
+                var tmp = pos1;
+                pos1 = pos2;
+                pos2 = tmp;
+            }
+            for (i = 0; i < checkBoxes.length; i++) {
                 var top = $("#" + checkBoxes[i].id).position().top;
-		if(top>=pos1 && top<=pos2) {
-	                checkBoxes[i].checked = value;
-		}
+                if (top >= pos1 && top <= pos2) {
+                    checkBoxes[i].checked = value;
+                }
             }
         }
         return;
@@ -635,10 +721,10 @@ function checkboxClicked(event, cbxPrefix, id) {
 
 
 function toggleBlockVisibility(id, imgid, showimg, hideimg) {
-    if(toggleVisibility(id,'block')) {
-        $("#"+imgid).attr('src', showimg);
+    if (toggleVisibility(id, 'block')) {
+        $("#" + imgid).attr('src', showimg);
     } else {
-        $("#"+imgid).attr('src', hideimg);
+        $("#" + imgid).attr('src', hideimg);
     }
     ramaddaUpdateMaps();
 }
@@ -646,10 +732,10 @@ function toggleBlockVisibility(id, imgid, showimg, hideimg) {
 
 function toggleInlineVisibility(id, imgid, showimg, hideimg) {
     var img = GuiUtils.getDomObject(imgid);
-    if(toggleVisibility(id,'inline')) {
-        if(img) img.obj.src = showimg;
+    if (toggleVisibility(id, 'inline')) {
+        if (img) img.obj.src = showimg;
     } else {
-        if(img) img.obj.src = hideimg;
+        if (img) img.obj.src = hideimg;
     }
     ramaddaUpdateMaps();
 }
@@ -665,22 +751,22 @@ var changeImages = new Array();
 
 function folderClick(uid, url, changeImg) {
     changeImages[uid] = changeImg;
-    var jqBlock = $("#"+uid);
-    if(jqBlock.size() ==0) {
-	return;
+    var jqBlock = $("#" + uid);
+    if (jqBlock.length == 0) {
+        return;
     }
-    var jqImage = $("#img_" +uid);
+    var jqImage = $("#img_" + uid);
     var showing = jqBlock.css('display') != "none";
-    if(!showing) {
-	originalImages[uid] = jqImage.attr('src');
+    if (!showing) {
+        originalImages[uid] = jqImage.attr('src');
         jqBlock.show();
         jqImage.attr('src', icon_progress);
-	GuiUtils.loadXML( url, handleFolderList,uid);
+        GuiUtils.loadXML(url, handleFolderList, uid);
     } else {
-	if(changeImg) {
-            if(originalImages[uid]) {
+        if (changeImg) {
+            if (originalImages[uid]) {
                 jqImage.attr('src', originalImages[uid]);
-            } else 
+            } else
                 jqImage.attr('src', icon_folderclosed);
         }
         jqBlock.hide();
@@ -689,36 +775,35 @@ function folderClick(uid, url, changeImg) {
 
 
 
-function  handleFolderList(request, uid) {
-    if(request.responseXML!=null) {
-        var xmlDoc=request.responseXML.documentElement;
-	var script;
-	var html;
-	for(i=0;i<xmlDoc.childNodes.length;i++) {
+function handleFolderList(request, uid) {
+    if (request.responseXML != null) {
+        var xmlDoc = request.responseXML.documentElement;
+        var script;
+        var html;
+        for (i = 0; i < xmlDoc.childNodes.length; i++) {
             var childNode = xmlDoc.childNodes[i];
-            if(childNode.tagName=="javascript") {
-                script =getChildText(childNode);
-            } else if(childNode.tagName=="content") {
+            if (childNode.tagName == "javascript") {
+                script = getChildText(childNode);
+            } else if (childNode.tagName == "content") {
                 html = getChildText(childNode);
-            }  else {
-            }
-	}
-        if(!html) {
+            } else {}
+        }
+        if (!html) {
             html = getChildText(xmlDoc);
         }
-	if(html) {
-            $("#" + uid).html("<div>"+html+"</div>");
+        if (html) {
+            $("#" + uid).html("<div>" + html + "</div>");
             checkTabs(html);
-	}
-	if(script) {
+        }
+        if (script) {
             eval(script);
-	}
+        }
     }
-    
-    if(changeImages[uid]) {
-        $("#img_" +uid).attr('src', icon_folderopen);
+
+    if (changeImages[uid]) {
+        $("#img_" + uid).attr('src', icon_folderopen);
     } else {
-        $("#img_" +uid).attr('src', originalImages[uid]);
+        $("#img_" + uid).attr('src', originalImages[uid]);
     }
 }
 
@@ -726,8 +811,8 @@ function  handleFolderList(request, uid) {
 var selectors = new Array();
 
 function Selector(event, selectorId, elementId, allEntries, selecttype, localeId, entryType) {
-    this.id  = selectorId;
-    this.elementId  = elementId;
+    this.id = selectorId;
+    this.elementId = elementId;
     this.localeId = localeId;
     this.entryType = entryType;
     this.allEntries = allEntries;
@@ -740,52 +825,59 @@ function Selector(event, selectorId, elementId, allEntries, selecttype, localeId
     }
 
     this.getHiddenComponent = function() {
-        var id = "#" + this.elementId+"_hidden";
+        var id = "#" + this.elementId + "_hidden";
         return $(id);
     }
 
-    this.clearInput = function() {	
+    this.clearInput = function() {
         this.getHiddenComponent().val("");
-        this.getTextComponent().val("");        
+        this.getTextComponent().val("");
     }
 
 
     this.handleClick = function(event) {
-        var srcId = this.id+'_selectlink';
+        var srcId = this.id + '_selectlink';
         this.div = GuiUtils.getDomObject('ramadda-selectdiv');
         hidePopupObject();
-        $("#ramadda-selectdiv").show();
-        var src = $( "#" + srcId );
-        $("#ramadda-selectdiv").position({
-                of: src,
-                my: "left top",
-                at: "left bottom",
-                collision: "none none"
-                });
-        url = ramaddaBaseUrl +"/entry/show?output=selectxml&selecttype=" + this.selecttype+"&allentries=" + this.allEntries+"&target=" + this.id+"&noredirect=true&firstclick=true";
-        if(this.localeId) {
-            url = url+"&localeid=" + this.localeId;
+        var selectDiv = $("#ramadda-selectdiv");
+        selectDiv.show();
+        var src = $("#" + srcId);
+        selectDiv.position({
+            of: src,
+            my: "left top",
+            at: "left bottom",
+            collision: "none none"
+        });
+        url = ramaddaBaseUrl + "/entry/show?output=selectxml&selecttype=" + this.selecttype + "&allentries=" + this.allEntries + "&target=" + this.id + "&noredirect=true&firstclick=true";
+        if (this.localeId) {
+            url = url + "&localeid=" + this.localeId;
         }
-        if(this.entryType) {
-            url = url+"&entrytype=" + this.entryType;
+        if (this.entryType) {
+            url = url + "&entrytype=" + this.entryType;
         }
-        GuiUtils.loadXML( url, handleSelect,this.id);
+        GuiUtils.loadXML(url, handleSelect, this.id);
         return false;
     }
     this.handleClick(event);
 }
 
-function selectClick(id,entryId,value) {
+function selectClick(id, entryId, value) {
     selector = selectors[id];
-    if (selector.selecttype=="wikilink") {
-        insertAtCursor(selector.textComp.obj,"[[" +entryId+"|"+value+"]]");
-    } else if (selector.selecttype=="entryid") {
+    var handler = getHandler(id);
+    if (handler) {
+        handler.selectClick(selector.selecttype, id, entryId, value);
+        selectCancel();
+        return;
+    }
+    if (selector.selecttype == "wikilink") {
+        insertAtCursor(selector.elementId, selector.textComp.obj, "[[" + entryId + "|" + value + "]]");
+    } else if (selector.selecttype == "entryid") {
         //        insertTagsInner(selector.elementId, selector.textComp.obj, "" +entryId+"|"+value+" "," ","importtype");
-        insertTagsInner(selector.elementId, selector.textComp.obj, entryId," ","importtype");
-    } else if (selector.selecttype=="entry:entryid") {
+        insertTagsInner(selector.elementId, selector.textComp.obj, entryId, " ", "importtype");
+    } else if (selector.selecttype == "entry:entryid") {
         //        insertTagsInner(selector.elementId, selector.textComp.obj, "" +entryId+"|"+value+" "," ","importtype");
-        insertTagsInner(selector.elementId, selector.textComp.obj, "entry:" + entryId ," ","importtype");
-    } else { 
+        insertTagsInner(selector.elementId, selector.textComp.obj, "entry:" + entryId, " ", "importtype");
+    } else {
         selector.getHiddenComponent().val(entryId);
         selector.getTextComponent().val(value);
     }
@@ -797,9 +889,9 @@ function selectCancel() {
 }
 
 
-function selectCreate(event, selectorId,elementId, allEntries,selecttype, localeId, entryType) {
-    if(!selectors[selectorId]) {
-        selectors[selectorId] = new Selector(event,selectorId, elementId,allEntries,selecttype,localeId,entryType);
+function selectCreate(event, selectorId, elementId, allEntries, selecttype, localeId, entryType) {
+    if (!selectors[selectorId]) {
+        selectors[selectorId] = new Selector(event, selectorId, elementId, allEntries, selecttype, localeId, entryType);
     } else {
         //Don:  alert('have selector'):
         selectors[selectorId].handleClick(event);
@@ -816,18 +908,18 @@ function selectInitialClick(event, selectorId, elementId, allEntries, selecttype
 function clearSelect(id) {
     selector = selectors[id];
 
-    if(selector) {
+    if (selector) {
         selector.clearInput();
     } else {
         //        console.log("No selector");
         //In case the user never clicked select
         var textComp = GuiUtils.getDomObject(id);
-        var hiddenComp = GuiUtils.getDomObject(id+"_hidden");
-	if(hiddenComp) {
-            hiddenComp.obj.value =""
+        var hiddenComp = GuiUtils.getDomObject(id + "_hidden");
+        if (hiddenComp) {
+            hiddenComp.obj.value = ""
         }
-	if(textComp) {
-            textComp.obj.value =""
+        if (textComp) {
+            textComp.obj.value = ""
         }
     }
 }
@@ -835,27 +927,27 @@ function clearSelect(id) {
 
 function handleSelect(request, id) {
     selector = selectors[id];
-    var xmlDoc=request.responseXML.documentElement;
+    var xmlDoc = request.responseXML.documentElement;
     text = getChildText(xmlDoc);
-    var close = "<a href=\"javascript:selectCancel();\"><img border=0 src=" + icon_close + "></a>";
-    selector.div.obj.innerHTML = "<table width=100%><tr><td align=right>" + close +"</table>" +text;
+    var close = "<a href=\"javascript:selectCancel();\"><img class=\"ramadda-popup-close\" border=0 src=" + icon_close + "></a>";
+    selector.div.obj.innerHTML = "<table width=100%><tr><td align=right>" + close + "</table>" + text;
 }
 
 
 
 
-function  getChildText(node) {
+function getChildText(node) {
     var text = '';
-    for(childIdx=0;childIdx<node.childNodes.length;childIdx++) {
-        text = text  + node.childNodes[childIdx].nodeValue;
+    for (childIdx = 0; childIdx < node.childNodes.length; childIdx++) {
+        text = text + node.childNodes[childIdx].nodeValue;
     }
     return text;
-	
+
 }
 
 
-function toggleVisibility(id,style) {
-    var display  = $("#" + id).css('display');
+function toggleVisibility(id, style) {
+    var display = $("#" + id).css('display');
     $("#" + id).toggle();
     return display != 'block';
 }
@@ -871,53 +963,45 @@ function hideElementById(id) {
 }
 
 function checkToHidePopup() {
-    if(popupTime) {
+    if (popupTime) {
         var now = new Date();
-        timeDiff = now-popupTime;
-        if(timeDiff>1000)  {
-            return 1;
+        timeDiff = now - popupTime;
+        if (timeDiff > 1000) {
+            return true;
         }
+        return false;
     }
+    return true;
 }
 
 function showPopup(event, srcId, popupId, alignLeft, myalign, atalign) {
-    if(popupSrcId == srcId) {
-        if(checkToHidePopup()) {
-            hidePopupObject();
-            return;
-        }
-    }
-
-    popupTime = new Date();
     hidePopupObject();
-    var popup = GuiUtils.getDomObject(popupId);
-    var srcObj = GuiUtils.getDomObject(srcId);
-    if(!popup || !srcObj) return;
+    var popup = $("#" + popupId);
+    popupTime = new Date();
     popupObject = popup;
-    popupSrcId = srcId;
-
-    if(!myalign)
+    var src = $("#" + srcId);
+    if (!myalign)
         myalign = 'left top';
-    if(!atalign)
-        atalign = 'left top';
-    if(alignLeft) {
+    if (!atalign)
+        atalign = 'left bottom';
+    if (alignLeft) {
         myalign = 'right top';
-        atalign =  'left top';
+        atalign = 'left bottom';
     }
-    showObject(popup);
-    jQuery("#"+popupId ).position({
-                of: jQuery( "#" + srcId ),
-                my: myalign,
-                at: atalign,
-                collision: "none none"
-                });
+    popup.show();
+    popup.position({
+        of: src,
+        my: myalign,
+        at: atalign,
+        collision: "none none"
+    });
     //Do it again to fix a bug on safari
-    jQuery("#"+popupId ).position({
-                of: jQuery( "#" + srcId ),
-                my: myalign,
-                at: atalign,
-                collision: "none none"
-                });
+    popup.position({
+        of: src,
+        my: myalign,
+        at: atalign,
+        collision: "none none"
+    });
 }
 
 
@@ -926,26 +1010,26 @@ function showStickyPopup(event, srcId, popupId, alignLeft) {
     var atalign = 'left top';
 
 
-    $("#"+popupId ).show("slow");
-    $("#"+popupId ).position({
-                of: jQuery( "#" + srcId ),
-                my: myalign,
-                at: atalign,
-                collision: "none none"
-                });
+    $("#" + popupId).show("slow");
+    $("#" + popupId).position({
+        of: jQuery("#" + srcId),
+        my: myalign,
+        at: atalign,
+        collision: "none none"
+    });
     //Do it again to fix a bug on safari
-    $("#"+popupId ).position({
-                of: jQuery( "#" + srcId ),
-                my: myalign,
-                at: atalign,
-                collision: "none none"
-                });
+    $("#" + popupId).position({
+        of: jQuery("#" + srcId),
+        my: myalign,
+        at: atalign,
+        collision: "none none"
+    });
 }
 
 
 
 function hideObject(obj) {
-    if(!obj) {
+    if (!obj) {
         return 0;
     }
     $("#" + obj.id).hide();
@@ -972,7 +1056,7 @@ function showMore(base) {
 
 
 function showObject(obj, display) {
-    if(!obj) return 0;
+    if (!obj) return 0;
     $("#" + obj.id).show();
     return;
 }
@@ -980,7 +1064,7 @@ function showObject(obj, display) {
 
 
 function toggleVisibilityOnObject(obj, display) {
-    if(!obj) return 0;
+    if (!obj) return 0;
     $("#" + obj.id).toggle();
 }
 
@@ -993,21 +1077,21 @@ function toggleVisibilityOnObject(obj, display) {
 //It updates any map on the page to fix some sort of offset problem
 function ramaddaUpdateMaps() {
     if (!(typeof ramaddaMaps === 'undefined')) {
-        for(i=0;i<ramaddaMaps.length;i++) {
+        for (i = 0; i < ramaddaMaps.length; i++) {
             var ramaddaMap = ramaddaMaps[i];
-            if(!ramaddaMap.map) continue;
+            if (!ramaddaMap.map) continue;
             ramaddaMap.map.updateSize();
         }
     }
-}  
+}
 
 
 
 
 var formDialogId;
 
-function closeFormLoadingDialog () { 
-    var dialog =   $(formDialogId);
+function closeFormLoadingDialog() {
+    var dialog = $(formDialogId);
     dialog.dialog('close');
 }
 
@@ -1015,42 +1099,41 @@ function closeFormLoadingDialog () {
 
 
 
-function popupFormLoadingDialog (dialogId) { 
+function popupFormLoadingDialog(dialogId) {
     formDialogId = dialogId;
-    var dialog =   $(dialogId);
+    var dialog = $(dialogId);
     dialog.dialog({
-            resizable: false,
-                height:100,
-                modal: true
-                }
-        );
+        resizable: false,
+        height: 100,
+        modal: true
+    });
 }
 
-
-function submitEntryForm (dialogId) {
-    popupFormLoadingDialog (dialogId);
+function submitEntryForm(dialogId) {
+    popupFormLoadingDialog(dialogId);
     return true;
 }
 
 
-function treeViewClick (entryId, url, label) {
-    var href="<a href='" + url +"'> <img src=\"" + ramaddaBaseUrl +"/icons/link.png" +"\" border=0> " + label+"</a>";
+function treeViewClick(entryId, url, label, template) {
+    var href = "<a href='" + url + "'> <img src=\"" + ramaddaBaseUrl + "/icons/link.png" + "\" border=0> " + label + "</a>";
     $("#treeview_header").html(href);
-    url = url +"&template=empty";
-    $('#treeview_view').attr("src",url); 
+    if (template)
+        url = url + "&template=" + template;
+    $('#treeview_view').attr("src", url);
 }
 
 
-function treeViewGoTo () {
-    var currentUrl =   $('#treeview_view').attr("src"); 
-    if(currentUrl) {
-        currentUrl = currentUrl.replace("template=","notemplate=");
+function treeViewGoTo() {
+    var currentUrl = $('#treeview_view').attr("src");
+    if (currentUrl) {
+        currentUrl = currentUrl.replace("template=", "notemplate=");
         var tmp = $(location);
-        tmp.attr('href',currentUrl);
+        tmp.attr('href', currentUrl);
     }
 }
 
-function number_format( number, decimals, dec_point, thousands_sep ) {
+function number_format(number, decimals, dec_point, thousands_sep) {
     // http://kevin.vanzonneveld.net
     // +   original by: Jonas Raoni Soares Silva (http://www.jsfromhell.com)
     // +   improved by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
@@ -1060,13 +1143,69 @@ function number_format( number, decimals, dec_point, thousands_sep ) {
     // +    revised by: Jonas Raoni Soares Silva (http://www.jsfromhell.com)    
     // *     example 1: number_format(1234.5678, 2, '.', '');
     // *     returns 1: 1234.57     
- 
-    var n = number, c = isNaN(decimals = Math.abs(decimals)) ? 2 : decimals;
+
+    var n = number,
+        c = isNaN(decimals = Math.abs(decimals)) ? 2 : decimals;
     var d = dec_point == undefined ? "." : dec_point;
-    var t = thousands_sep == undefined ? "," : thousands_sep, s = n < 0 ? "-" : "";
-    var i = parseInt(n = Math.abs(+n || 0).toFixed(c)) + "", j = (j = i.length) > 3 ? j % 3 : 0;
-    
+    var t = thousands_sep == undefined ? "," : thousands_sep,
+        s = n < 0 ? "-" : "";
+    var i = parseInt(n = Math.abs(+n || 0).toFixed(c)) + "",
+        j = (j = i.length) > 3 ? j % 3 : 0;
+
     return s + (j ? i.substr(0, j) + t : "") + i.substr(j).replace(/(\d{3})(?=\d)/g, "$1" + t) + (c ? d + Math.abs(n - i).toFixed(c).slice(2) : "");
 }
 
 
+function ramaddaJsonAllOpen(id) {
+    $("#" + id + " .ramadda-json-button").each(function() {
+        ramaddaJsonSetVisible(id, $(this), "close");
+    });
+}
+
+function ramaddaJsonAllClose(id) {
+    $("#" + id + " .ramadda-json-button").each(function() {
+        ramaddaJsonSetVisible(id, $(this), "open");
+    });
+}
+
+function ramaddaJsonSetVisible(id, button, state, all) {
+    var block = button.next(".ramadda-json-block");
+    var block = button.next().next();
+    if (!state)
+        state = block.attr("block-state");
+    if (state == "close") {
+        if (all) {
+            block.find(".ramadda-json-button").each(function() {
+                ramaddaJsonSetVisible(id, $(this), "close");
+            });
+        }
+        state = "open";
+        block.css("display", "block");
+        button.attr("src", icon_tree_open);
+    } else {
+        if (all) {
+            block.find(".ramadda-json-button").each(function() {
+                ramaddaJsonSetVisible(id, $(this), "open");
+            });
+        }
+        state = "close";
+        button.attr("src", icon_tree_closed);
+        block.css("display", "none");
+    }
+    block.attr("block-state", state);
+}
+
+function ramaddaJsonInit(id) {
+
+    var img = HtmlUtils.image(icon_tree_open, ["class", "ramadda-json-button", "title", "shift-click: toggle all"]);
+    var links = HtmlUtils.onClick("ramaddaJsonAllOpen('" + id + "')", "All Open", []) +
+        "&nbsp;&nbsp;" +
+        HtmlUtils.onClick("ramaddaJsonAllClose('" + id + "')", "All Close", [])
+    $("#" + id).before(links);
+    var block = $("#" + id + " .ramadda-json-block");
+    block.prev(".ramadda-json-openbracket").before(img + " ");
+    $("#" + id + " .ramadda-json-button").click(function(evt) {
+        //           $(this).css("background","red");
+        ramaddaJsonSetVisible(id, $(this), null, evt.shiftKey);
+    });
+}

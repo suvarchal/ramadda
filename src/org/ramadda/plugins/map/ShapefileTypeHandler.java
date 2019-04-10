@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -22,11 +22,20 @@ import org.ramadda.repository.Repository;
 import org.ramadda.repository.Request;
 import org.ramadda.repository.map.MapInfo;
 import org.ramadda.repository.output.KmlOutputHandler;
+
+import org.ramadda.repository.output.WikiConstants;
 import org.ramadda.repository.type.GenericTypeHandler;
+
+import org.ramadda.util.HtmlUtils;
+import org.ramadda.util.Utils;
+
 
 import org.w3c.dom.Element;
 
 import ucar.unidata.gis.GisPart;
+
+import ucar.unidata.gis.shapefile.DbaseData;
+import ucar.unidata.gis.shapefile.DbaseFile;
 import ucar.unidata.gis.shapefile.EsriShapefile;
 import ucar.unidata.gis.shapefile.ProjFile;
 
@@ -39,7 +48,10 @@ import java.util.List;
 
 /**
  */
-public class ShapefileTypeHandler extends GenericTypeHandler {
+public class ShapefileTypeHandler extends GenericTypeHandler implements WikiConstants {
+
+    /** _more_ */
+    public static int MAX_POINTS = 200000;
 
     /** _more_ */
     private static final int IDX_LON = 0;
@@ -74,6 +86,9 @@ public class ShapefileTypeHandler extends GenericTypeHandler {
     public void initializeEntryFromForm(Request request, Entry entry,
                                         Entry parent, boolean newEntry)
             throws Exception {
+        if ( !newEntry) {
+            return;
+        }
         if ( !entry.isFile()) {
             System.err.println("Shapefile not a file");
 
@@ -108,6 +123,8 @@ public class ShapefileTypeHandler extends GenericTypeHandler {
 
     }
 
+
+
     /**
      * _more_
      *
@@ -128,6 +145,62 @@ public class ShapefileTypeHandler extends GenericTypeHandler {
     }
 
     /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     *
+     * @throws Exception _more_
+     */
+    @Override
+    public void metadataChanged(Request request, Entry entry)
+            throws Exception {
+        super.metadataChanged(request, entry);
+        getEntryManager().updateEntry(request, entry);
+    }
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param tabTitles _more_
+     * @param tabContents _more_
+     */
+    public void addToInformationTabs(Request request, Entry entry,
+                                     List<String> tabTitles,
+                                     List<String> tabContents) {
+        super.addToInformationTabs(request, entry, tabTitles, tabContents);
+        try {
+            EsriShapefile shapefile =
+                new EsriShapefile(entry.getFile().toString());
+            DbaseFile dbfile = shapefile.getDbFile();
+            if (dbfile == null) {
+                return;
+            }
+
+            String[]      fieldNames = dbfile.getFieldNames();
+            StringBuilder sb = new StringBuilder("<h2>Fields</h2><ul>");
+            for (int i = 0; i < fieldNames.length; i++) {
+                DbaseData field = dbfile.getField(i);
+                sb.append("<li>");
+                sb.append(fieldNames[i]);
+                sb.append(" (");
+                sb.append(
+                    ShapefileOutputHandler.getTypeName(field.getType()));
+                sb.append(")\n");
+            }
+            sb.append("</ul>");
+            tabTitles.add("Shapefile Fields");
+            tabContents.add(sb.toString());
+        } catch (Exception exc) {
+            tabTitles.add("Shapefile Error");
+            tabContents.add("Error opening shapefile:" + exc);
+        }
+    }
+
+
+    /**
      *
      * @param request _more_
      * @param entry _more_
@@ -143,38 +216,56 @@ public class ShapefileTypeHandler extends GenericTypeHandler {
         if ( !entry.isFile()) {
             return true;
         }
-        //TODO: stream through the shapes
-        EsriShapefile shapefile = null;
-        try {
-            shapefile = new EsriShapefile(entry.getFile().toString());
-        } catch (Exception exc) {
-            return true;
-        }
-        List<EsriShapefile.EsriFeature> features =
-            (List<EsriShapefile.EsriFeature>) shapefile.getFeatures();
-        int numpoints = 0;
-        for (EsriShapefile.EsriFeature feature : features) {
-            numpoints += feature.getNumPoints();
-        }
-        int MAX_POINTS = 99999;
-        //System.out.println("num points = " + numpoints);
-        if (numpoints > MAX_POINTS) {
-            System.out.println("too many points to display shapes");
+        int numPoints = entry.getValue(0, -1);
 
-            return true;
+        if (numPoints < 0) {
+            long t1 = System.currentTimeMillis();
+            //TODO: stream through the shapes
+            EsriShapefile shapefile = null;
+            try {
+                shapefile = new EsriShapefile(entry.getFile().toString());
+            } catch (Exception exc) {
+                map.setHeaderMessage("Error opening shapefile:" + exc);
+
+                return true;
+            }
+            List<EsriShapefile.EsriFeature> features =
+                (List<EsriShapefile.EsriFeature>) shapefile.getFeatures();
+            numPoints = 0;
+            int numFeatures = 0;
+            for (EsriShapefile.EsriFeature feature : features) {
+                numPoints += feature.getNumPoints();
+                numFeatures++;
+            }
+            long t2 = System.currentTimeMillis();
+            getEntryValues(entry)[0] = new Integer(numPoints);
+            getEntryManager().updateEntry(request, entry);
         }
-        map.addKmlUrl(
-            entry.getName(),
-            request.entryUrl(
-                getRepository().URL_ENTRY_SHOW, entry, ARG_OUTPUT,
-                ShapefileOutputHandler.OUTPUT_KML.toString()), true);
+
+        String kmlUrl =
+            request.entryUrl(getRepository().URL_ENTRY_SHOW, entry,
+                             ARG_OUTPUT,
+                             ShapefileOutputHandler.OUTPUT_KML.toString(),
+                             "formap", "true");
+        String fields = request.getString(ATTR_SELECTFIELDS,
+                                          map.getSelectFields());
+        if (fields != null) {
+            kmlUrl += "&mapsubset=true&"
+                      + HtmlUtils.arg("selectFields", fields, false);
+        }
+        String bounds = map.getSelectBounds();
+        if (bounds != null) {
+            kmlUrl += "&selectBounds=" + bounds;
+        }
+        map.addKmlUrl(entry.getName(), kmlUrl, true,
+                      ShapefileOutputHandler.makeMapStyle(request, entry));
 
         /*  For testing
         map.addGeoJsonUrl(
             entry.getName(),
             request.entryUrl(
                 getRepository().URL_ENTRY_SHOW, entry, ARG_OUTPUT,
-                ShapefileOutputHandler.OUTPUT_GEOJSON.toString()), true);
+                ShapefileOutputHandler.OUTPUT_GEOJSON.toString()), true,null);
         */
         return false;
     }
@@ -224,6 +315,7 @@ public class ShapefileTypeHandler extends GenericTypeHandler {
      *               }
      *               totalPoints += points.size();
      *               if (points.size() > 1) {
+     *
      *                   map.addLines(entry, "", points,null);
      *               } else if (points.size() == 1) {
      *                   map.addMarker("id", points.get(0)[0],
@@ -238,7 +330,6 @@ public class ShapefileTypeHandler extends GenericTypeHandler {
      *   return false;
      * }
      */
-
 
 
 

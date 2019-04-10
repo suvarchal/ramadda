@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -30,10 +30,10 @@ import org.ramadda.service.Service;
 import org.ramadda.service.ServiceInput;
 import org.ramadda.service.ServiceOperand;
 import org.ramadda.service.ServiceOutput;
-import org.ramadda.sql.Clause;
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.JQuery;
 import org.ramadda.util.Json;
+import org.ramadda.util.sql.Clause;
 
 import org.w3c.dom.Element;
 
@@ -775,7 +775,7 @@ public class ClimateModelApiHandler extends RepositoryManager implements Request
 
         String formId = "selectform" + HtmlUtils.blockCnt++;
         sb.append(HtmlUtils.comment("collection form"));
-        sb.append(HtmlUtils.importJS(fileUrl("/model/compare.js")));
+        sb.append(HtmlUtils.importJS(getFileUrl("/model/compare.js")));
         sb.append(HtmlUtils.cssLink(getRepository().getUrlBase()
                                     + "/model/model.css"));
 
@@ -1238,7 +1238,8 @@ public class ClimateModelApiHandler extends RepositoryManager implements Request
                 if (help != null) {
                     StringBuilder hsb = new StringBuilder();
                     hsb.append(HtmlUtils.space(1));
-                    HtmlUtils.tooltip(hsb, iconUrl("/icons/help.png"), help);
+                    HtmlUtils.tooltip(hsb, getIconUrl("/icons/help.png"),
+                                      help);
                     titleString += hsb.toString();
                 }
                 sb.append(HtmlUtils.div(titleString, HtmlUtils.id("title")));
@@ -1246,7 +1247,7 @@ public class ClimateModelApiHandler extends RepositoryManager implements Request
                 /*
                 if(help!=null) {
                     sb.append("<div class=\"service-help-link\">\n");
-                    HtmlUtils.tooltip(sb,iconUrl("/icons/help.png"), help);
+                    HtmlUtils.tooltip(sb,getIconUrl("/icons/help.png"), help);
                     sb.append("</div>\n");
                 }
                 */
@@ -1892,7 +1893,7 @@ public class ClimateModelApiHandler extends RepositoryManager implements Request
         try {
             String helpText =
                 getStorageManager().readSystemResource(helpFile);
-            HtmlUtils.tooltip(sb, iconUrl("/icons/help.png"), helpText);
+            HtmlUtils.tooltip(sb, getIconUrl("/icons/help.png"), helpText);
         } catch (Exception excp) {}
     }
 

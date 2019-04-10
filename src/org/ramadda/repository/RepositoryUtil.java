@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -49,10 +49,10 @@ public class RepositoryUtil {
     //Make sure to change the fields in the top-level build.properties
 
     /** _more_ */
-    public static final double MAJOR_VERSION = 2.2;
+    public static final double MAJOR_VERSION = 2.3;
 
     /** _more_ */
-    public static final int MINOR_VERSION = 17;
+    public static final int MINOR_VERSION = 88;
 
 
     //When we make any real change to the css or javascript change this version
@@ -69,9 +69,15 @@ public class RepositoryUtil {
     /** _more_ */
     public static final String HTDOCS_VERSION_SLASH = "/" + HTDOCS_VERSION;
 
+
+    /** _more_ */
+    public static final TimeZone TIMEZONE_UTC = TimeZone.getTimeZone("UTC");
+
+
     /** timezone */
     public static final TimeZone TIMEZONE_DEFAULT =
         TimeZone.getTimeZone("UTC");
+
 
     /** the file separator id */
     public static final String FILE_SEPARATOR = "_file_";
@@ -79,6 +85,27 @@ public class RepositoryUtil {
     /** The regular expression that matches the entry id */
     public static final String ENTRY_ID_REGEX =
         "[a-f|0-9]{8}-([a-f|0-9]{4}-){3}[a-f|0-9]{12}_";
+
+
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
+    public static String getHtdocsVersion() {
+        return HTDOCS_VERSION;
+    }
+
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
+    public static String getHtdocsVersionSlash() {
+        return HTDOCS_VERSION_SLASH;
+    }
+
+
 
 
 
@@ -134,9 +161,6 @@ public class RepositoryUtil {
     }
 
 
-
-
-
     /**
      * Make a date format from the format string
      *
@@ -145,8 +169,24 @@ public class RepositoryUtil {
      * @return  the date formatter
      */
     public static SimpleDateFormat makeDateFormat(String formatString) {
+        return makeDateFormat(formatString, null);
+    }
+
+    /**
+     * _more_
+     *
+     * @param formatString _more_
+     * @param timezone _more_
+     *
+     * @return _more_
+     */
+    public static SimpleDateFormat makeDateFormat(String formatString,
+            TimeZone timezone) {
+        if (timezone == null) {
+            timezone = TIMEZONE_DEFAULT;
+        }
         SimpleDateFormat dateFormat = new SimpleDateFormat();
-        dateFormat.setTimeZone(TIMEZONE_DEFAULT);
+        dateFormat.setTimeZone(timezone);
         dateFormat.applyPattern(formatString);
 
         return dateFormat;
@@ -197,28 +237,6 @@ public class RepositoryUtil {
     }
 
 
-    /**
-     * Encode the input string
-     *
-     * @param s  the string to encode
-     *
-     * @return  the encoded String
-     */
-    public static final String encodeUntrustedText(String s) {
-        //        s = s.replaceAll("&","&amp;;");
-        //
-        //Note: if this is wrong then we can get an XSS attack from the anonymous upload.
-        //If we encode possible attack vectors (<,>) as entities then we edit the entry they
-        //get turned into the raw character and we're owned.
-        s = s.replaceAll("&", "_AMP_");
-        s = s.replaceAll("<", "_LT_");
-        s = s.replaceAll(">", "_GT_");
-        s = s.replaceAll("\"", "&quot;");
-
-        //        s = HtmlUtils.urlEncode(s);
-        //       s = s.replace("+", " ");
-        return s;
-    }
 
 
 

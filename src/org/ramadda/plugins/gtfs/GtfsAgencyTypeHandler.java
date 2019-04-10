@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.ramadda.plugins.gtfs;
 
 
 import org.ramadda.repository.*;
+import org.ramadda.repository.map.*;
 import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.type.*;
 
@@ -66,8 +67,13 @@ public class GtfsAgencyTypeHandler extends ExtensibleGroupTypeHandler {
     public static final int IDX_LANGUAGE = 4;
 
 
+    /** _more_ */
     public static final int IDX_RT_URL = 5;
+
+    /** _more_ */
     public static final int IDX_RT_ID = 6;
+
+    /** _more_ */
     public static final int IDX_RT_PASSWORD = 7;
 
     /** _more_ */
@@ -114,5 +120,28 @@ public class GtfsAgencyTypeHandler extends ExtensibleGroupTypeHandler {
         return "The schedule goes here";
     }
 
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param map _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    @Override
+    public boolean addToMap(Request request, Entry entry, MapInfo map)
+            throws Exception {
+        //Don't call super as this adds the folders, etc
+        //super.addToMap(request, entry, map);
+        List<Entry> vehicles = Gtfs.getVehicles(request, entry);
+        System.err.println("all vehicles: " + vehicles);
+        Gtfs.addToMap(request, vehicles, map);
+
+        return false;
+    }
 
 }

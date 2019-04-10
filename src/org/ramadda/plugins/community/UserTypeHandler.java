@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -23,14 +23,14 @@ import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.output.*;
 import org.ramadda.repository.type.*;
 
-
-import org.ramadda.sql.Clause;
-
-
-import org.ramadda.sql.SqlUtil;
-import org.ramadda.sql.SqlUtil;
-
 import org.ramadda.util.HtmlUtils;
+
+
+import org.ramadda.util.sql.Clause;
+
+
+import org.ramadda.util.sql.SqlUtil;
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -142,7 +142,7 @@ public class UserTypeHandler extends ExtensibleGroupTypeHandler {
                         .entryUrlWithArg(getRepository().URL_ENTRY_FORM, group,
                             ARG_GROUP), ARG_TYPE,
                          FaqEntryTypeHandler.TYPE_FAQENTRY), HtmlUtils
-                      .img(getRepository().iconUrl(ICON_NEW),
+                      .img(getRepository().getIconUrl(ICON_NEW),
                            msg("New Note"))));
             */
         }
@@ -154,7 +154,7 @@ public class UserTypeHandler extends ExtensibleGroupTypeHandler {
                               request.entryUrl(
                                   getRepository().URL_ENTRY_SHOW,
                                   entry), HtmlUtils.img(
-                                      getRepository().iconUrl(ICON_ENTRY),
+                                      getRepository().getIconUrl(ICON_ENTRY),
                                       msg("View entry details")));
             sb.append("<a name=" + entry.getId() + "></a>");
             sb.append("<li>");

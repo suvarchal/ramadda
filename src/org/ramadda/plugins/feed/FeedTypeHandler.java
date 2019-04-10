@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -392,7 +392,7 @@ public class FeedTypeHandler extends ExtensibleGroupTypeHandler {
                                  DFLT_INHERITED, sb[0].toString(),
                                  sb[1].toString(), sb[2].toString(),
                                  sb[3].toString(), Metadata.DFLT_EXTRA);
-                //                entry.addMetadata(polygonMetadata, false);
+                //                getMetadataManager().addMetadata(entry, polygonMetadata, false);
                 entry.setNorth(north);
                 entry.setWest(west);
                 entry.setSouth(south);
@@ -520,8 +520,10 @@ public class FeedTypeHandler extends ExtensibleGroupTypeHandler {
      *
      * @throws Exception _more_
      */
-    public String getIconUrl(Request request, Entry entry) throws Exception {
-        return iconUrl("/feed/blog_icon.png");
+    @Override
+    public String getEntryIconUrl(Request request, Entry entry)
+            throws Exception {
+        return getIconUrl("/feed/blog_icon.png");
     }
 
     /**

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -78,57 +78,57 @@ public class ParisFile extends org.ramadda.data.point.text.TextFile {
      * Class description
      *
      *
-     * @version        $version$, Sat, Feb 28, '15
-     * @author         Enter your name here...
+     * @version        $version$, Wed, Feb 20, '19
+     * @author         Enter your name here...    
      */
-    public static class ParisRecord extends org.ramadda.data.point.text
-        .TextRecord {
+    public static class ParisRecord extends org.ramadda.data.point
+        .PointRecord {
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_FIRST =
             org.ramadda.data.point.PointRecord.ATTR_LAST;
 
-        /** _more_ */
+        /** _more_          */
         public static final List<RecordField> FIELDS =
             new ArrayList<RecordField>();
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_LAT = ATTR_FIRST + 1;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_LAT;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_LON = ATTR_FIRST + 2;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_LON;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_TIME = ATTR_FIRST + 3;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_TIME;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_THICKNESS = ATTR_FIRST + 4;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_THICKNESS;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_AIRCRAFTALTITUDE = ATTR_FIRST + 5;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_AIRCRAFTALTITUDE;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_CONFIDENCE = ATTR_FIRST + 6;
 
-        /** _more_ */
+        /** _more_          */
         public static final RecordField RECORDATTR_CONFIDENCE;
 
-        /** _more_ */
+        /** _more_          */
         public static final int ATTR_LAST = ATTR_FIRST + 7;
 
 
@@ -222,22 +222,22 @@ public class ParisFile extends org.ramadda.data.point.text.TextFile {
         }
 
 
-        /** _more_ */
+        /** _more_          */
         double lat;
 
-        /** _more_ */
+        /** _more_          */
         double lon;
 
-        /** _more_ */
+        /** _more_          */
         double time;
 
-        /** _more_ */
+        /** _more_          */
         double thickness;
 
-        /** _more_ */
+        /** _more_          */
         double aircraftAltitude;
 
-        /** _more_ */
+        /** _more_          */
         int confidence;
 
 
@@ -266,7 +266,19 @@ public class ParisFile extends org.ramadda.data.point.text.TextFile {
          * @param file _more_
          */
         public ParisRecord(RecordFile file) {
-            super(file, FIELDS);
+            super(file);
+        }
+
+
+
+        /**
+         * _more_
+         *
+         * @param file _more_
+         * @param bigEndian _more_
+         */
+        public ParisRecord(RecordFile file, boolean bigEndian) {
+            super(file, bigEndian);
         }
 
 
@@ -369,11 +381,9 @@ public class ParisFile extends org.ramadda.data.point.text.TextFile {
          *
          * @param fields _more_
          */
-        @Override
         protected void addFields(List<RecordField> fields) {
             super.addFields(fields);
-            if(fields.size()==0)
-                fields.addAll(FIELDS);
+            fields.addAll(FIELDS);
         }
 
 
@@ -499,22 +509,23 @@ public class ParisFile extends org.ramadda.data.point.text.TextFile {
             if (superCnt > 0) {
                 pw.print(',');
             }
-            pw.print(lat);
+            pw.print(getStringValue(RECORDATTR_LAT, lat));
             myCnt++;
             pw.print(',');
-            pw.print(lon);
+            pw.print(getStringValue(RECORDATTR_LON, lon));
             myCnt++;
             pw.print(',');
-            pw.print(time);
+            pw.print(getStringValue(RECORDATTR_TIME, time));
             myCnt++;
             pw.print(',');
-            pw.print(thickness);
+            pw.print(getStringValue(RECORDATTR_THICKNESS, thickness));
             myCnt++;
             pw.print(',');
-            pw.print(aircraftAltitude);
+            pw.print(getStringValue(RECORDATTR_AIRCRAFTALTITUDE,
+                                    aircraftAltitude));
             myCnt++;
             pw.print(',');
-            pw.print(confidence);
+            pw.print(getStringValue(RECORDATTR_CONFIDENCE, confidence));
             myCnt++;
 
             return myCnt + superCnt;

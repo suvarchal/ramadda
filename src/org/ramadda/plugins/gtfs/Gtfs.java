@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,6 +17,10 @@
 package org.ramadda.plugins.gtfs;
 
 
+import com.google.transit.realtime.GtfsRealtime.FeedEntity;
+import com.google.transit.realtime.GtfsRealtime.FeedMessage;
+
+
 import org.json.*;
 
 
@@ -28,12 +32,12 @@ import org.ramadda.repository.type.*;
 
 import org.ramadda.util.BufferMapList;
 import org.ramadda.util.HtmlUtils;
+
+import org.ramadda.util.TTLCache;
 import org.ramadda.util.Utils;
 import org.ramadda.util.WikiUtil;
 
 import org.w3c.dom.*;
-
-import org.ramadda.util.TTLCache;
 
 import ucar.unidata.util.IOUtil;
 
@@ -56,14 +60,11 @@ import java.util.Comparator;
 
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.HashSet;
 
 import java.util.Hashtable;
-import java.util.HashSet;
 import java.util.List;
 import java.util.TimeZone;
-
-import com.google.transit.realtime.GtfsRealtime.FeedEntity;
-import com.google.transit.realtime.GtfsRealtime.FeedMessage;
 
 
 /**
@@ -138,9 +139,9 @@ public class Gtfs implements Constants {
      */
     public static String formatDateRange(Request request, Entry trip)
             throws Exception {
-        return request.getRepository()
+        return request.getRepository().getDateHandler()
             .formatYYYYMMDD(new Date(trip.getStartDate())) + " - "
-                + request.getRepository()
+                + request.getRepository().getDateHandler()
                     .formatYYYYMMDD(new Date(trip.getEndDate()));
     }
 
@@ -192,13 +193,15 @@ public class Gtfs implements Constants {
         if (week == null) {
             return "";
         }
-        boolean anyWeekdays =  week[1] || week[2] || week[3] || week[4] || week[5];
-        boolean weekdays =  week[1] && week[2] && week[3] && week[4] && week[5];
-        boolean weekend =  week[0] && week[6];
-        boolean anyWeekend =  week[0] || week[6];
-        if (!anyWeekend && weekdays) {
+        boolean anyWeekdays = week[1] || week[2] || week[3] || week[4]
+                              || week[5];
+        boolean weekdays = week[1] && week[2] && week[3] && week[4]
+                           && week[5];
+        boolean weekend    = week[0] && week[6];
+        boolean anyWeekend = week[0] || week[6];
+        if ( !anyWeekend && weekdays) {
             return "Weekday";
-        } else if (!anyWeekdays && weekend) {
+        } else if ( !anyWeekdays && weekend) {
             return "Weekend";
         } else if (weekdays && weekend) {
             return "Weekly";
@@ -210,31 +213,36 @@ public class Gtfs implements Constants {
         StringBuilder sked     = new StringBuilder();
         String        longName = null;
         int           cnt      = 0;
-        boolean seenOne = false;
-        int firstOn =-1;
-        int lastOn =-1;
-        boolean seenOff = false;
+        boolean       seenOne  = false;
+        int           firstOn  = -1;
+        int           lastOn   = -1;
+        boolean       seenOff  = false;
         for (int i = 0; i < week.length; i++) {
             if (week[i]) {
-                if(firstOn==-1)
+                if (firstOn == -1) {
                     firstOn = i;
+                }
                 lastOn = i;
             }
         }
 
 
-        if(firstOn>=0) {
+        if (firstOn >= 0) {
             boolean contiguous = true;
-            for (int i = firstOn+1; i < lastOn; i++) {
-                if(!week[i]) {
+            for (int i = firstOn + 1; i < lastOn; i++) {
+                if ( !week[i]) {
                     contiguous = false;
+
                     break;
                 }
             }
-            if(contiguous) {
-                if(firstOn == lastOn)
-                    return  Gtfs.DAYS_FULL[firstOn];
-                return  Gtfs.DAYS_FULL[firstOn] +" - " +Gtfs.DAYS_FULL[lastOn];
+            if (contiguous) {
+                if (firstOn == lastOn) {
+                    return Gtfs.DAYS_FULL[firstOn];
+                }
+
+                return Gtfs.DAYS_FULL[firstOn] + " - "
+                       + Gtfs.DAYS_FULL[lastOn];
             }
         }
 
@@ -358,18 +366,18 @@ public class Gtfs implements Constants {
 
         Hashtable<String, TripBlob> blobMap = new Hashtable<String,
                                                   TripBlob>();
-        List<String> blobs     = new ArrayList<String>();
+        List<String>   blobs        = new ArrayList<String>();
 
 
-        boolean      sawDir0   = false;
-        boolean      sawDir1   = false;
-        boolean      anyActive = false;
+        boolean        sawDir0      = false;
+        boolean        sawDir1      = false;
+        boolean        anyActive    = false;
 
 
         List<TripInfo> currentTrips = new ArrayList<TripInfo>();
 
         for (TripInfo tripInfo : trips) {
-            if(tripInfo.getRunningNow()) {
+            if (tripInfo.getRunningNow()) {
                 currentTrips.add(tripInfo);
             }
             Entry tripEntry = tripInfo.getEntry();
@@ -377,7 +385,6 @@ public class Gtfs implements Constants {
             Entry route     = showRoute
                               ? tripEntry.getAncestor("type_gtfs_route")
                               : null;
-
             String dir =
                 tripEntry.getValue(GtfsTripTypeHandler.IDX_DIRECTION, "0");
 
@@ -386,7 +393,6 @@ public class Gtfs implements Constants {
                     || (now.getTime() > tripEntry.getEndDate())) {
                 inService = false;
             }
-
 
 
             boolean active = inService && tripInfo.getScheduleOk();
@@ -457,32 +463,33 @@ public class Gtfs implements Constants {
             Appendable buff = tripInfo.getInPast()
                               ? blob.buff1
                               : blob.buff2;
-            buff.append(HtmlUtils.open("tr",
-                                       HtmlUtils.attr("valign", "top")
-                                       + HtmlUtils.cssClass(inService
+            HtmlUtils.open(buff, "tr",
+                           HtmlUtils.attr("valign", "top")
+                           + HtmlUtils.cssClass(inService
                     ? tripInfo.getCssClass()
-                    : "gtfs-trip-list-oos")));
+                    : "gtfs-trip-list-oos"));
 
             String tripLabel1 = HtmlUtils.div(tripInfo.getStartTimeLabel(),
                                     HtmlUtils.cssClass("gtfs-timerange"));
             String tripLabel2 = HtmlUtils.div(tripInfo.getEndTimeLabel(),
                                     HtmlUtils.cssClass("gtfs-timerange"));
-            buff.append(HtmlUtils.td(pageHandler.getEntryHref(request,
-                    tripEntry, tripLabel1), HtmlUtils.attr("width", "10")));
-            buff.append(HtmlUtils.td(pageHandler.getEntryHref(request,
-                    tripEntry, tripLabel2), HtmlUtils.attr("width", "10")));
+            HtmlUtils.td(buff,
+                         pageHandler.getEntryHref(request, tripEntry,
+                             tripLabel1));
+            HtmlUtils.td(buff,
+                         pageHandler.getEntryHref(request, tripEntry,
+                             tripLabel2));
 
             if (showRoute && (route != null)) {
-                buff.append(HtmlUtils.td(getRouteTitle(request, route, true),
-                                         ""));
+                HtmlUtils.td(buff, getRouteTitle(request, route, true), "");
             } else {
-                buff.append(HtmlUtils.td("", ""));
+                HtmlUtils.td(buff, "", "");
             }
             if (inService && active && (blob.nextTrip == null)
                     && !tripInfo.getInPast()) {
                 blob.nextTrip = tripInfo;
             }
-            buff.append(HtmlUtils.td("", ""));
+            HtmlUtils.td(buff, "", "");
             buff.append("</tr>\n");
         }
 
@@ -517,6 +524,13 @@ public class Gtfs implements Constants {
 
             String startLabel = "Start";
             String endLabel   = "End";
+            if (blob.tripInfo.getFirstStop() != null) {
+                startLabel = blob.tripInfo.getFirstStop().getName();
+            }
+            if (blob.tripInfo.getLastStop() != null) {
+                endLabel = blob.tripInfo.getLastStop().getName();
+            }
+
             if (blob.nextTrip != null) {
                 TripInfo tripInfo  = blob.nextTrip;
                 Entry    tripEntry = blob.nextTrip.entry;
@@ -538,7 +552,7 @@ public class Gtfs implements Constants {
                         tripEntry, tripLabel));
 
                 List<StopTime> stops = getStopsForTrip(request, tripEntry,
-                                                       stopMap);
+                                           stopMap);
                 if (stops.size() > 0) {
                     startLabel = stops.get(0).entry.getName();
                     endLabel   = stops.get(stops.size() - 1).entry.getName();
@@ -579,9 +593,9 @@ public class Gtfs implements Constants {
                                 .toString(), false, HtmlUtils
                                 .cssClass("entry-toggleblock-label"), "", request
                                 .getRepository()
-                                .iconUrl("ramadda.icon.togglearrowdown"), request
+                                .getIconUrl("ramadda.icon.togglearrowdown"), request
                                 .getRepository()
-                                .iconUrl("ramadda.icon.togglearrowright"));
+                                .getIconUrl("ramadda.icon.togglearrowright"));
 
                     nextTripSB.append(HtmlUtils.div(stopsHtml,
                             HtmlUtils.cssClass("gtfs-stops")));
@@ -592,30 +606,18 @@ public class Gtfs implements Constants {
 
             Appendable buff = new StringBuilder();
             buff.append(blob.header);
-
-
-            //            List<StopTime> stops = getStopsForTrip(request, tripEntry, stopMap);
-            //            if (stops.size() > 0) {
-            //            }
-
-            buff.append(
-                HtmlUtils.open(
-                    "table",
-                    HtmlUtils.cssClass("gtfs-table gtfs-trips-list")));
-            int w1 = startLabel.length();
-            if (w1 > 20) {
-                startLabel = startLabel.substring(0, 19) + "...";
-                w1         = startLabel.length();
-            }
-            int w2 = endLabel.length();
-            if (w2 > 20) {
-                endLabel = endLabel.substring(0, 19) + "...";
-                w2       = endLabel.length();
-            }
+            HtmlUtils.open(buff, "table", "class",
+                           "gtfs-table gtfs-trips-list");
             HtmlUtils.open(buff, "tr", HtmlUtils.cssClass("gtfs-header"));
-            HtmlUtils.col(buff, startLabel,
-                          HtmlUtils.attr("width", w1 + "em"));
-            HtmlUtils.col(buff, endLabel, HtmlUtils.attr("width", w2 + "em"));
+            HtmlUtils.col(
+                buff,
+                HtmlUtils.tag(
+                    "div", "style=\"width:100%;overflow-x:auto\"",
+                    startLabel));
+            HtmlUtils.col(
+                buff,
+                HtmlUtils.tag(
+                    "div", "style=\"width:100%;overflow-x:auto\"", endLabel));
             HtmlUtils.col(buff, "&nbsp;");
             HtmlUtils.col(buff, "&nbsp;");
             HtmlUtils.close(buff, "tr");
@@ -626,9 +628,7 @@ public class Gtfs implements Constants {
                 buff.append(blob.buff1);
                 buff.append(blob.buff2);
             }
-
-
-            buff.append("</table>\n");
+            HtmlUtils.close(buff, "table");
             buff.append("<p>");
             if (blob.tripInfo.getScheduleOk() && blob.inService) {
                 firstTitles.add(title);
@@ -678,19 +678,29 @@ public class Gtfs implements Constants {
         }
 
 
-        if(stopEntry == null &&  currentTrips.size()>0) {
-            for(TripInfo tripInfo: currentTrips) {
-                StringBuffer tmp= new StringBuffer();
-                String headsign= (String) tripInfo.entry.getValue(GtfsTripTypeHandler.IDX_HEADSIGN,(String) null);
-                String label = (Utils.stringDefined(headsign)?"To " + headsign +" - ":"")+ Gtfs.getTimeRange(tripInfo.entry);
+        if ((stopEntry == null) && (currentTrips.size() > 0)) {
+            for (TripInfo tripInfo : currentTrips) {
+                StringBuffer tmp = new StringBuffer();
+                String headsign = (String) tripInfo.entry.getValue(
+                                      GtfsTripTypeHandler.IDX_HEADSIGN,
+                                      (String) null);
+                String label = (Utils.stringDefined(headsign)
+                                ? "To " + headsign + " - "
+                                : "") + Gtfs.getTimeRange(tripInfo.entry);
                 HtmlUtils.div(
-                              tmp, entry.getTypeHandler().getPageHandler().getEntryHref(request, tripInfo.entry, HtmlUtils.img(request.getRepository().iconUrl("/icons/link.png"))),
-                              "");
-                tmp.append(tripInfo.entry.getTypeHandler().getWikiInclude(new WikiUtil(), request,
-                                                                           tripInfo.entry, tripInfo.entry,"gtfs.trip.list",new Hashtable()));
+                    tmp,
+                    entry.getTypeHandler().getPageHandler().getEntryHref(
+                        request, tripInfo.entry,
+                        HtmlUtils.img(
+                            request.getRepository().getIconUrl(
+                                "/icons/link.png"))), "");
+                tmp.append(
+                    tripInfo.entry.getTypeHandler().getWikiInclude(
+                        new WikiUtil(), request, tripInfo.entry,
+                        tripInfo.entry, "gtfs.trip.list", new Hashtable()));
                 firstTitles.add(0, "Now: " + label);
                 firstContents.add(0, tmp.toString());
-            } 
+            }
         }
 
 
@@ -708,7 +718,9 @@ public class Gtfs implements Constants {
             sb.append(firstTitles.get(0));
             sb.append(firstContents.get(0));
         } else if (firstTitles.size() > 0) {
-            if(currentTrips.size()>0) open = true;
+            if (currentTrips.size() > 0) {
+                open = true;
+            }
             HtmlUtils.makeAccordian(sb, firstTitles, firstContents,
                                     !open || showRoute, "ramadda-accordian",
                                     null);
@@ -721,11 +733,8 @@ public class Gtfs implements Constants {
     /**
      * _more_
      *
-     * @param wikiUtil _more_
      * @param request _more_
-     * @param originalEntry _more_
      * @param entry _more_
-     * @param props _more_
      * @param sb _more_
      *
      * @return _more_
@@ -815,6 +824,7 @@ public class Gtfs implements Constants {
      */
     public static String getLyftToken(Request request, boolean force)
             throws Exception {
+        HttpURLConnection huc = null;
         try {
             if ((lyftToken != null) && !force) {
                 return lyftToken;
@@ -836,8 +846,7 @@ public class Gtfs implements Constants {
             String auth = lyftId + ":" + lyftSecret;
             auth = Utils.encodeBase64(auth.getBytes());
             String url = "https://api.lyft.com/oauth/token";
-            HttpURLConnection huc =
-                (HttpURLConnection) new URL(url).openConnection();
+            huc = (HttpURLConnection) new URL(url).openConnection();
 
             String data =
                 "{\"grant_type\": \"client_credentials\", \"scope\": \"public\"}";
@@ -865,6 +874,9 @@ public class Gtfs implements Constants {
             return lyftToken = obj.getString("access_token");
         } catch (Exception exc) {
             System.err.println("Error doing Lyft authentication:" + exc);
+            if (huc != null) {
+                System.err.println("Error:" + huc.getResponseMessage());
+            }
         }
 
         return null;
@@ -1131,6 +1143,25 @@ public class Gtfs implements Constants {
             int stop = Utils.hhmmssToSeconds(
                            child.getValue(
                                GtfsTripTypeHandler.IDX_ENDTIME, ""));
+            Entry firstStop = null;
+            Entry lastStop  = null;
+            if (Utils.stringDefined(
+                    child.getValue(
+                        GtfsTripTypeHandler.IDX_FIRST_STOP, (String) null))) {
+                firstStop =
+                    request.getRepository().getEntryManager().getEntry(
+                        request,
+                        child.getValue(
+                            GtfsTripTypeHandler.IDX_FIRST_STOP, ""));
+            }
+            if (Utils.stringDefined(
+                    child.getValue(
+                        GtfsTripTypeHandler.IDX_LAST_STOP, (String) null))) {
+                lastStop = request.getRepository().getEntryManager().getEntry(
+                    request,
+                    child.getValue(GtfsTripTypeHandler.IDX_LAST_STOP, ""));
+            }
+
             boolean[] week = (boolean[]) request.getRepository().decodeObject(
                                  child.getValue(
                                      GtfsTripTypeHandler.IDX_WEEK, ""));
@@ -1141,11 +1172,12 @@ public class Gtfs implements Constants {
                     scheduleOk = false;
                 }
             }
-            boolean runningNow  = false;
-            boolean inThePast = true;
+            boolean runningNow = false;
+            boolean inThePast  = true;
             if (nowSeconds >= 0) {
-                if(scheduleOk && start<=nowSeconds && stop>= nowSeconds) {
-                    runningNow  = true;
+                if (scheduleOk && (start <= nowSeconds)
+                        && (stop >= nowSeconds)) {
+                    runningNow = true;
                 }
                 if (stop < nowSeconds) {
                     inThePast = true;
@@ -1160,8 +1192,10 @@ public class Gtfs implements Constants {
             if (onlyFuture && inThePast) {
                 continue;
             }
-            tripInfos.add(new TripInfo(child, week, scheduleOk, runningNow, inThePast,
-                                       now));
+
+
+            tripInfos.add(new TripInfo(child, week, scheduleOk, runningNow,
+                                       inThePast, now, firstStop, lastStop));
         }
 
         tripInfos.addAll(extra);
@@ -1205,6 +1239,12 @@ public class Gtfs implements Constants {
         /** _more_ */
         private String endTimeLabel = "";
 
+        /** _more_ */
+        private Entry firstStop;
+
+        /** _more_ */
+        private Entry lastStop;
+
         /**
          * _more_
          *
@@ -1221,11 +1261,15 @@ public class Gtfs implements Constants {
          *  @param entry _more_
          *  @param week _more_
          *  @param scheduleOk _more_
+         * @param runningNow _more_
          *  @param inPast _more_
          * @param now _more_
+         * @param firstStop _more_
+         * @param lastStop _more_
          */
         public TripInfo(Entry entry, boolean[] week, boolean scheduleOk,
-                        boolean runningNow, boolean inPast, Date now) {
+                        boolean runningNow, boolean inPast, Date now,
+                        Entry firstStop, Entry lastStop) {
             this.entry          = entry;
             this.timeLabel      = getTimeRange(entry);
             this.startTimeLabel = Gtfs.formatStartTime(entry);
@@ -1240,6 +1284,8 @@ public class Gtfs implements Constants {
             } else {
                 this.inService = true;
             }
+            this.firstStop = firstStop;
+            this.lastStop  = lastStop;
         }
 
         /**
@@ -1249,6 +1295,24 @@ public class Gtfs implements Constants {
          */
         public Entry getEntry() {
             return entry;
+        }
+
+        /**
+         * _more_
+         *
+         * @return _more_
+         */
+        public Entry getFirstStop() {
+            return firstStop;
+        }
+
+        /**
+         * _more_
+         *
+         * @return _more_
+         */
+        public Entry getLastStop() {
+            return lastStop;
         }
 
 
@@ -1324,8 +1388,10 @@ public class Gtfs implements Constants {
          * @return _more_
          */
         public String getCssClass() {
-            if(runningNow)
+            if (runningNow) {
                 return "gtfs-trip-list-now";
+            }
+
             return (scheduleOk
                     ? (inPast
                        ? "gtfs-trip-list-past"
@@ -1357,13 +1423,25 @@ public class Gtfs implements Constants {
      * @throws Exception _more_
      */
     public static String getRouteTitle(Request request, Entry entry,
-                                       boolean doLink) 
+                                       boolean doLink)
             throws Exception {
         return getRouteTitle(request, entry, doLink, true);
     }
 
 
 
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param doLink _more_
+     * @param full _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
     public static String getRouteTitle(Request request, Entry entry,
                                        boolean doLink, boolean full)
             throws Exception {
@@ -1379,10 +1457,10 @@ public class Gtfs implements Constants {
                            + HtmlUtils.style("background:" + bg + ";"
                                              + "color:" + fg));
         String label = routeTag;
-        if(full) {
+        if (full) {
             label = "Route " + routeTag;
             if ( !routeId.equals(entry.getLabel())) {
-                label = HtmlUtils.concat(label, "&nbsp;", entry.getLabel());
+                label = Utils.concatString(label, "&nbsp;", entry.getLabel());
             }
         }
         if ( !doLink) {
@@ -1420,9 +1498,12 @@ public class Gtfs implements Constants {
      * @param entry _more_
      * @param host _more_
      * @param prefix _more_
+     *
+     * @throws Exception _more_
      */
     public static void addHostAlias(Request request, Entry entry,
-                                    String host, String prefix) {
+                                    String host, String prefix)
+            throws Exception {
         if (host != null) {
             addAlias(request, entry, "http://" + prefix + "." + host);
         }
@@ -1435,14 +1516,17 @@ public class Gtfs implements Constants {
      * @param request _more_
      * @param entry _more_
      * @param alias _more_
+     *
+     * @throws Exception _more_
      */
-    public static void addAlias(Request request, Entry entry, String alias) {
+    public static void addAlias(Request request, Entry entry, String alias)
+            throws Exception {
         alias = alias.replaceAll(" ", "_");
-        entry.addMetadata(new Metadata(request.getRepository().getGUID(),
-                                       entry.getId(),
-                                       ContentMetadataHandler.TYPE_ALIAS,
-                                       false, alias.toLowerCase(), null,
-                                       null, null, null));
+        request.getRepository().getMetadataManager().addMetadata(entry,
+                new Metadata(request.getRepository().getGUID(),
+                             entry.getId(),
+                             ContentMetadataHandler.TYPE_ALIAS, false,
+                             alias.toLowerCase(), null, null, null, null));
     }
 
 
@@ -1550,80 +1634,110 @@ public class Gtfs implements Constants {
 
 
 
-    public static Entry getStop(Request request,
-                                Entry entry, String stopId)
-        throws Exception {
-        if(stopId == null) return null;
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param stopId _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static Entry getStop(Request request, Entry entry, String stopId)
+            throws Exception {
+        if (stopId == null) {
+            return null;
+        }
         Entry agency = entry.getAncestor(GtfsAgencyTypeHandler.TYPE_AGENCY);
         Request searchRequest = new Request(request.getRepository(),
                                             request.getUser());
-        searchRequest.put(GtfsRouteTypeHandler.ARG_TYPE,
-                          "type_gtfs_stop");
-        searchRequest.put("search.type_gtfs_stop.stop_id",
-                          "="+ stopId);
+        searchRequest.put(GtfsRouteTypeHandler.ARG_TYPE, "type_gtfs_stop");
+        searchRequest.put("search.type_gtfs_stop.stop_id", "=" + stopId);
         searchRequest.put("search.type_gtfs_stop.agency_id",
-                          "="+ agency.getId());
+                          "=" + agency.getId());
         StringBuilder tmp = new StringBuilder();
-        List[] pair =
-            request.getRepository().getEntryManager().getEntries(
-                                                                 searchRequest, tmp);
-        Entry stop=  (Entry) ((pair[0].size() > 0)
-                                     ? pair[0].get(0)
-                                     : (pair[1].size() > 0)
-                                       ? pair[1].get(0)
-                                       : null);
+        List[] pair = request.getRepository().getEntryManager().getEntries(
+                          searchRequest, tmp);
+        Entry stop = (Entry) ((pair[0].size() > 0)
+                              ? pair[0].get(0)
+                              : (pair[1].size() > 0)
+                                ? pair[1].get(0)
+                                : null);
+
         return stop;
     }
-    
 
-    public static Entry getRoute(Request request,
-                                Entry entry, String routeId)
-        throws Exception {
-        if(routeId == null) return null;
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param routeId _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static Entry getRoute(Request request, Entry entry, String routeId)
+            throws Exception {
+        if (routeId == null) {
+            return null;
+        }
         Entry agency = entry.getAncestor(GtfsAgencyTypeHandler.TYPE_AGENCY);
         Request searchRequest = new Request(request.getRepository(),
                                             request.getUser());
-        searchRequest.put(GtfsRouteTypeHandler.ARG_TYPE,
-                          "type_gtfs_route");
-        searchRequest.put("search.type_gtfs_route.route_id",
-                          "="+ routeId);
+        searchRequest.put(GtfsRouteTypeHandler.ARG_TYPE, "type_gtfs_route");
+        searchRequest.put("search.type_gtfs_route.route_id", "=" + routeId);
         searchRequest.put("search.type_gtfs_route.agency_id",
-                          "="+ agency.getId());
+                          "=" + agency.getId());
         StringBuilder tmp = new StringBuilder();
-        List[] pair =
-            request.getRepository().getEntryManager().getEntries(
-                                                                 searchRequest, tmp);
-        Entry route=  (Entry) ((pair[0].size() > 0)
-                                     ? pair[0].get(0)
-                                     : (pair[1].size() > 0)
-                                       ? pair[1].get(0)
-                                       : null);
+        List[] pair = request.getRepository().getEntryManager().getEntries(
+                          searchRequest, tmp);
+        Entry route = (Entry) ((pair[0].size() > 0)
+                               ? pair[0].get(0)
+                               : (pair[1].size() > 0)
+                                 ? pair[1].get(0)
+                                 : null);
+
         return route;
     }
 
 
-    public static Entry getTrip(Request request,
-                                Entry entry, String tripId)
-        throws Exception {
-        if(tripId == null) return null;
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param tripId _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static Entry getTrip(Request request, Entry entry, String tripId)
+            throws Exception {
+        if (tripId == null) {
+            return null;
+        }
         Entry agency = entry.getAncestor(GtfsAgencyTypeHandler.TYPE_AGENCY);
         Request searchRequest = new Request(request.getRepository(),
                                             request.getUser());
-        searchRequest.put(GtfsRouteTypeHandler.ARG_TYPE,
-                          "type_gtfs_trip");
-        searchRequest.put("search.type_gtfs_trip.trip_id",
-                          "="+ tripId);
+        searchRequest.put(GtfsRouteTypeHandler.ARG_TYPE, "type_gtfs_trip");
+        searchRequest.put("search.type_gtfs_trip.trip_id", "=" + tripId);
         searchRequest.put("search.type_gtfs_trip.agency_id",
-                          "="+ agency.getId());
+                          "=" + agency.getId());
         StringBuilder tmp = new StringBuilder();
-        List[] pair =
-            request.getRepository().getEntryManager().getEntries(
-                                                                 searchRequest, tmp);
-        Entry trip=  (Entry) ((pair[0].size() > 0)
-                                     ? pair[0].get(0)
-                                     : (pair[1].size() > 0)
-                                       ? pair[1].get(0)
-                                       : null);
+        List[] pair = request.getRepository().getEntryManager().getEntries(
+                          searchRequest, tmp);
+        Entry trip = (Entry) ((pair[0].size() > 0)
+                              ? pair[0].get(0)
+                              : (pair[1].size() > 0)
+                                ? pair[1].get(0)
+                                : null);
+
         return trip;
     }
 
@@ -1679,164 +1793,279 @@ public class Gtfs implements Constants {
         System.err.println(s.replaceAll(":[^:]+$", ""));
     }
 
-    private static TTLCache<String, List<Entry>> vehicleCache = 
+    /** _more_ */
+    private static TTLCache<String, List<Entry>> vehicleCache =
         new TTLCache<String, List<Entry>>(1000 * 60);
 
 
 
-    public static List<Entry> getVehiclesForRoute(Request request, Entry agencyEntry, Entry routeEntry) throws Exception {
-        List<Entry> vehicles = getVehicles(request, agencyEntry);
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param agencyEntry _more_
+     * @param routeEntry _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static List<Entry> getVehiclesForRoute(Request request,
+            Entry agencyEntry, Entry routeEntry)
+            throws Exception {
+        List<Entry> vehicles      = getVehicles(request, agencyEntry);
         List<Entry> routeVehicles = new ArrayList<Entry>();
-        String routeId =  (String)routeEntry.getValue(GtfsRouteTypeHandler.IDX_ID, (String)null);
-        for(Entry vehicle: vehicles) {
-            if(routeId.equals(vehicle.getValue(GtfsVehicleTypeHandler.IDX_ROUTE_ID))) {
+        String routeId =
+            (String) routeEntry.getValue(GtfsRouteTypeHandler.IDX_ID,
+                                         (String) null);
+        for (Entry vehicle : vehicles) {
+            if (routeId.equals(
+                    vehicle.getValue(GtfsVehicleTypeHandler.IDX_ROUTE_ID))) {
                 routeVehicles.add(vehicle);
             }
         }
-        System.err.println(" route:" + routeId +" vehicles:" + routeVehicles);
+
+        //        System.err.println(" route:" + routeId +" vehicles:" + routeVehicles);
         return routeVehicles;
     }
 
-    public static List<Entry> getVehiclesForStop(Request request, Entry agencyEntry, Entry stopEntry) throws Exception {
-        List<Entry> vehicles = getVehicles(request, agencyEntry);
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param agencyEntry _more_
+     * @param stopEntry _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static List<Entry> getVehiclesForStop(Request request,
+            Entry agencyEntry, Entry stopEntry)
+            throws Exception {
+        List<Entry> vehicles     = getVehicles(request, agencyEntry);
         List<Entry> stopVehicles = new ArrayList<Entry>();
-        String stopId =  (String)stopEntry.getValue(GtfsStopTypeHandler.IDX_STOP_ID, (String)null);
-        for(Entry vehicle: vehicles) {
-            if(stopId.equals(vehicle.getValue(GtfsVehicleTypeHandler.IDX_STOP_ID))) {
+        String stopId =
+            (String) stopEntry.getValue(GtfsStopTypeHandler.IDX_STOP_ID,
+                                        (String) null);
+        for (Entry vehicle : vehicles) {
+            if (stopId.equals(
+                    vehicle.getValue(GtfsVehicleTypeHandler.IDX_STOP_ID))) {
                 stopVehicles.add(vehicle);
             }
         }
-        System.err.println("stop:" + stopId + " vehicles:" + stopVehicles);
+        //        System.err.println("stop:" + stopId + " vehicles:" + stopVehicles);
 
         return stopVehicles;
     }
 
 
-    public static List<Entry> getVehiclesForTrip(Request request, Entry agencyEntry, Entry tripEntry) throws Exception {
-        List<Entry> vehicles = getVehicles(request, agencyEntry);
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param agencyEntry _more_
+     * @param tripEntry _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static List<Entry> getVehiclesForTrip(Request request,
+            Entry agencyEntry, Entry tripEntry)
+            throws Exception {
+        List<Entry> vehicles     = getVehicles(request, agencyEntry);
         List<Entry> tripVehicles = new ArrayList<Entry>();
-        String tripId =  (String)tripEntry.getValue(GtfsTripTypeHandler.IDX_TRIP_ID, (String)null);
-        for(Entry vehicle: vehicles) {
-            if(tripId.equals(vehicle.getValue(GtfsVehicleTypeHandler.IDX_TRIP_ID))) {
+        String tripId =
+            (String) tripEntry.getValue(GtfsTripTypeHandler.IDX_TRIP_ID,
+                                        (String) null);
+        for (Entry vehicle : vehicles) {
+            if (tripId.equals(
+                    vehicle.getValue(GtfsVehicleTypeHandler.IDX_TRIP_ID))) {
                 tripVehicles.add(vehicle);
             }
         }
+
         //        System.err.println("Trip:" + tripId +" vehicles:" + tripVehicles);
         return tripVehicles;
     }
 
-    
-    public static List<Entry> getVehicles(Request request, Entry agencyEntry) throws Exception {
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param agencyEntry _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static List<Entry> getVehicles(Request request, Entry agencyEntry)
+            throws Exception {
+
         URLConnection urlConnection = null;
-        String agencyId = (String)agencyEntry.getValue(GtfsAgencyTypeHandler.IDX_AGENCY_ID,null);
-        String cacheKey  = agencyEntry.getId();
+        String agencyId = (String) agencyEntry.getValue(
+                              GtfsAgencyTypeHandler.IDX_AGENCY_ID, null);
+        String      cacheKey = agencyEntry.getId();
         List<Entry> vehicles = vehicleCache.get(cacheKey);
-        if(vehicles!=null)
+        if (vehicles != null) {
             return vehicles;
+        }
         vehicles = new ArrayList<Entry>();
-        String rtUrl = (String)agencyEntry.getValue(GtfsAgencyTypeHandler.IDX_RT_URL,null);
-        Repository repository =    agencyEntry.getTypeHandler().getRepository();
-        if(!Utils.stringDefined(rtUrl))
-            rtUrl = repository.getProperty(agencyId+".rt.url",(String)null);
+        String rtUrl =
+            (String) agencyEntry.getValue(GtfsAgencyTypeHandler.IDX_RT_URL,
+                                          null);
+        Repository repository = agencyEntry.getTypeHandler().getRepository();
+        if ( !Utils.stringDefined(rtUrl)) {
+            rtUrl = repository.getProperty(agencyId + ".rt.url",
+                                           (String) null);
+        }
 
-        if(!Utils.stringDefined(rtUrl))
+        if ( !Utils.stringDefined(rtUrl)) {
             return vehicles;
+        }
 
-        String rtId = (String)agencyEntry.getValue(GtfsAgencyTypeHandler.IDX_RT_ID,null);
-        if(!Utils.stringDefined(rtId))
-            rtId = repository.getProperty(agencyId+".rt.id",(String)null);
+        String rtId =
+            (String) agencyEntry.getValue(GtfsAgencyTypeHandler.IDX_RT_ID,
+                                          null);
+        if ( !Utils.stringDefined(rtId)) {
+            rtId = repository.getProperty(agencyId + ".rt.id", (String) null);
+        }
 
-        String rtPassword = (String)agencyEntry.getValue(GtfsAgencyTypeHandler.IDX_RT_PASSWORD,null);
-        if(!Utils.stringDefined(rtPassword))
-            rtPassword = repository.getProperty(agencyId+".rt.password",(String)null);
+        String rtPassword = (String) agencyEntry.getValue(
+                                GtfsAgencyTypeHandler.IDX_RT_PASSWORD, null);
+        if ( !Utils.stringDefined(rtPassword)) {
+            rtPassword = repository.getProperty(agencyId + ".rt.password",
+                    (String) null);
+        }
 
         try {
             URL url = new URL(rtUrl);
             urlConnection = url.openConnection();
-            if(Utils.stringDefined(rtId) && Utils.stringDefined(rtPassword)) {
+            if (Utils.stringDefined(rtId)
+                    && Utils.stringDefined(rtPassword)) {
                 String authString = rtId.trim() + ":" + rtPassword.trim();
-                String authStringEnc =Utils.encodeBase64(authString.getBytes());
-                urlConnection.setRequestProperty("Authorization", "Basic " + authStringEnc);
+                String authStringEnc =
+                    Utils.encodeBase64(authString.getBytes());
+                urlConnection.setRequestProperty("Authorization",
+                        "Basic " + authStringEnc);
             }
 
 
-            FeedMessage feed = FeedMessage.parseFrom(urlConnection.getInputStream());
-            Date        dttm        = new Date();
-            TypeHandler vehicleTypeHandler = repository.getTypeHandler("type_gtfs_vehicle");
+            FeedMessage feed =
+                FeedMessage.parseFrom(urlConnection.getInputStream());
+            Date dttm = new Date();
+            TypeHandler vehicleTypeHandler =
+                repository.getTypeHandler("type_gtfs_vehicle");
             for (FeedEntity entity : feed.getEntityList()) {
                 if (entity.hasTripUpdate()) {
-                    System.out.println(entity.getTripUpdate());
+                    //System.out.println(entity.getTripUpdate());
                 } else if (entity.hasVehicle()) {
-                    com.google.transit.realtime.GtfsRealtime.VehiclePosition vehicle = entity.getVehicle();
-                    com.google.transit.realtime.GtfsRealtime.TripDescriptor trip = vehicle.getTrip();
-                    com.google.transit.realtime.GtfsRealtime.VehicleDescriptor desc = vehicle.getVehicle();
-                    com.google.transit.realtime.GtfsRealtime.Position pos = vehicle.getPosition();
-                    
-                    Entry newEntry = new Entry(Repository.ID_PREFIX_SYNTH + agencyEntry.getId()
-                                               + TypeHandler.ID_DELIMITER
-                                               + desc.getId(), vehicleTypeHandler);
-                                                                               
+                    com.google.transit.realtime.GtfsRealtime.VehiclePosition vehicle =
+                        entity.getVehicle();
+                    com.google.transit.realtime.GtfsRealtime.TripDescriptor trip =
+                        vehicle.getTrip();
+                    com.google.transit.realtime.GtfsRealtime.VehicleDescriptor desc =
+                        vehicle.getVehicle();
+                    com.google.transit.realtime.GtfsRealtime.Position pos =
+                        vehicle.getPosition();
+
+                    Entry newEntry = new Entry(Repository.ID_PREFIX_SYNTH
+                                         + agencyEntry.getId()
+                                         + TypeHandler.ID_DELIMITER
+                                         + desc.getId(), vehicleTypeHandler);
+
                     Date vdttm = dttm;
-                    if(vehicle.hasTimestamp()) 
-                        vdttm = new Date(vehicle.getTimestamp()*1000);
-                    Object[] values = vehicleTypeHandler.makeEntryValues(null);
-                    values[GtfsVehicleTypeHandler.IDX_VEHICLE_ID] = desc.getId();
-                    values[GtfsVehicleTypeHandler.IDX_ROUTE_ID] = trip.getRouteId();
-                    values[GtfsVehicleTypeHandler.IDX_TRIP_ID] = trip.getTripId();
-                    values[GtfsVehicleTypeHandler.IDX_STATUS] = vehicle.getCurrentStatus();
-                    if(vehicle.hasStopId()) {
+                    if (vehicle.hasTimestamp()) {
+                        vdttm = new Date(vehicle.getTimestamp() * 1000);
+                    }
+                    Object[] values =
+                        vehicleTypeHandler.makeEntryValues(null);
+                    values[GtfsVehicleTypeHandler.IDX_VEHICLE_ID] =
+                        desc.getId();
+                    values[GtfsVehicleTypeHandler.IDX_ROUTE_ID] =
+                        trip.getRouteId();
+                    values[GtfsVehicleTypeHandler.IDX_TRIP_ID] =
+                        trip.getTripId();
+                    values[GtfsVehicleTypeHandler.IDX_STATUS] =
+                        vehicle.getCurrentStatus();
+                    if (vehicle.hasStopId()) {
                         //                        Entry stop = getStop(request, agencyEntry, vehicle.getStopId());
                         //                        if(stop!=null) {
                         //                            values[GtfsVehicleTypeHandler.IDX_STOP_ID] = stop.getName();
                         //                        } else {
-                            values[GtfsVehicleTypeHandler.IDX_STOP_ID] = vehicle.getStopId();
-                            //                        }
+                        values[GtfsVehicleTypeHandler.IDX_STOP_ID] =
+                            vehicle.getStopId();
+                        //                        }
                     }
                     String name = "Vehicle:";
-                    if(desc.hasLabel()) 
+                    if (desc.hasLabel()) {
                         name += desc.getLabel();
-                    else
+                    } else {
                         name += desc.getId();
-                    newEntry.initEntry(name, "", agencyEntry,
-                                       repository.getUserManager().getLocalFileUser(), new Resource(),
-                               "", vdttm.getTime(), vdttm.getTime(),
-                                       vdttm.getTime(), vdttm.getTime(), values);
+                    }
+                    newEntry.initEntry(
+                        name, "", agencyEntry,
+                        repository.getUserManager().getLocalFileUser(),
+                        new Resource(), "", vdttm.getTime(), vdttm.getTime(),
+                        vdttm.getTime(), vdttm.getTime(), values);
                     repository.getEntryManager().cacheSynthEntry(newEntry);
                     vehicles.add(newEntry);
                     newEntry.setLatitude(pos.getLatitude());
                     newEntry.setLongitude(pos.getLongitude());
-                    if(pos.hasBearing()) {
+                    if (pos.hasBearing()) {
                         Metadata dirMetadata =
                             new Metadata(repository.getGUID(),
-                                         newEntry.getId(), "camera.direction",
-                                         false,
+                                         newEntry.getId(),
+                                         "camera.direction", false,
                                          "" + pos.getBearing(),
-                                         Metadata.DFLT_ATTR, Metadata
-                                                 .DFLT_ATTR, Metadata
-                                                 .DFLT_ATTR, Metadata
-                                                 .DFLT_EXTRA);
-                        newEntry.addMetadata(dirMetadata);
+                                         Metadata.DFLT_ATTR,
+                                         Metadata.DFLT_ATTR,
+                                         Metadata.DFLT_ATTR,
+                                         Metadata.DFLT_EXTRA);
+                        request.getRepository().getMetadataManager()
+                            .addMetadata(newEntry, dirMetadata);
                     }
                 }
             }
-        } catch(Exception exc) {
+        } catch (Exception exc) {
             System.err.println("Error:" + exc);
-            ((HttpURLConnection)urlConnection).getResponseCode();
-            InputStream stream = ((HttpURLConnection)urlConnection).getErrorStream();
-            if(stream == null)
+            ((HttpURLConnection) urlConnection).getResponseCode();
+            InputStream stream =
+                ((HttpURLConnection) urlConnection).getErrorStream();
+            if (stream == null) {
                 stream = urlConnection.getInputStream();
+            }
             //            System.err.println("error:"+ IOUtil.readContents(stream));
         }
         vehicleCache.put(cacheKey, vehicles);
+
         return vehicles;
+
     }
 
 
-    public static List<Entry> getTripsForStop(Request request, Entry entry) throws Exception {
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static List<Entry> getTripsForStop(Request request, Entry entry)
+            throws Exception {
         Entry agency = entry.getAncestor(GtfsAgencyTypeHandler.TYPE_AGENCY);
 
-        List<Entry>   trips  = (List<Entry>) agency.getTransientProperty(entry.getId()+".trips");
-        if(trips!=null) return trips;
+        List<Entry> trips =
+            (List<Entry>) agency.getTransientProperty(entry.getId()
+                + ".trips");
+        if (trips != null) {
+            return trips;
+        }
 
         Request searchRequest = new Request(request.getRepository(),
                                             request.getUser());
@@ -1851,26 +2080,47 @@ public class Gtfs implements Constants {
         q.append(entry.getValue(GtfsStopTypeHandler.IDX_STOP_ID, ""));
         q.append("]");
         searchRequest.put("search.type_gtfs_trip.stop_ids", q);
-        StringBuilder tmp   = new StringBuilder();
-        List[]        pair  = request.getRepository().getEntryManager().getEntries(searchRequest,
-                                  tmp);
+        StringBuilder tmp = new StringBuilder();
+        List[] pair = request.getRepository().getEntryManager().getEntries(
+                          searchRequest, tmp);
         trips = new ArrayList<Entry>();
         trips.addAll((List<Entry>) pair[0]);
         trips.addAll((List<Entry>) pair[1]);
-        agency.putTransientProperty(entry.getId()+".trips", trips);
+        agency.putTransientProperty(entry.getId() + ".trips", trips);
+
         return trips;
     }
 
-    public static List<Entry> getRoutesForStop(Request request, Entry entry) throws Exception {
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static List<Entry> getRoutesForStop(Request request, Entry entry)
+            throws Exception {
 
         Entry agency = entry.getAncestor(GtfsAgencyTypeHandler.TYPE_AGENCY);
 
-        List<Entry>   routes  = (List<Entry>) agency.getTransientProperty(entry.getId()+".routes");
-        if(routes!=null) return routes;
-        routes=new ArrayList<Entry>();
+        List<Entry> routes =
+            (List<Entry>) agency.getTransientProperty(entry.getId()
+                + ".routes");
+        if (routes != null) {
+            return routes;
+        }
+        routes = new ArrayList<Entry>();
 
-        for(String id: StringUtil.split(entry.getValue(GtfsStopTypeHandler.IDX_ROUTES,""),",",true,true)) {
-            routes.add(request.getRepository().getEntryManager().getEntry(request, id));
+        for (String id :
+                StringUtil.split(
+                    entry.getValue(GtfsStopTypeHandler.IDX_ROUTES, ""), ",",
+                    true, true)) {
+            routes.add(
+                request.getRepository().getEntryManager().getEntry(
+                    request, id));
         }
         /*
         HashSet seen = new HashSet();
@@ -1882,11 +2132,32 @@ public class Gtfs implements Constants {
             }
         }
         */
-        agency.putTransientProperty(entry.getId()+".routes", routes);
+        agency.putTransientProperty(entry.getId() + ".routes", routes);
+
         return routes;
 
     }
 
 
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param vehicles _more_
+     * @param map _more_
+     *
+     * @throws Exception _more_
+     */
+    public static void addToMap(Request request, List<Entry> vehicles,
+                                MapInfo map)
+            throws Exception {
+        request.getRepository().getMapManager().addToMap(request, map,
+                vehicles,
+                Utils.makeMap(MapManager.PROP_DETAILED, "true",
+                              MapManager.PROP_SCREENBIGRECTS, "true"));
+        for (Entry vehicle : vehicles) {
+            map.addMarker(request, vehicle);
+        }
+    }
 
 }

@@ -1,6 +1,4 @@
 <types>
-
-  
   <type name="type_document_tika"  foruser="false" description="TIKA Doc"  super="type_document" handler="org.ramadda.plugins.media.TikaTypeHandler"  metadata="enum_tag,metadata_author,metadata_publisher">
 <!--
      <service link="media_pdfbox_extracttext"/>
@@ -39,16 +37,16 @@
 
 </type>
 
-  <type name="type_document_doc"  description="Microsoft Word File" pattern="(.*\.doc|.*\.docx)"  super="type_document_tika"         handler="org.ramadda.data.docs.MsDocTypeHandler" >
+  <type name="type_document_doc"  description="Word File" pattern="(.*\.doc|.*\.docx)"  super="type_document_tika"         handler="org.ramadda.data.docs.MsDocTypeHandler" >
      <property name="icon" value="/icons/doc.png"/>
 </type>
 
-  <type name="type_document_ppt"  description="Microsoft Powerpoint File" pattern="(.*\.ppt|.*\.pptx)"  super="type_document_tika"   handler="org.ramadda.data.docs.MsDocTypeHandler" >
+  <type name="type_document_ppt"  description="Powerpoint File" pattern="(.*\.ppt|.*\.pptx)"  super="type_document_tika"   handler="org.ramadda.data.docs.MsDocTypeHandler" >
      <property name="icon" value="/icons/ppt.png"/>
 </type>
 
 
-  <type name="type_document_xls"  description="Microsoft Excel File" pattern="(.*\.xls|.*\.xlsx)"  super="type_document_tabular"   handler="org.ramadda.plugins.media.XlsTypeHandler">
+  <type name="type_document_xls"  description="Excel File" pattern="(.*\.xls|.*\.xlsx)"  super="type_document_tabular"   handler="org.ramadda.plugins.media.XlsTypeHandler">
      <property name="icon" value="/icons/xls.png"/>
 
 </type>
@@ -77,6 +75,7 @@
      <column name="video_start" type="double" label="Start"  suffix="(minutes)" default="0" showinhtml="false"/>
      <column name="video_end" type="double" label="End"  suffix="(minutes)" default="-1" showinhtml="false"/>
      <column name="display" type="boolean" label="Display" default="true"  showinhtml="false"/>
+     <column name="autoplay" type="boolean" label="Auto play" default="false"  showinhtml="false"/>
 </type>
 
 
@@ -84,7 +83,7 @@
      <property name="icon" value="/media/folder-open-film.png"/>
      <property name="form.resource.show" value="false"/>
      <wiki><![CDATA[
-+section # title="{{name}}"
++section  title={{name}}
 {{description wikify="true"}}
 {{grid columns="3"}}
 -section
@@ -103,7 +102,9 @@
 +section title="{{name}}" #
 {{noheading}}
 {{audio}}
-{{description}}
+
+{{description wikify="true"}}
+
 -section
 ]]>
 </wiki>
@@ -122,7 +123,16 @@
         category="Documents" 
         pattern="(.*\.mov|.*\.mp4)">
      <property name="icon" value="/icons/mov.png"/>
+     <column name="autoplay" type="boolean" label="Auto play" default="false"  showinhtml="false"/>
      <service link="media.qttools.thumbnail" id="initmov"  target="attachment"/>
+     <wiki><![CDATA[
++section title="{{name}}" #
+{{noheading}}
+{{description wikify=true}}
+{{video}}
+-section
+]]>
+</wiki>
 </type>
 
 
@@ -140,13 +150,15 @@
 </type>
 
 
-  <type name="media_imageloop"  description="Image Loop" handler="org.ramadda.repository.type.ExtensibleGroupTypeHandler" category="Information">
+  <type name="media_imageloop"  description="Image Loop" handler="org.ramadda.repository.type.ExtensibleGroupTypeHandler" category="Imagery">
      <property name="form.resource.show" value="false"/>
      <property name="icon" value="/media/film.png"/>
      <wiki><![CDATA[
 {{noheading}}
++section title={{name}}
 {{description}}
-{{imageplayer show_sort_links="true"}}
+{{imageplayer show_sort_links="true" imagewidth="90%"}}
+-section
 ]]>
 </wiki>
      <column name="autostart" type="boolean" label="Auto Start"  default="false" showinhtml="false"/>
@@ -154,15 +166,25 @@
 </type>
 
 
-  <type name="type_image"  description="Image" foruser="true" category="Documents" pattern="(.*\.png|.*\.gif|.*\.jpg|.*\.jpeg)">
+  <type name="type_image"  description="Image" foruser="true" category="Imagery" pattern="(.*\.png|.*\.gif|.*\.jpg|.*\.jpeg)" handler="org.ramadda.plugins.media.ImageTypeHandler">
      <property name="icon" value="/icons/image.gif"/>
+     <column   name="proxy" type="boolean" label="Proxy Image if URL"  showinhtml="false" default="false"/>
+     <column   name="filename" label="Alternate filename"  showinhtml="false" />
 </type>
 
 
 
-  <type name="type_image_airport"  description="Airport Image" super="type_image" foruser="true" category="Imagery" supercategory="Miscellaneous" >
+  <type name="type_image_airport"  description="Airport Image" super="type_image" foruser="true" category="Imagery" >
      <property name="icon" value="/media/paper-plane.png"/>
 </type>
+
+
+  <type name="type_image_webcam"  description="Webcam" super="type_image" foruser="true" category="Imagery"  metadata="enum_tag,camera.direction">
+     <property name="form.file.show" value="false"/>
+     <property name="form.area.show" value="false"/>
+     <property name="form.location.show" value="true"/>
+ </type>
+
 
 
 

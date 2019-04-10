@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -20,16 +20,16 @@ package org.ramadda.repository.auth;
 import org.ramadda.repository.*;
 
 import org.ramadda.repository.database.*;
-
-
-
-import org.ramadda.sql.Clause;
-
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.JQuery;
 import org.ramadda.util.TTLCache;
+
+
+
+import org.ramadda.util.sql.Clause;
+
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -598,7 +598,7 @@ public class AccessManager extends RepositoryManager {
      */
     public boolean canDownload(Request request, Entry entry)
             throws Exception {
-        if ( !getRepository().getProperty(PROP_DOWNLOAD_OK, false)) {
+        if ( !getRepository().getDownloadOk()) {
             return false;
         }
         entry = filterEntry(request, entry);
@@ -1025,9 +1025,11 @@ public class AccessManager extends RepositoryManager {
                 HtmlUtils.href(
                     getRepository().getUrlBase() + "/userguide/access.html#"
                     + action, HtmlUtils.img(
-                        getRepository().iconUrl(ICON_HELP)), HtmlUtils.attr(
-                        HtmlUtils.ATTR_TARGET, "_help")) + HtmlUtils.space(1)
-                            + msg(actionName);
+                        getRepository().getIconUrl(
+                            ICON_HELP)), HtmlUtils.attr(
+                                HtmlUtils.ATTR_TARGET,
+                                "_help")) + HtmlUtils.space(1)
+                                          + msg(actionName);
 
             String message = "";
             //If there isn't a none defined here and there are roles then
@@ -1095,6 +1097,76 @@ public class AccessManager extends RepositoryManager {
 
     }
 
+    /** _more_ */
+    private TwoFactorAuthenticator twoFactorAuthenticator;
+
+    /**
+     * _more_
+     *
+     * @param tfa _more_
+     */
+    public void setTwoFactorAuthenticator(TwoFactorAuthenticator tfa) {
+        twoFactorAuthenticator = tfa;
+    }
+
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
+    public TwoFactorAuthenticator getTwoFactorAuthenticator() {
+        return twoFactorAuthenticator;
+    }
+
+    /**
+     * Class description
+     *
+     *
+     * @version        $version$, Thu, Dec 6, '18
+     * @author         Enter your name here...
+     */
+    public static class TwoFactorAuthenticator {
+
+        /**
+         * _more_
+         *
+         * @param request _more_
+         * @param user _more_
+         * @param sb _more_
+         *
+         * @throws Exception _more_
+         */
+        public void addAuthForm(Request request, User user, Appendable sb)
+                throws Exception {}
+
+        /**
+         * _more_
+         *
+         * @param request _more_
+         * @param user _more_
+         * @param sb _more_
+         *
+         * @return _more_
+         *
+         * @throws Exception _more_
+         */
+        public boolean userHasBeenAuthenticated(Request request, User user,
+                Appendable sb)
+                throws Exception {
+            return true;
+        }
+
+        /**
+         * _more_
+         *
+         * @param user _more_
+         *
+         * @return _more_
+         */
+        public boolean userCanBeAuthenticated(User user) {
+            return false;
+        }
+    }
 
 
 

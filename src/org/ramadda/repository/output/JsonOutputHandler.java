@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -171,6 +171,21 @@ public class JsonOutputHandler extends OutputHandler {
     }
 
 
+    public Result outputEntry(Request request, OutputType outputType,
+                              Entry entry)
+            throws Exception {
+        request.setReturnFilename(IOUtil.stripExtension(entry.getName())
+                                  + ".json");
+        List<Entry> allEntries = new ArrayList<Entry>();
+        allEntries.add(entry);
+        StringBuilder sb = new StringBuilder();
+        makeJson(request, allEntries, sb);
+        request.setCORSHeaderOnResponse();
+        return new Result("", sb, Json.MIMETYPE);
+    }
+
+
+
     /**
      * _more_
      *
@@ -207,7 +222,7 @@ public class JsonOutputHandler extends OutputHandler {
      */
     private String formatDate(long dttm) {
         if (sdf == null) {
-            sdf = RepositoryUtil.makeDateFormat("yyyy-MM-dd HH:mm:ss");
+            sdf = RepositoryUtil.makeDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
         }
         synchronized (sdf) {
             return sdf.format(new Date(dttm));

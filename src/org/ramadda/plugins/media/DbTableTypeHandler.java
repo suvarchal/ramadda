@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -21,12 +21,12 @@ import org.ramadda.data.docs.*;
 import org.ramadda.repository.*;
 import org.ramadda.repository.database.*;
 import org.ramadda.repository.type.*;
-
-import org.ramadda.sql.*;
 import org.ramadda.util.FormInfo;
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.Json;
 import org.ramadda.util.Utils;
+
+import org.ramadda.util.sql.*;
 import org.ramadda.util.text.Row;
 import org.ramadda.util.text.TextReader;
 
@@ -355,7 +355,7 @@ public class DbTableTypeHandler extends TabularTypeHandler {
             }
             Row row = new Row(values);
             if ((andClauses.size() == 0)
-                    && !textReader.getFilter().rowOk(textReader, row)) {
+                && !textReader.getFilter().rowOk(textReader, row,"")) {
                 //                System.err.println ("skipping row:" + row);
                 continue;
             }

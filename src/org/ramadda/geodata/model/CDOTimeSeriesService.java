@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -283,8 +283,8 @@ public class CDOTimeSeriesService extends CDODataService {
                                      dateRange.getEnd()).formattedString(
                                      "yyyyMM",
                                      CalendarDateTime.DEFAULT_TIMEZONE));
-        int lastDataYear  = lastDataYearMM / 100;
-        int lastDataMonth = lastDataYearMM % 100;
+        int    lastDataYear  = lastDataYearMM / 100;
+        int    lastDataMonth = lastDataYearMM % 100;
         String varname = ((GridDatatype) dataset.getGrids().get(0)).getName();
         dataset.close();
 
@@ -317,7 +317,8 @@ public class CDOTimeSeriesService extends CDODataService {
                     || stat.equals(CDOOutputHandler.STAT_STDANOM)
                     || stat.equals(CDOOutputHandler.STAT_PCTANOM))) {
             climEntry = getClimatologyEntry(request, dpi, climSample,
-                                            climstartYear, climendYear);
+                                            climstartYear, climendYear,
+                                            CDOOutputHandler.PERIOD_MON);
 
             if (stat.equals(CDOOutputHandler.STAT_STDANOM)) {
                 sprdEntry = getSpreadEntry(request, dpi, climSample,
@@ -641,6 +642,28 @@ public class CDOTimeSeriesService extends CDODataService {
         return newOp;
 
     }
+
+    /**
+     * Process the daily data request
+     *
+     * @param request  the request
+     * @param dpi      the ServiceInput
+     * @param op _more_
+     * @param opNum _more_
+     * @param type _more_
+     * @param climSample _more_
+     *
+     * @return  some output
+     *
+     * @throws Exception problem processing the daily data
+     */
+    protected ServiceOperand evaluateDailyRequest(Request request,
+            ServiceInput dpi, ServiceOperand op, int opNum, String type,
+            Entry climSample)
+            throws Exception {
+        throw new Exception("Can't handle daily data yet");
+    }
+
 
     /**
      * _more_

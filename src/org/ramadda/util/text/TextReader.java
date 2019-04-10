@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -100,11 +100,19 @@ public class TextReader implements Cloneable {
     /** _more_ */
     private String delimiter = ",";
 
+    private List<Integer> widths;
+
+    /** _more_ */
+    private String comment = "#";
+
     /** _more_ */
     private String outputDelimiter = ",";
 
     /** _more_ */
     private int skip = 0;
+
+    /** _more_ */
+    private int visitedRows = 0;
 
     /** _more_ */
     private int maxRows = -1;
@@ -141,7 +149,13 @@ public class TextReader implements Cloneable {
     /** _more_ */
     private List<String> headerLines = new ArrayList<String>();
 
-    /** _more_          */
+    /** _more_ */
+    private Row firstRow;
+
+    /** _more_ */
+    private Row extraRow;
+
+    /** _more_ */
     private List header;
 
 
@@ -162,6 +176,12 @@ public class TextReader implements Cloneable {
 
     /** _more_ */
     private boolean okToRun = true;
+
+    private boolean allData = false;
+
+    /** _more_ */
+    private List<Row> rows;
+
 
     /**
      * _more_
@@ -193,6 +213,122 @@ public class TextReader implements Cloneable {
         this.reader = reader;
     }
 
+/**
+Set the AllData property.
+
+@param value The new value for AllData
+**/
+public void setAllData (boolean value) {
+	allData = value;
+}
+
+/**
+Get the AllData property.
+
+@return The AllData
+**/
+public boolean getAllData () {
+	return allData;
+}
+
+
+    /**
+     * Set the Comment property.
+     *
+     * @param value The new value for Comment
+     */
+    public void setComment(String value) {
+        comment = value;
+    }
+
+    /**
+     * Get the Comment property.
+     *
+     * @return The Comment
+     */
+    public String getComment() {
+        return comment;
+    }
+
+
+
+    /**
+     * Set the VisitedRows property.
+     *
+     * @param value The new value for VisitedRows
+     */
+    public void setVisitedRows(int value) {
+        visitedRows = value;
+    }
+
+    /**
+     * Get the VisitedRows property.
+     *
+     * @return The VisitedRows
+     */
+    public int getVisitedRows() {
+        return visitedRows;
+    }
+
+    /**
+     * Set the ExtraRow property.
+     *
+     * @param value The new value for ExtraRow
+     */
+    public void setExtraRow(Row value) {
+        extraRow = value;
+    }
+
+    /**
+     * Get the ExtraRow property.
+     *
+     * @return The ExtraRow
+     */
+    public Row getExtraRow() {
+        return extraRow;
+    }
+
+
+
+    /**
+     * Set the FirstRow property.
+     *
+     * @param value The new value for FirstRow
+     */
+    public void setFirstRow(Row value) {
+        firstRow = value;
+    }
+
+    /**
+     * Get the FirstRow property.
+     *
+     * @return The FirstRow
+     */
+    public Row getFirstRow() {
+        return firstRow;
+    }
+
+
+
+    /**
+     * Set the Rows property.
+     *
+     * @param value The new value for Rows
+     */
+    public void setRows(List<Row> value) {
+        rows = value;
+    }
+
+    /**
+     * Get the Rows property.
+     *
+     * @return The Rows
+     */
+    public List<Row> getRows() {
+        return rows;
+    }
+
+
 
     /**
      * _more_
@@ -201,7 +337,14 @@ public class TextReader implements Cloneable {
         okToRun = false;
     }
 
-
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
+    public boolean getOkToRun() {
+        return okToRun;
+    }
 
     /**
      * _more_
@@ -240,6 +383,7 @@ public class TextReader implements Cloneable {
         that.skipStrings   = skipStrings;
         that.changeStrings = changeStrings;
         that.setPrepend(this.prepend);
+        this.allData       =  this.allData;
         if (that.outputFile != null) {
             that.output = null;
         }
@@ -272,6 +416,7 @@ public class TextReader implements Cloneable {
      */
     public File getDestDir() {
         destDir.mkdir();
+
         return destDir;
     }
 
@@ -324,12 +469,11 @@ public class TextReader implements Cloneable {
                     getReader().read();
                     pruneBytes--;
                 }
-
                 c = getReader().read();
             }
             if (c != 0x00) {
                 if (cnt > 0) {
-                    System.err.println("Skipped " + cnt + " null chars");
+                    //                    System.err.println("Skipped " + cnt + " null chars");
                 }
 
                 return c;
@@ -337,6 +481,25 @@ public class TextReader implements Cloneable {
             cnt++;
         }
     }
+
+    /**
+     * _more_
+     *
+     * @param info _more_
+     * @param line _more_
+     *
+     * @return _more_
+     */
+    public boolean lineOk(TextReader info, String line) {
+        if ((comment != null) && line.startsWith(comment)) {
+            return false;
+        }
+
+        return true;
+    }
+
+
+
 
     /**
      * _more_
@@ -375,7 +538,13 @@ public class TextReader implements Cloneable {
                 }
             }
             if (c == UNDEF) {
-                break;
+                String result = lb.toString();
+                if (result.length() == 0) {
+                    return null;
+                }
+
+                return result;
+                //                break;
             }
 
             if (c == NEWLINE) {
@@ -505,14 +674,11 @@ public class TextReader implements Cloneable {
         }
 
         String line = lb.toString();
-        if (line.length() == 0) {
-            return null;
-        }
 
-
+        //        if (line.length() == 0) {
+        //            return null;
+        //        }
         return line;
-
-
     }
 
 
@@ -649,6 +815,14 @@ public class TextReader implements Cloneable {
         }
     }
 
+    /**
+     * _more_
+     */
+    public void close() {
+        if (output != null) {
+            IOUtil.close(output);
+        }
+    }
 
     /**
      * _more_
@@ -657,6 +831,18 @@ public class TextReader implements Cloneable {
      */
     public void setHeader(List header) {
         this.header = header;
+    }
+
+    /**
+     * _more_
+     *
+     * @param row _more_
+     */
+    public void initRow(Row row) {
+        if (this.header == null) {
+            this.header = row.getValues();
+        }
+        visitedRows++;
     }
 
 
@@ -818,8 +1004,10 @@ public class TextReader implements Cloneable {
      */
     public File getOutputFile() {
         //This forces the mkdir
-        if(outputFile!=null)
+        if (outputFile != null) {
             getDestDir();
+        }
+
         return outputFile;
     }
 
@@ -900,6 +1088,26 @@ public class TextReader implements Cloneable {
     public int getSkip() {
         return skip;
     }
+
+
+/**
+Set the Widths property.
+
+@param value The new value for Widths
+**/
+public void setWidths (List<Integer> value) {
+	widths = value;
+}
+
+/**
+Get the Widths property.
+
+@return The Widths
+**/
+public List<Integer> getWidths () {
+	return widths;
+}
+
 
 
 

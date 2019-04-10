@@ -5,10 +5,13 @@
   <group>
      <api request="/ping"             method="processPing"/>
      <api request="/info"             method="processInfo"/>
+     <api request="/httptest"         method="processHttpTest"/>
      <api request="/license"          method="processLicense"/>
      <api request="/robots.txt"       method="processRobotsTxt"/>
      <api request="/clearstate"       method="processClearState"/>
      <api request="/docs"             method="processDocs"/>
+     <api request="/colortables"      method="processColorTables"/>
+     <api request="/geocode"          method="processGeocode"/>
   </group>
 
   <group handler="entrymanager">
@@ -26,6 +29,7 @@
       <api request="/entry/get/*"            method="processEntryGet"        authmethod="httpauth"  />
       <api request="/entry/getentries"       method="processGetEntries" />
       <api request="/entry/copy"             method="processEntryCopy"/>
+      <api request="/entry/type/*"           method="processEntryTypeAction"/>
       <api request="/entry/typechange"       method="processEntryTypeChange"/>
       <api request="/entry/import"           method="processEntryImport" actions="new"/>
       <api request="/entry/export/*"         method="processEntryExport" />
@@ -37,6 +41,13 @@
       <api request="/entry/types"             method="processEntryTypes"/>
   </group>
 
+
+  <group handler="wikimanager">
+      <api request="/wikify"             method="processWikify" />
+      <api request="/wikitoolbar"       method="processGetWikiToolbar" />
+      <api request="/getnotebook"        method="processGetNotebook" />
+      <api request="/savenotebook"        method="processSaveNotebook" />
+   </group>
 
   <group handler="commentmanager">
       <api request="/entry/comments/show"    method="processCommentsShow"/>
@@ -53,11 +64,12 @@
   </group>
 
   <group handler="searchmanager">
-      <api request="/search/textform"        method="processEntryTextSearchForm"     name="Search" toplevel="true"  icon="/icons/magnifier.png"/>
-      <api request="/search/form"            method="processEntrySearchForm"         name="Search"/>
-      <api request="/search/browse"          method="processEntryBrowseSearchForm"   name="Browse"/>
+      <api request="/search/form"            method="processSearchForm"     name="Search" xtoplevel="true"  icon="/icons/magnifier.png"/>
       <api request="/search/do"              method="processEntrySearch"/>
+      <api request="/search/browse"          method="processEntryBrowseSearchForm"   name="Browse"/>
+      <api request="/search/suggest"          method="processEntrySuggest"/>
       <api request="/search/info"            method="processSearchInfo"/>
+      <api request="/search/providers"       method="processSearchProviders"/>
       <api request="/search/wadl"            method="processSearchWadl"/>
       <api request="/search/type/*"          method="processSearchType"/>
       <api request="/search/remote/do"       method="processRemoteSearch"            name="Remote Search" />
@@ -75,7 +87,7 @@
       <api request="/sslredirect"            method="processSslRedirect"    needs_ssl="true" checkauthmethod="true"/>
       <api request="/dummy"                  method="processDummy"/>
       <api request="/install"                method="processDummy" needs_ssl="true"/>
-      <api request="/proxy"                  method="processProxy"/>
+      <api request="/proxy/*"                method="processProxy"/>
       <api request="/blank"                  method="processBlank"/>
       <api request="/gettmpfile"             method="processGetTmpFile"/>
   </group>
@@ -176,5 +188,9 @@
 
   <group handler="org.ramadda.repository.services.OaiManager">
       <api request="/oai/*"           method="processRequest"          admin="false" />
+  </group>
+
+  <group handler="org.ramadda.repository.output.ImageOutputHandler">
+      <api request="/lib/tui/tui"      method="processTui"          admin="false" />
   </group>
 </api>

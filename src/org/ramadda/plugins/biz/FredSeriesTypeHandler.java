@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -182,8 +182,8 @@ public class FredSeriesTypeHandler extends PointTypeHandler {
         args.add(Fred.ARG_SERIES_ID);
         args.add(id);
         String url = fcth.makeUrl(Fred.URL_SERIES_OBSERVATIONS, args);
-        System.err.println("FredSeries: URL:" + url);
 
+        //        System.err.println("FredSeries: URL:" + url);
         return url;
     }
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -309,7 +309,7 @@ public class DifImporter extends ImportHandler {
                                          ""), Metadata.DFLT_EXTRA);
             metadata.setAttr(5, XmlUtil.getGrandChildText(node,
                     DifUtil.TAG_Email, ""));
-            entry.addMetadata(metadata);
+            getMetadataManager().addMetadata(entry, metadata);
 
         }
 
@@ -346,7 +346,7 @@ public class DifImporter extends ImportHandler {
                                              Metadata.DFLT_ATTR,
                                              Metadata.DFLT_ATTR,
                                              Metadata.DFLT_EXTRA);
-            entry.addMetadata(metadata);
+            getMetadataManager().addMetadata(entry, metadata);
         }
     }
 
@@ -375,7 +375,7 @@ public class DifImporter extends ImportHandler {
             Metadata metadata = new Metadata(getRepository().getGUID(),
                                              entry.getId(), metadataId,
                                              values);
-            entry.addMetadata(metadata);
+            getMetadataManager().addMetadata(entry, metadata);
         }
     }
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ package org.ramadda.repository.output;
 
 import org.ramadda.repository.*;
 import org.ramadda.repository.auth.*;
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -140,8 +140,8 @@ public class TextOutputHandler extends OutputHandler {
         for (int i = 0; i < suffixes.length; i++) {
             if (path.endsWith(suffixes[i])) {
                 links.add(makeLink(request, state.entry, OUTPUT_TEXT));
-                links.add(makeLink(request, state.entry, OUTPUT_WORDCLOUD));
 
+                //                links.add(makeLink(request, state.entry, OUTPUT_WORDCLOUD));
                 return;
             }
         }
@@ -194,6 +194,8 @@ public class TextOutputHandler extends OutputHandler {
         String contents =
             getStorageManager().readSystemResource(entry.getFile());
         StringBuffer sb = new StringBuffer();
+        getPageHandler().entrySectionOpen(request, entry, sb,
+                                          "Annotated Text");
 
         sb.append("<pre>\n");
         int cnt = 0;
@@ -208,6 +210,7 @@ public class TextOutputHandler extends OutputHandler {
                       + HtmlUtils.space(1) + line + "<br>");
         }
         sb.append("</pre>");
+        getPageHandler().entrySectionClose(request, entry, sb);
 
         return makeLinksResult(request, msg("Text"), sb, new State(entry));
     }
@@ -232,10 +235,10 @@ public class TextOutputHandler extends OutputHandler {
         StringBuffer head = new StringBuffer();
         head.append("\n");
         head.append(
-            "<link rel=\"stylesheet\" type=\"text/css\" href=\"http://visapi-gadgets.googlecode.com/svn/trunk/wordcloud/wc.css\">\n");
+            "<link rel=\"stylesheet\" type=\"text/css\" href=\"https://visapi-gadgets.googlecode.com/svn/trunk/wordcloud/wc.css\">\n");
         head.append(
             HtmlUtils.importJS(
-                "http://visapi-gadgets.googlecode.com/svn/trunk/wordcloud/wc.js"));
+                "https://visapi-gadgets.googlecode.com/svn/trunk/wordcloud/wc.js"));
         head.append("\n");
         getPageHandler().addGoogleJSImport(request, head);
         head.append("\n");
@@ -288,17 +291,19 @@ public class TextOutputHandler extends OutputHandler {
             throws Exception {
         String contents =
             getStorageManager().readSystemResource(entry.getFile());
-        StringBuffer sb   = new StringBuffer();
+        StringBuffer sb = new StringBuffer();
+        getPageHandler().entrySectionOpen(request, entry, sb, "Pretty Print");
+
         StringBuffer head = new StringBuffer();
         head.append("\n");
         head.append(
-            "<link rel=\"stylesheet\" type=\"text/css\" href=\"http://visapi-gadgets.googlecode.com/svn/trunk/wordcloud/wc.css\">\n");
+            "<link rel=\"stylesheet\" type=\"text/css\" href=\"https://visapi-gadgets.googlecode.com/svn/trunk/wordcloud/wc.css\">\n");
         head.append(
             HtmlUtils.importJS(
-                getRepository().htdocsUrl("/lib/prettify/prettify.js")));
+                getRepository().getHtdocsUrl("/lib/prettify/prettify.js")));
         head.append(
             HtmlUtils.cssLink(
-                getRepository().htdocsUrl("/lib/prettify/prettify.css")));
+                getRepository().getHtdocsUrl("/lib/prettify/prettify.css")));
 
 
         sb.append(head);
@@ -318,6 +323,7 @@ public class TextOutputHandler extends OutputHandler {
         }
         sb.append("</pre>\n");
         sb.append(HtmlUtils.script("prettyPrint();"));
+        getPageHandler().entrySectionClose(request, entry, sb);
         Result result = makeLinksResult(request, msg("Pretty Print"), sb,
                                         new State(entry));
 

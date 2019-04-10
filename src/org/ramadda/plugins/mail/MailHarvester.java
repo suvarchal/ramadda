@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -23,11 +23,8 @@ import org.ramadda.repository.harvester.*;
 import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.type.*;
 import org.ramadda.util.HtmlUtils;
-
 import org.ramadda.util.MailUtil;
-
 import org.ramadda.util.Utils;
-
 
 import org.w3c.dom.*;
 
@@ -953,7 +950,7 @@ public class MailHarvester extends Harvester {
      * @return _more_
      */
     private String cleanUpText(String text) {
-        text = RepositoryUtil.encodeUntrustedText(text);
+        text = Utils.encodeUntrustedText(text);
 
         return text;
     }

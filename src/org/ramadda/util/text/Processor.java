@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,6 +17,10 @@
 package org.ramadda.util.text;
 
 
+import org.ramadda.data.record.RecordField;
+
+
+import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.Utils;
 
 
@@ -143,15 +147,15 @@ public abstract class Processor extends CsvOperator {
         }
         seen.add(id);
 
-        String type = "numeric";
+        String type = RecordField.TYPE_DOUBLE;
         if (id.indexOf("year") >= 0) {
-            type = "date";
+            type = RecordField.TYPE_DATE;
             extra.append(" format=\"yyyy\" ");
         }
 
         boolean hasName = id.indexOf("name") >= 0;
         if (hasName) {
-            type = "string";
+            type = RecordField.TYPE_STRING;
         } else {
             String sampledType = null;
             if (rows != null) {
@@ -163,13 +167,13 @@ public abstract class Processor extends CsvOperator {
                     String exampleString = example.toString();
                     if (exampleString.matches("^[\\d,]+$")) {
                         if (sampledType == null) {
-                            sampledType = "integer";
+                            sampledType = RecordField.TYPE_INT;
                         }
                     } else if (exampleString.matches("^[\\d\\.]+$")) {
-                        sampledType = "numeric";
+                        sampledType = RecordField.TYPE_DOUBLE;
                     } else if (exampleString.length() == 0) {}
                     else {
-                        sampledType = "string";
+                        sampledType = RecordField.TYPE_STRING;
 
                         break;
                     }
@@ -183,13 +187,11 @@ public abstract class Processor extends CsvOperator {
 
         if (id.indexOf("latitude") >= 0) {
             extra.append(" isLatitude=\"true\" ");
-            type = "numeric";
+            type = RecordField.TYPE_DOUBLE;
         } else if (id.indexOf("longitude") >= 0) {
             extra.append(" isLongitude=\"true\" ");
-            type = "numeric";
+            type = RecordField.TYPE_DOUBLE;
         }
-
-
 
         sb.append(id);
         sb.append("[");
@@ -320,12 +322,20 @@ public abstract class Processor extends CsvOperator {
                 */
             }
 
+            Object  skipTo      = row.getSkipTo();
             boolean sawBufferer = false;
             if (remainderProcessors == null) {
                 remainderProcessors = new ArrayList<Processor>();
                 firstProcessors     = new ArrayList<Processor>();
                 for (int i = 0; i < processors.size(); i++) {
                     Processor processor = processors.get(i);
+                    if (skipTo != null) {
+                        if (skipTo == processor) {
+                            skipTo = null;
+                        }
+
+                        continue;
+                    }
                     if (sawBufferer) {
                         remainderProcessors.add(processor);
                     } else {
@@ -339,6 +349,13 @@ public abstract class Processor extends CsvOperator {
 
             boolean firstRow = rowCnt++ == 0;
             for (Processor processor : firstProcessors) {
+                if (skipTo != null) {
+                    if (skipTo == processor) {
+                        skipTo = null;
+                    }
+
+                    continue;
+                }
                 if (firstRow) {
                     processor.setHeader(row.getValues());
                 }
@@ -396,6 +413,8 @@ public abstract class Processor extends CsvOperator {
          * _more_
          *
          * @param info _more_
+         *
+         * @param textReader _more_
          * @param inputRows _more_
          *
          *
@@ -403,35 +422,43 @@ public abstract class Processor extends CsvOperator {
          * @throws Exception On badness
          */
         @Override
-        public List<Row> finish(TextReader info, List<Row> inputRows)
+        public List<Row> finish(TextReader textReader, List<Row> inputRows)
                 throws Exception {
             while ((remainderProcessors != null)
                     && (remainderProcessors.size() > 0)) {
                 if (firstProcessors != null) {
                     for (Processor processor : firstProcessors) {
-                        inputRows = processor.finish(info, inputRows);
+                        inputRows = processor.finish(textReader, inputRows);
                     }
                 }
                 processors          = remainderProcessors;
                 remainderProcessors = null;
                 firstProcessors     = null;
                 for (Row row : inputRows) {
-                    row = processRowInner(info, row, "");
-                    if (row == null) {
-                        return null;
+                    row = processRowInner(textReader, row, "");
+                    if ( !textReader.getOkToRun()) {
+                        break;
+                    }
+                    if (textReader.getExtraRow() != null) {
+                        row = processRowInner(textReader,
+                                textReader.getExtraRow(), null);
+                        textReader.setExtraRow(null);
+                    }
+                    if ( !textReader.getOkToRun()) {
+                        break;
                     }
                 }
             }
             if (firstProcessors != null) {
                 for (Processor processor : firstProcessors) {
-                    inputRows = processor.finish(info, inputRows);
+                    inputRows = processor.finish(textReader, inputRows);
                     if (inputRows == null) {
                         return null;
                     }
                 }
             }
 
-            info.flush();
+            textReader.flush();
             this.rows = inputRows;
 
             return this.rows;
@@ -887,7 +914,6 @@ public abstract class Processor extends CsvOperator {
             if (addPointHeader) {
                 addPointHeader = false;
                 handleHeaderRow(info.getWriter(), row, null /*exValues*/);
-
                 return row;
             }
             handleRow(info.getWriter(), row);
@@ -895,7 +921,8 @@ public abstract class Processor extends CsvOperator {
             return row;
         }
 
-
+        /** _more_          */
+        int xxcnt = 0;
 
         /**
          * _more_
@@ -939,9 +966,9 @@ public abstract class Processor extends CsvOperator {
          * @throws Exception _more_
          */
         private void handleRow(PrintWriter writer, Row row) throws Exception {
-
-            String theTemplate = template;
-            List   values      = row.getValues();
+            String  theTemplate   = template;
+            List    values        = row.getValues();
+            boolean escapeColumns = true;
             for (int colIdx = 0; colIdx < values.size(); colIdx++) {
                 Object v = values.get(colIdx);
                 if (theTemplate == null) {
@@ -953,14 +980,20 @@ public abstract class Processor extends CsvOperator {
                         if (trim) {
                             sv = sv.trim();
                         }
-                        boolean addQuote = (sv.indexOf(",") >= 0)
-                                           || (sv.indexOf("\n") >= 0);
-                        if (sv.indexOf("\"") >= 0) {
-                            addQuote = true;
-                            sv       = sv.replaceAll("\"", "\"\"");
+                        if ((colIdx == 0) && sv.startsWith("#")) {
+                            escapeColumns = false;
                         }
-                        if (addQuote) {
-                            writer.print("\"");
+                        boolean addQuote = false;
+                        if (escapeColumns) {
+                            addQuote = (sv.indexOf(",") >= 0)
+                                       || (sv.indexOf("\n") >= 0);
+                            if (sv.indexOf("\"") >= 0) {
+                                addQuote = true;
+                                sv       = sv.replaceAll("\"", "\"\"");
+                            }
+                            if (addQuote) {
+                                writer.print("\"");
+                            }
                         }
                         writer.print(sv);
                         if (addQuote) {
@@ -1030,11 +1063,6 @@ public abstract class Processor extends CsvOperator {
 
         /**
          * _more_
-         *
-         *
-         * @param col _more_
-         * @param delimiter _more_
-         *
          * @param prefix _more_
          */
         public TclWrapper(String prefix) {
@@ -1047,7 +1075,6 @@ public abstract class Processor extends CsvOperator {
          *
          *
          * @param info _more_
-         * @param row _more_
          * @param rows _more_
          *
          * @return _more_
@@ -1104,6 +1131,7 @@ public abstract class Processor extends CsvOperator {
 
         /**
          * _more_
+         *
          *
          * @param info _more_
          * @param rows _more_
@@ -1186,6 +1214,7 @@ public abstract class Processor extends CsvOperator {
         /** _more_ */
         private Row row1;
 
+        /** _more_ */
         private String tableId;
 
 
@@ -1200,20 +1229,17 @@ public abstract class Processor extends CsvOperator {
 
 
         /**
-Get the TableId property.
-
-@return The TableId
-        **/
-        public String getTableId () {
+         * Get the TableId property.
+         *
+         * @return The TableId
+         */
+        public String getTableId() {
             return tableId;
         }
 
 
         /**
          * _more_
-         *
-         *
-         * @param info _more_
          *
          * @param reader _more_
          * @param row _more_
@@ -1244,13 +1270,14 @@ Get the TableId property.
             name = CsvUtil.getDbProp(props, "table", "name", name);
 
             String label = Utils.makeLabel(name);
-            label = CsvUtil.getDbProp(props, "table", "label", label);
-            label = label.replaceAll("\n", " ").replaceAll("\r", " ");
+            label   = CsvUtil.getDbProp(props, "table", "label", label);
+            label   = label.replaceAll("\n", " ").replaceAll("\r", " ");
             tableId = Utils.makeLabel(name).toLowerCase().replaceAll(" ",
-                                                                     "_");
+                                      "_");
             tableId = CsvUtil.getDbProp(props, "table", "id", tableId);
 
-            String labels = CsvUtil.getDbProp(props, "table", "labelColumns", "");
+            String labels = CsvUtil.getDbProp(props, "table", "labelColumns",
+                                "");
 
             File output = reader.getOutputFile();
             if (output != null) {
@@ -1270,8 +1297,7 @@ Get the TableId property.
                 XmlUtil.openTag(
                     "table",
                     XmlUtil.attrs(
-                        "id", tableId, "name", label, 
-                        "labelColumns", labels,
+                        "id", tableId, "name", label, "labelColumns", labels,
                         "icon",
                         CsvUtil.getDbProp(
                             props, "table", "icon", "/db/database.png"))));
@@ -1305,13 +1331,14 @@ Get the TableId property.
             String format = CsvUtil.getDbProp(props, "table", "format",
                                 "yyyy-MM-dd HH:mm");
             for (int colIdx = 0; colIdx < row1.getValues().size(); colIdx++) {
-                Object col = row1.getValues().get(colIdx);
-                label = Utils.makeLabel(col.toString());
-                String colId = label.toLowerCase().replaceAll(" ",
-                                   "_").replaceAll("[^a-z0-9]", "_");
+                Object col   = row1.getValues().get(colIdx);
+                String colId = Utils.makeLabel(col.toString());
+                colId = colId.toLowerCase().replaceAll(" ",
+                        "_").replaceAll("[^a-z0-9]", "_");
                 colId = colId.replaceAll("_+_", "_");
                 colId = colId.replaceAll("_$", "");
                 colId = CsvUtil.getDbProp(props, colId, "id", colId);
+                label = Utils.makeLabel(colId);
                 label = CsvUtil.getDbProp(props, colId, "label", label);
                 label = label.replaceAll("\n", " ").replaceAll("\r", " ");
 
@@ -1320,10 +1347,11 @@ Get the TableId property.
                     continue;
                 }
 
-                
+
 
                 boolean isNumber = isNumeric[colIdx];
-                String  type     = "string";
+                String  type     = CsvUtil.getDbProp(props, "table",
+                                                     "type", "string");
                 if (isNumber) {
                     type = "double";
                 }
@@ -1333,6 +1361,7 @@ Get the TableId property.
                 boolean       canSearch = dfltCanSearch;
 
 
+                attrs.append(XmlUtil.attrs(new String[] { "name", colId }));
 
                 if (CsvUtil.getDbProp(props, colId, "changetype",
                                       dfltChangeType).equals("true")) {
@@ -1344,9 +1373,7 @@ Get the TableId property.
                     attrs.append(XmlUtil.attrs(new String[] { "size",
                             size }));
                 }
-                attrs.append(XmlUtil.attrs(new String[] { "name", colId }));
-                if ((colId.indexOf("code") >= 0)
-                        || (colId.indexOf("type") >= 0)
+                if ((colId.indexOf("type") >= 0)
                         || (colId.indexOf("category") >= 0)) {
                     type = "enumerationplus";
                 } else if (colId.indexOf("date") >= 0) {
@@ -1357,6 +1384,10 @@ Get the TableId property.
                 }
 
                 type = CsvUtil.getDbProp(props, colId, "type", type);
+                String values = CsvUtil.getDbProp(props, colId, "values",
+                                    null);
+                String searchRows = CsvUtil.getDbProp(props, colId,
+                                        "searchrows", "");
                 canSearch = "true".equals(CsvUtil.getDbProp(props, colId,
                         "cansearch", canSearch + ""));
                 canList = "true".equals(CsvUtil.getDbProp(props, colId,
@@ -1365,50 +1396,45 @@ Get the TableId property.
                     "type", type, "label", label, "cansearch", "" + canSearch,
                     "canlist", "" + canList
                 }));
+                if (values != null) {
+                    attrs.append(XmlUtil.attrs(new String[] { "values",
+                            values }));
+                }
+                if (searchRows.length() > 0) {
+                    attrs.append(XmlUtil.attrs(new String[] { "searchrows",
+                            searchRows }));
+                }
                 if (type.equals("date")) {
                     attrs.append(XmlUtil.attrs(new String[] { "format",
                             CsvUtil.getDbProp(props, colId, "format",
                             format) }));
-
                 }
 
                 StringBuffer inner = new StringBuffer();
-                if (CsvUtil.getDbProp(props, colId, "dostats",
-                                      false)) {
+                if (CsvUtil.getDbProp(props, colId, "dostats", false)) {
                     inner.append(XmlUtil.tag("property",
                                              XmlUtil.attrs(new String[] {
                                                  "name",
                             "dostats", "value", "true" })));
                 }
-                if (CsvUtil.getDbProp(props, colId, "iscategory",
-                                      false)) {
+                if (CsvUtil.getDbProp(props, colId, "iscategory", false)) {
                     inner.append(XmlUtil.tag("property",
                                              XmlUtil.attrs(new String[] {
                                                  "name",
                             "iscategory", "value", "true" })));
                 }
-                if (CsvUtil.getDbProp(props, colId, "formap",
-                                      false)) {
+                if (CsvUtil.getDbProp(props, colId, "formap", false)) {
                     inner.append(XmlUtil.tag("property",
                                              XmlUtil.attrs(new String[] {
                                                  "name",
                             "formap", "value", "true" })));
                 }
 
-                if (CsvUtil.getDbProp(props, colId, "islabel",
-                                      false)) {
+                if (CsvUtil.getDbProp(props, colId, "islabel", false)) {
                     inner.append(XmlUtil.tag("property",
                                              XmlUtil.attrs(new String[] {
                                                  "name",
                             "label", "value", "true" })));
-                }
-
-                if (CsvUtil.getDbProp(props, colId, "dostats",
-                                      false)) {
-                    inner.append(XmlUtil.tag("property",
-                                             XmlUtil.attrs(new String[] {
-                                                 "name",
-                            "dostats", "value", "true" })));
                 }
 
                 if (inner.length() > 0) {
@@ -1744,7 +1770,9 @@ Get the TableId property.
             cnt++;
             info.getWriter().println("#" + cnt);
             for (int i = 0; i < values.size(); i++) {
-                String label = headerValues.get(i).toString();
+                String label = (i < headerValues.size())
+                               ? headerValues.get(i).toString()
+                               : "NA";
                 label = StringUtil.padLeft(label, 20);
                 info.getWriter().println(label + ":" + values.get(i));
             }
@@ -1806,7 +1834,7 @@ Get the TableId property.
         public void printRow(TextReader info, Row row) throws Exception {
             if (cnt == 0) {
                 info.getWriter().println(
-                    "<table class=\"entry-table\" border=1 cellspacing=0 cellpadding=0>");
+                    "<table  class='stripe hover ramadda-table' xtable-height=400>");
             }
             List   values = row.getValues();
             String open   = "<td>";
@@ -1814,40 +1842,70 @@ Get the TableId property.
 
             if (cnt == 0) {
                 info.getWriter().println("<thead>");
+                info.getWriter().println("<tr valign=top>");
                 open  = "<th>";
                 close = "</th>";
             } else {
-                if (cnt / 2 == cnt / 2.0) {
-                    info.getWriter().println("<tr  valign=top class=even>");
-                } else {
-                    info.getWriter().println("<tr  valign=top  class=odd>");
-                }
+                info.getWriter().println("<tr  valign=top>");
             }
 
 
             for (int i = 0; i < values.size(); i++) {
                 if (i == 0) {
                     info.getWriter().print(open);
+                    info.getWriter().print(
+                        "<div style='white-space:nowrap;max-width:120px;overflow-x:auto;'>");
                     if (cnt == 0) {
                         info.getWriter().print("&nbsp;");
                     } else {
                         info.getWriter().print("#" + cnt);
                     }
+                    info.getWriter().print("</div'>");
                     info.getWriter().print(close);
                 }
                 info.getWriter().print(open);
+                info.getWriter().print(
+                    "<div style='white-space:nowrap;max-width:120px;overflow-x:auto;'>");
                 if (cnt == 0) {
-                    info.getWriter().print("#" + i + " ");
+                    info.getWriter().print("#" + i + "&nbsp;");
+                    String label = Utils.makeLabel(""
+                                       + values.get(i)).replaceAll(" ",
+                                           "&nbsp;");
+                    info.getWriter().print(HtmlUtils.span(label,HtmlUtils.attr("title",label)));
+                } else {
+                    String label = values.get(i).toString();
+                    info.getWriter().print(HtmlUtils.span(label,HtmlUtils.attr("title",label)));
                 }
-                info.getWriter().print("" + values.get(i));
+                info.getWriter().print("</div>");
                 info.getWriter().print(close);
             }
             if (cnt == 0) {
-                info.getWriter().println("</th>");
+                info.getWriter().println("</tr>");
+                info.getWriter().println("</thead>");
+                info.getWriter().println("</tbody>");
             } else {
                 info.getWriter().println("</tr>");
             }
             cnt++;
+        }
+
+        /**
+         * _more_
+         *
+         * @param info _more_
+         * @param rows _more_
+         *
+         * @return _more_
+         *
+         * @throws Exception _more_
+         */
+        @Override
+        public List<Row> finish(TextReader info, List<Row> rows)
+                throws Exception {
+            info.getWriter().println("</tbody>");
+            info.getWriter().print("</table>");
+
+            return rows;
         }
 
 
@@ -1872,7 +1930,12 @@ Get the TableId property.
         private int uniqueIndex;
 
         /** _more_ */
-        private int valueIndex;
+        //        private int valueIndex;
+
+        private List<Integer> valueIndices;
+
+        /** _more_ */
+        private List<String> valueCols;
 
         /** _more_ */
         private int unitIndex = -1;
@@ -1885,15 +1948,15 @@ Get the TableId property.
          *
          *
          * @param unfurlIndex _more_
+         * @param valueCols _more_
          * @param uniqueIndex _more_
-         * @param valueIndex _more_
-         * @param cols _more_
+         * @param extraCols _more_
          */
-        public Unfurler(int unfurlIndex, int valueIndex, int uniqueIndex,
-                        List<String> cols) {
-            super(cols);
+        public Unfurler(int unfurlIndex, List<String> valueCols,
+                        int uniqueIndex, List<String> extraCols) {
+            super(extraCols);
             this.unfurlIndex = unfurlIndex;
-            this.valueIndex  = valueIndex;
+            this.valueCols   = valueCols;
             this.uniqueIndex = uniqueIndex;
         }
 
@@ -1921,6 +1984,8 @@ Get the TableId property.
         public List<Row> finish(TextReader info, List<Row> rows)
                 throws Exception {
 
+            valueIndices = getIndices(valueCols);
+
             List<Integer>   includes     = getIndices(info);
             HashSet<String> seen         = new HashSet<String>();
             int             rowIndex     = 0;
@@ -1945,7 +2010,15 @@ Get the TableId property.
                 }
                 if ( !newColumnMap.contains(unfurlValue)) {
                     newColumnMap.add(unfurlValue);
-                    newColumns.add(unfurlValue);
+                    if (valueIndices.size() > 1) {
+                        for (int valueIdx : valueIndices) {
+                            String label = unfurlValue + " - "
+                                           + headerRow.get(valueIdx);
+                            newColumns.add(label);
+                        }
+                    } else {
+                        newColumns.add(unfurlValue);
+                    }
                 }
 
                 String    uniqueValue = values.get(uniqueIndex).toString();
@@ -1981,8 +2054,8 @@ Get the TableId property.
                 //                System.err.println(" -- " + i + " " + newColumns);
                 cnt++;
             }
-            //            System.err.println(newColumns);
             String[] array = new String[newColumns.size()];
+
 
             for (String u : uniques) {
                 for (int i = 0; i < array.length; i++) {
@@ -1999,13 +2072,28 @@ Get the TableId property.
                         firstRow = rowValues;
                     }
 
-                    String  colname = rowValues.get(unfurlIndex).toString();
-                    Integer idx     = indexMap.get(colname);
-                    if (idx == null) {
-                        continue;
+                    String colname = rowValues.get(unfurlIndex).toString();
+                    if (valueIndices.size() > 1) {
+                        for (int valueIndex : valueIndices) {
+                            String label = colname + " - "
+                                           + headerRow.get(valueIndex);
+                            Integer idx = indexMap.get(label);
+                            if (idx == null) {
+                                continue;
+                            }
+                            String value =
+                                rowValues.get(valueIndex).toString();
+                            array[1 + includes.size() + idx] = value;
+                        }
+                    } else {
+                        Integer idx = indexMap.get(colname);
+                        if (idx == null) {
+                            continue;
+                        }
+                        int    valueIndex = valueIndices.get(0);
+                        String value = rowValues.get(valueIndex).toString();
+                        array[1 + includes.size() + idx] = value;
                     }
-                    String value = rowValues.get(valueIndex).toString();
-                    array[1 + includes.size() + idx] = value;
                     cnt++;
                 }
                 for (int i : includes) {
@@ -2024,6 +2112,7 @@ Get the TableId property.
             }
 
             return newRows;
+
 
         }
     }
@@ -2111,18 +2200,28 @@ Get the TableId property.
     public static class Summer extends RowCollector {
 
         /** _more_ */
-        private int[] uniqueIndices;
+        private List<Integer> uniqueIndices;
 
+        /** _more_ */
+        private List<Integer> valueIndices;
+
+        /** _more_ */
+        private List<String> keys;
+
+        /** _more_ */
+        private List<String> values;
 
         /**
          * _more_
          *
          *
-         * @param uniqueIndices _more_
+         *
+         * @param keys _more_
+         * @param values _more_
          */
-        public Summer(int[] uniqueIndices) {
-            this.uniqueIndices = uniqueIndices;
-
+        public Summer(List<String> keys, List<String> values) {
+            this.keys   = keys;
+            this.values = values;
         }
 
 
@@ -2139,6 +2238,14 @@ Get the TableId property.
         @Override
         public List<Row> finish(TextReader info, List<Row> rows)
                 throws Exception {
+            uniqueIndices = getIndices(keys);
+            valueIndices  = getIndices(values);
+            List<Integer> allIndices = new ArrayList<Integer>();
+            allIndices.addAll(uniqueIndices);
+            allIndices.addAll(valueIndices);
+            HashSet<Integer> allIndicesMap =
+                (HashSet<Integer>) Utils.makeHashSet(allIndices);
+
             int          rowIndex = 0;
             List<String> keys     = new ArrayList<String>();
             Hashtable<String, List<Row>> rowMap = new Hashtable<String,
@@ -2168,70 +2275,134 @@ Get the TableId property.
             }
 
 
-            List<Row> newRows = new ArrayList<Row>();
-            newRows.add(headerRow);
+            List<Row> newRows   = new ArrayList<Row>();
+            Row       newHeader = new Row();
+            for (int i = 0; i < headerRow.size(); i++) {
+                if (allIndicesMap.contains(new Integer(i))) {
+                    newHeader.add(headerRow.get(i));
+                }
+            }
 
+            newRows.add(newHeader);
             for (String key : keys) {
                 for (int i = 0; i < array.length; i++) {
                     array[i] = null;
                 }
-                for (Row row : rowMap.get(key)) {
-                    List values = row.getValues();
-                    for (int i = 0; i < array.length; i++) {
-                        Object  obj       = values.get(i);
-                        String  sobj      = obj.toString();
-                        boolean didNumber = false;
-                        boolean skipIt    = false;
-                        for (int j : uniqueIndices) {
-                            if (i == j) {
-                                skipIt = true;
-                                if (array[i] == null) {
-                                    array[i] = obj;
-                                }
+                Row newRow = null;
+                for (int i = 0; i < valueIndices.size(); i++) {
+                    int    valueIdx = valueIndices.get(i);
+                    double sum      = 0;
+                    for (Row row : rowMap.get(key)) {
+                        if (newRow == null) {
+                            newRow = new Row();
+                            for (int u = 0; u < uniqueIndices.size(); u++) {
+                                newRow.add(row.get(uniqueIndices.get(u)));
                             }
+                            newRows.add(newRow);
                         }
-                        if (skipIt) {
+                        Object value = row.get(valueIdx);
+                        if (value == null) {
                             continue;
                         }
-
-                        if (sobj.matches("[\\d\\.]+")) {
-                            try {
-                                double v = Double.parseDouble(sobj);
-                                if (array[i] == null) {
-                                    array[i] = new Double(v);
-                                } else {
-                                    if ( !(array[i] instanceof Double)) {
-                                        array[i] = new Double(0);
-                                    }
-                                    array[i] =
-                                        new Double(v
-                                            + ((Double) array[i])
-                                                .doubleValue());
-                                }
-                                didNumber = true;
-                            } catch (Exception exc) {
-                                System.err.println("Bad:" + sobj);
-                            }
-                        } else {}
-                        if ( !didNumber) {
-                            if (array[i] == null) {
-                                array[i] = obj;
-                            } else {
-                                if ( !(array[i] instanceof Double)) {
-                                    if ( !array[i].equals(obj)) {
-                                        //                                        System.err.println("Clearing:" + array[i]+ " -- " + sobj);
-                                        array[i] = "";
-                                    }
-                                }
-                            }
-                        }
+                        sum += Double.parseDouble(value.toString());
                     }
-                    newRows.add(new Row(array));
+                    newRow.add(new Double(sum));
                 }
             }
 
             return newRows;
 
+        }
+
+
+
+
+    }
+
+
+    /**
+     * Class description
+     *
+     *
+     * @version        $version$, Wed, Feb 20, '19
+     * @author         Enter your name here...
+     */
+    public static class Joiner extends RowCollector {
+
+        /** _more_ */
+        private List<String> keys1;
+
+        /** _more_ */
+        private List<String> values1;
+
+        /** _more_ */
+        private List<String> keys2;
+
+        /** _more_ */
+        private List<String> values2;
+
+        /** _more_ */
+        private String file;
+
+        /**
+         * _more_
+         *
+         *
+         *
+         * @param keys _more_
+         * @param values _more_
+         *
+         * @param keys1 _more_
+         * @param values1 _more_
+         * @param file _more_
+         * @param keys2 _more_
+         * @param values2 _more_
+         */
+        public Joiner(List<String> keys1, List<String> values1, String file,
+                      List<String> keys2, List<String> values2) {
+            this.keys1   = keys1;
+            this.values1 = values1;
+            this.keys2   = keys2;
+            this.values2 = values2;
+            this.file    = file;
+        }
+
+
+        /**
+         * _more_
+         *
+         * @param info _more_
+         * @param rows _more_
+         *
+         *
+         * @return _more_
+         * @throws Exception On badness
+         */
+        @Override
+        public List<Row> finish(TextReader info, List<Row> rows)
+                throws Exception {
+            List<Integer> keys1Indices   = getIndices(keys1);
+            List<Integer> values1Indices = getIndices(values1);
+            List<Integer> keys2Indices   = getIndices(keys2);
+            List<Integer> values2Indices = getIndices(values2);
+            List<Row>     newRows        = new ArrayList<Row>();
+            BufferedReader br = new BufferedReader(
+                                    new InputStreamReader(
+                                        getInputStream(file)));
+            TextReader reader = new TextReader(br);
+            List<Row>  rows2  = new ArrayList<Row>();
+            while (true) {
+                String line = reader.readLine();
+                if (line == null) {
+                    break;
+                }
+                List<String> cols = Utils.tokenizeColumns(line, ",");
+                rows2.add(new Row(cols));
+            }
+
+
+
+            return newRows;
         }
 
 

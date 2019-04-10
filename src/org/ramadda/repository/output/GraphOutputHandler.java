@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -21,14 +21,14 @@ import org.ramadda.repository.*;
 import org.ramadda.repository.auth.*;
 import org.ramadda.repository.database.*;
 import org.ramadda.repository.type.*;
-
-import org.ramadda.sql.*;
-
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.Json;
 import org.ramadda.util.Utils;
+
+import org.ramadda.util.sql.*;
+
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 
@@ -172,14 +172,14 @@ public class GraphOutputHandler extends OutputHandler {
             return;
         }
         seen.add(entry.getId());
-        String iconUrl = getPageHandler().getIconUrl(request, entry);
+        String getIconUrl = getPageHandler().getIconUrl(request, entry);
         String url = getRepository().getUrlBase() + "/graph/get?entryid="
                      + entry.getId();
         String entryUrl = request.entryUrl(getRepository().URL_ENTRY_SHOW,
                                            entry);
         nodes.add(Json.map(new String[] {
             ATTR_NAME, entry.getName(), ATTR_NODEID, entry.getId(), ATTR_URL,
-            entryUrl, ATTR_GRAPHURL, url, ATTR_ICON, iconUrl
+            entryUrl, ATTR_GRAPHURL, url, ATTR_ICON, getIconUrl
         }, true));
     }
 
@@ -305,8 +305,8 @@ public class GraphOutputHandler extends OutputHandler {
             throws Exception {
         String divId = "graph_" + (graphCnt++);
         js.append("function createGraph" + divId + "() {\n");
-        sb.append(HtmlUtils.importJS(fileUrl("/lib/d3/d3.v3.min.js")));
-        sb.append(HtmlUtils.importJS(fileUrl("/d3graph.js")));
+        sb.append(HtmlUtils.importJS(getFileUrl("/lib/d3/d3.v3.min.js")));
+        sb.append(HtmlUtils.importJS(getFileUrl("/d3graph.js")));
         sb.append(HtmlUtils.div("",
                                 HtmlUtils.style("width:" + width + ";height:"
                                     + height) + HtmlUtils.id(divId)

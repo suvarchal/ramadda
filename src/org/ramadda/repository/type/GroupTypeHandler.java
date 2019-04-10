@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@ package org.ramadda.repository.type;
 
 
 import org.ramadda.repository.*;
-
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
+
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -114,7 +114,7 @@ public class GroupTypeHandler extends TypeHandler {
                 new Link(
                     request.makeUrl(
                         getRepository().URL_SEARCH_FORM, ARG_GROUP,
-                        entry.getId()), getRepository().iconUrl(ICON_SEARCH),
+                        entry.getId()), getRepository().getIconUrl(ICON_SEARCH),
                                         "Search in Folder"));
             */
         }

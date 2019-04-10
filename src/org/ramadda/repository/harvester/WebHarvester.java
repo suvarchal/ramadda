@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -22,10 +22,10 @@ import org.ramadda.repository.auth.*;
 import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.output.*;
 import org.ramadda.repository.type.*;
-
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
+
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -300,7 +300,7 @@ public class WebHarvester extends Harvester {
             if ((urlEntry.url != null) && (urlEntry.url.length() > 0)) {
                 link = HtmlUtils.href(
                     urlEntry.url,
-                    HtmlUtils.img(getRepository().iconUrl(ICON_LINK)),
+                    HtmlUtils.img(getRepository().getIconUrl(ICON_LINK)),
                     HtmlUtils.attr("target", "_linkpage"));
             }
             String urlInput = HtmlUtils.input(ATTR_URL + cnt, urlEntry.url,
@@ -644,11 +644,13 @@ public class WebHarvester extends Harvester {
         if (tag.length() > 0) {
             List tags = StringUtil.split(tag, ",", true, true);
             for (int i = 0; i < tags.size(); i++) {
-                entry.addMetadata(new Metadata(repository.getGUID(),
-                        entry.getId(), EnumeratedMetadataHandler.TYPE_TAG,
-                        DFLT_INHERITED, (String) tags.get(i),
-                        Metadata.DFLT_ATTR, Metadata.DFLT_ATTR,
-                        Metadata.DFLT_ATTR, Metadata.DFLT_EXTRA));
+                getMetadataManager().addMetadata(entry,
+                        new Metadata(repository.getGUID(), entry.getId(),
+                                     EnumeratedMetadataHandler.TYPE_TAG,
+                                     DFLT_INHERITED, (String) tags.get(i),
+                                     Metadata.DFLT_ATTR, Metadata.DFLT_ATTR,
+                                     Metadata.DFLT_ATTR,
+                                     Metadata.DFLT_EXTRA));
             }
 
         }

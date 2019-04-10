@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.ramadda.util.Station;
 import org.ramadda.util.Utils;
 import org.ramadda.util.text.*;
 
+import ucar.unidata.util.DateUtil;
 import ucar.unidata.util.StringUtil;
 
 import java.io.*;
@@ -127,7 +128,15 @@ public class TextRecord extends DataRecord {
         super(file);
     }
 
-
+    /**
+     * _more_
+     *
+     * @param file _more_
+     * @param dummyBigEndian _more_
+     */
+    public TextRecord(RecordFile file, boolean dummyBigEndian) {
+        this(file);
+    }
 
     /**
      * _more_
@@ -172,7 +181,14 @@ public class TextRecord extends DataRecord {
     }
 
 
-
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
+    public String[] getTokens() {
+        return tokens;
+    }
 
     /**
      * _more_
@@ -229,8 +245,6 @@ public class TextRecord extends DataRecord {
      *
      * @return _more_
      *
-     * @throws IOException _more_
-     *
      * @throws Exception _more_
      */
     public String readNextLine(RecordIO recordIO) throws Exception {
@@ -250,13 +264,17 @@ public class TextRecord extends DataRecord {
                 }
             }
             if (currentLine == null) {
+                //                System.err.println("TextRecord: currentLine is null");
                 return null;
             }
-            currentLine = currentLine.trim();
+            //Don't trim the line as there might be a tab delimiter at the end
+            //            currentLine = currentLine.trim();
             if ( !lineOk(currentLine)) {
+                //                System.err.println("TextRecord: currentLine not ok:" + currentLine);
                 continue;
             }
 
+            //            System.err.println("TextRecord: currentLine:" + currentLine);
             return currentLine;
         }
     }
@@ -297,22 +315,27 @@ public class TextRecord extends DataRecord {
                 if (matchUpColumns && (rawOK == null)) {
                     List<String> toks = Utils.tokenizeColumns(line,
                                             delimiter);
+                    toks = ((TextFile) getRecordFile()).processTokens(this,
+                            toks, true);
                     rawOK = new boolean[toks.size()];
                     HashSet<String> seen = new HashSet<String>();
                     for (RecordField field : fields) {
-                        seen.add(field.getName());
+                        seen.add(field.getName().trim());
+                        seen.add(field.getLabel().trim());
                     }
-                    //                    System.err.println("match up");
                     for (int idx = 0; idx < toks.size(); idx++) {
-                        rawOK[idx] = seen.contains(toks.get(idx));
-                        //                        System.err.println(toks.get(idx) +" " + rawOK[idx]);
+                        String tok = toks.get(idx);
+                        tok        = tok.trim();
+                        rawOK[idx] = seen.contains(tok);
+                        if ( !rawOK[idx]) {
+                            String _tok = tok.replaceAll(",",
+                                              " ").replaceAll("\"", "'");
+                            rawOK[idx] = seen.contains(_tok);
+                        }
                     }
 
                     continue;
                 }
-
-
-
                 if (isLineValidData(line)) {
                     break;
                 }
@@ -324,11 +347,16 @@ public class TextRecord extends DataRecord {
 
             if (delimiterIsSpace || (fixedWidth != null)) {
                 if ( !split(recordIO, line, fields)) {
+                    //                    System.err.println("Could not tokenize line:" + line);
                     //throw new IllegalArgumentException("Could not tokenize line:" + line);
                     return ReadStatus.SKIP;
                 }
             } else {
                 List<String> toks = Utils.tokenizeColumns(line, delimiter);
+                toks = ((TextFile) getRecordFile()).processTokens(this, toks,
+                        false);
+                //                System.err.println("toks:" + toks);
+
                 if (bePickyAboutTokens && (toks.size() != tokens.length)) {
                     StringBuilder msg = new StringBuilder("Bad token count:"
                                             + tokens.length + " toks:"
@@ -353,9 +381,11 @@ public class TextRecord extends DataRecord {
                 }
                 int targetIdx = 0;
 
+                //                System.err.println("toks:" + toks);
                 for (int i = 0; (i < toks.size()) && (i < tokens.length);
                         i++) {
                     if ((rawOK != null) && !rawOK[i]) {
+                        //                        System.err.println(" raw not ok");
                         continue;
                     }
                     tokens[targetIdx++] = toks.get(i);
@@ -396,6 +426,7 @@ public class TextRecord extends DataRecord {
                     tok = tokens[indices[tokenCnt]];
                 } else {
                     tok = tokens[tokenCnt];
+                    //                    System.err.println("tokenCnt:" + tokenCnt  +" tok:" + tok);
                 }
                 //                System.err.println("field: " + field.getName() + " tok:" + tok +" index:" + indices[tokenCnt]);
                 tokenCnt++;
@@ -421,14 +452,16 @@ public class TextRecord extends DataRecord {
                 } else {
                     double dValue;
                     if ((idxX == fieldCnt) || (idxY == fieldCnt)) {
-                        dValue = ucar.unidata.util.Misc.decodeLatLon(tok);
+                        dValue = Utils.decodeLatLon(tok);
                     } else {
                         dValue = textFile.parseValue(this, field, tok);
                     }
-                    values[fieldCnt] = field.convertValue(dValue);
-                    if (isMissingValue(field, values[fieldCnt])) {
-                        values[fieldCnt] = Double.NaN;
+                    if (isMissingValue(field,dValue)) {
+                        dValue = Double.NaN;
+                    } else {
+                        dValue           = field.convertValue(dValue);
                     }
+                    values[fieldCnt] = dValue;
                 }
                 //                System.err.println ("value[ " + fieldCnt +"] = " + values[fieldCnt]);
             }
@@ -446,10 +479,10 @@ public class TextRecord extends DataRecord {
 
             return ReadStatus.OK;
         } catch (Exception exc) {
-            System.err.println("Line:" + line);
-
+            System.err.println("Error line:" + line);
             throw exc;
         }
+
 
 
     }
@@ -478,11 +511,17 @@ public class TextRecord extends DataRecord {
             date = getDateFormat(field).parse(tok);
             //            System.err.println ("Date:" + tok +" parsed:" + date);
         } catch (java.text.ParseException ignore) {
-            //Try tacking on UTC
-            try {
-                date = getDateFormat(field).parse(tok + " UTC");
-            } catch (java.text.ParseException ignoreThisOne) {
-                throw ignore;
+            //Check for year
+            if(tok.length()==4) {
+                date = DateUtil.parse(tok);
+            }
+            if(date==null) {
+                //Try tacking on UTC
+                try {
+                    date = getDateFormat(field).parse(tok + " UTC");
+                } catch (java.text.ParseException ignoreThisOne) {
+                    throw ignore;
+                }
             }
         }
         if (offset != 0) {
@@ -794,8 +833,8 @@ public class TextRecord extends DataRecord {
             if (fields.get(i).getSkip()) {
                 continue;
             }
-            System.out.println(fields.get(i).getName() + ":" + values[i]
-                               + " ");
+            System.out.println(fields.get(i).getName() + ": value:"
+                               + values[i] + " ");
         }
     }
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -23,8 +23,6 @@ import org.ramadda.repository.auth.User;
 import org.ramadda.repository.auth.UserManager;
 import org.ramadda.repository.database.DatabaseManager;
 import org.ramadda.repository.database.Tables;
-import org.ramadda.sql.Clause;
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
 
 
@@ -32,6 +30,8 @@ import org.ramadda.util.MyTrace;
 
 
 import org.ramadda.util.Utils;
+import org.ramadda.util.sql.Clause;
+import org.ramadda.util.sql.SqlUtil;
 
 import ucar.unidata.util.IOUtil;
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ package org.ramadda.data.point.text;
 
 import org.ramadda.data.point.*;
 import org.ramadda.data.record.*;
+
+import org.ramadda.util.text.CsvUtil;
 
 import ucar.unidata.util.StringUtil;
 
@@ -72,6 +74,67 @@ public class CsvFile extends TextFile {
      */
     public CsvFile(String filename, Hashtable properties) throws IOException {
         super(filename, properties);
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param filename _more_
+     * @param context _more_
+     * @param properties _more_
+     */
+    public CsvFile(String filename, RecordFileContext context,
+                   Hashtable properties) {
+        super(filename, context, properties);
+    }
+
+    /**
+     * _more_
+     *
+     * @param buffered _more_
+     *
+     * @return _more_
+     *
+     * @throws IOException _more_
+     */
+    public InputStream doMakeInputStream(boolean buffered)
+            throws IOException {
+        String csvCommands = getProperty("point.csvcommands", (String) null);
+        if (csvCommands == null) {
+            return super.doMakeInputStream(buffered);
+        }
+        File file = getCacheFile();
+        //        System.err.println("file:" +file);
+        //        System.err.println(Misc.getStackTrace());
+        if (file == null || !file.exists()) {
+            try {
+                ByteArrayOutputStream bos=null;
+                OutputStream      fos;
+                if(file!=null) {
+                     fos = new FileOutputStream(file);
+                } else {
+                    fos = bos = new ByteArrayOutputStream();
+                }
+                String[] args = StringUtil.listToStringArray(
+                                    StringUtil.split(csvCommands, ","));
+                for(int i=0;i<args.length;i++) 
+                    args[i] = args[i].replaceAll("_comma_",",");
+                CsvUtil csvUtil = new CsvUtil(args,
+                                      new BufferedOutputStream(fos), null);
+                csvUtil.setInputStream(super.doMakeInputStream(buffered));
+                csvUtil.run(null);
+                fos.close();
+                if(file == null) {
+                    //                    System.err.println("processed:" +new String(bos.toByteArray()));
+                    return new ByteArrayInputStream(bos.toByteArray());
+                }
+            } catch (Exception exc) {
+                throw new IllegalArgumentException(exc);
+            }
+        }
+
+        return new BufferedInputStream(new FileInputStream(file));
     }
 
 
@@ -159,6 +222,7 @@ public class CsvFile extends TextFile {
     @Override
     public List<RecordField> doMakeFields(boolean failureOk) {
         String fieldString = getProperty(PROP_FIELDS, null);
+        //        System.err.println("CsvFile.props:" + getProperties());
         if (fieldString == null) {
             doQuickVisit();
             fieldString = getProperty(PROP_FIELDS, null);

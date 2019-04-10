@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ package org.ramadda.data.services;
 import org.ramadda.data.point.PointFile;
 import org.ramadda.data.point.PointMetadataHarvester;
 import org.ramadda.data.record.RecordFile;
+import org.ramadda.data.record.RecordFileContext;
 import org.ramadda.data.record.RecordFileFactory;
 import org.ramadda.data.record.RecordVisitorGroup;
 
@@ -38,6 +39,7 @@ import org.ramadda.repository.type.*;
 
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.Utils;
+import org.ramadda.util.WikiUtil;
 import org.ramadda.util.grid.LatLonGrid;
 
 
@@ -47,13 +49,8 @@ import org.w3c.dom.*;
 import ucar.unidata.util.Misc;
 
 
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
-import java.io.DataOutputStream;
-
 
 import java.io.File;
-import java.io.FileOutputStream;
 
 import java.lang.reflect.*;
 
@@ -71,7 +68,8 @@ import java.util.List;
  * @author Jeff McWhirter
  * @version $Revision: 1.3 $
  */
-public abstract class RecordTypeHandler extends GenericTypeHandler implements RecordConstants {
+public abstract class RecordTypeHandler extends BlobTypeHandler implements RecordConstants,
+        RecordFileContext {
 
     /** _more_ */
     public static final int IDX_RECORD_COUNT = 0;
@@ -92,6 +90,21 @@ public abstract class RecordTypeHandler extends GenericTypeHandler implements Re
     /**
      * _more_
      *
+     * @param repository _more_
+     * @param type _more_
+     * @param description _more_
+     */
+    public RecordTypeHandler(Repository repository, String type,
+                             String description) {
+        super(repository, type, description);
+    }
+
+
+
+
+    /**
+     * _more_
+     *
      * @param repository ramadda
      * @param node _more_
      * @throws Exception On badness
@@ -99,6 +112,34 @@ public abstract class RecordTypeHandler extends GenericTypeHandler implements Re
     public RecordTypeHandler(Repository repository, Element node)
             throws Exception {
         super(repository, node);
+    }
+
+
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
+    public String getContextNamespace() {
+        return getTypeProperty("record.namespace", "record");
+    }
+
+    /**
+     * _more_
+     *
+     * @param field _more_
+     * @param key _more_
+     *
+     * @return _more_
+     */
+    public String getFieldProperty(String field, String key) {
+        key = getContextNamespace() + "." + field + "." + key;
+        String v = getRepository().getProperty(key);
+        if ((v != null) && (v.trim().length() > 0)) {
+            return v;
+        }
+
+        return null;
     }
 
     /**
@@ -122,6 +163,40 @@ public abstract class RecordTypeHandler extends GenericTypeHandler implements Re
     /**
      * _more_
      *
+     * @param wikiUtil _more_
+     * @param request _more_
+     * @param originalEntry _more_
+     * @param entry _more_
+     * @param tag _more_
+     * @param props _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    @Override
+    public String getWikiInclude(WikiUtil wikiUtil, Request request,
+                                 Entry originalEntry, Entry entry,
+                                 String tag, Hashtable props)
+            throws Exception {
+        if (tag.equals("point_metadata")) {
+            RecordOutputHandler outputHandler = getRecordOutputHandler();
+            StringBuffer        sb            = new StringBuffer();
+            outputHandler.getFormHandler().getEntryMetadata(request,
+                    outputHandler.doMakeEntry(request, entry), sb);
+
+            return sb.toString();
+        }
+
+        return super.getWikiInclude(wikiUtil, request, originalEntry, entry,
+                                    tag, props);
+    }
+
+
+
+    /**
+     * _more_
+     *
      * @return _more_
      *
      * @throws Exception _more_
@@ -130,6 +205,19 @@ public abstract class RecordTypeHandler extends GenericTypeHandler implements Re
         return new RecordOutputHandler(getRepository(), null);
     }
 
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param sb _more_
+     *
+     * @throws Exception _more_
+     */
+    public void addToProcessingForm(Request request, Entry entry,
+                                    Appendable sb)
+            throws Exception {}
 
     /**
      * _more_
@@ -184,13 +272,15 @@ public abstract class RecordTypeHandler extends GenericTypeHandler implements Re
      *
      * @param entry _more_
      * @param originalFile _more_
+     * @param force _more_
      *
      * @throws Exception _more_
      */
-    public void initializeRecordEntry(Entry entry, File originalFile)
+    public void initializeRecordEntry(Entry entry, File originalFile,
+                                      boolean force)
             throws Exception {
 
-        if (anySuperTypesOfThisType()) {
+        if ( !force && anySuperTypesOfThisType()) {
             return;
         }
         Hashtable existingProperties = getRecordProperties(entry);
@@ -285,15 +375,14 @@ public abstract class RecordTypeHandler extends GenericTypeHandler implements Re
      * @throws Exception On badness
      */
     public Hashtable getRecordProperties(Entry entry) throws Exception {
-        Object[] values = entry.getTypeHandler().getEntryValues(entry);
-        String   propertiesString = (values[IDX_PROPERTIES] != null)
-                                    ? values[IDX_PROPERTIES].toString()
-                                    : "";
+        Object[]  values = entry.getTypeHandler().getEntryValues(entry);
+        String    propertiesString = (values[IDX_PROPERTIES] != null)
+                                     ? values[IDX_PROPERTIES].toString()
+                                     : "";
 
-        String typeProperties = getTypeProperty("record.properties",
-                                    (String) null);
+        String    typeProperties   = getRecordPropertiesFromType(entry);
 
-        Hashtable p = null;
+        Hashtable p                = null;
 
 
         if (typeProperties != null) {
@@ -317,6 +406,20 @@ public abstract class RecordTypeHandler extends GenericTypeHandler implements Re
     /**
      * _more_
      *
+     * @param entry _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public String getRecordPropertiesFromType(Entry entry) throws Exception {
+        return getTypeProperty("record.properties", (String) null);
+    }
+
+
+    /**
+     * _more_
+     *
      *
      * @param request _more_
      * @param entry _more_
@@ -327,12 +430,25 @@ public abstract class RecordTypeHandler extends GenericTypeHandler implements Re
      */
     public RecordFile doMakeRecordFile(Request request, Entry entry)
             throws Exception {
-        Hashtable  properties = getRecordProperties(entry);
-        RecordFile recordFile = doMakeRecordFile(entry, properties);
+        Hashtable properties = getRecordProperties(entry);
+        RecordFile recordFile = doMakeRecordFile(entry, properties,
+                                    request.getDefinedProperties());
         if (recordFile == null) {
             return null;
         }
+        String filename = "record_" + entry.getId() + "_"
+                          + entry.getChangeDate() + ".csv";
+
+        File file = null;
+        if(getTypeProperty("record.file.cacheok",true)) {
+            file = getRepository().getEntryManager().getCacheFile(entry,
+                                                                  filename);
+            recordFile.setCacheFile(file);
+        }
+
+
         //Explicitly set the properties to force a call to initProperties
+        //        System.err.println ("doMakeRecordFile.setProperties:" + properties);
         recordFile.setProperties(properties);
 
         return recordFile;
@@ -342,13 +458,53 @@ public abstract class RecordTypeHandler extends GenericTypeHandler implements Re
      * _more_
      *
      * @param entry _more_
+     * @param requestProperties _more_
      *
      * @return _more_
      *
      * @throws Exception _more_
      */
-    private String getPathForRecordEntry(Entry entry) throws Exception {
+    public String getPathForRecordEntry(Entry entry,
+                                        Hashtable requestProperties)
+            throws Exception {
         String path = getPathForEntry(null, entry);
+
+        return getPathForRecordEntry(entry, path, requestProperties);
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param entry _more_
+     * @param path _more_
+     * @param requestProperties _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public String getPathForRecordEntry(Entry entry, String path,
+                                        Hashtable requestProperties)
+            throws Exception {
+        if (path.indexOf("${latitude}") >= 0) {
+            if (Utils.stringDefined(
+                    (String) requestProperties.get("latitude"))) {
+                path = path.replace(
+                    "${latitude}",
+                    (String) requestProperties.get("latitude"));
+                path = path.replace(
+                    "${longitude}",
+                    (String) requestProperties.get("longitude"));
+            }
+            if (entry.hasLocationDefined() || entry.hasAreaDefined()) {
+                path = path.replace("${latitude}", entry.getLatitude() + "");
+                path = path.replace("${longitude}",
+                                    entry.getLongitude() + "");
+            }
+            path = path.replace("${latitude}", "40");
+            path = path.replace("${longitude}", "-105.2");
+        }
 
         return path;
     }
@@ -360,24 +516,29 @@ public abstract class RecordTypeHandler extends GenericTypeHandler implements Re
      *
      * @param entry _more_
      * @param properties _more_
+     * @param requestProperties _more_
      *
      * @return _more_
      *
      * @throws Exception _more_
      */
-    private RecordFile doMakeRecordFile(Entry entry, Hashtable properties)
+    public RecordFile doMakeRecordFile(Entry entry, Hashtable properties,
+                                       Hashtable requestProperties)
             throws Exception {
         String recordFileClass = getTypeProperty("record.file.class",
                                      (String) null);
 
 
         if (recordFileClass != null) {
-            return doMakeRecordFile(entry, recordFileClass, properties);
+            return doMakeRecordFile(entry, recordFileClass, properties,
+                                    requestProperties);
         }
 
 
+
         return (RecordFile) getRecordFileFactory().doMakeRecordFile(
-            getPathForRecordEntry(entry), properties);
+            getPathForRecordEntry(entry, requestProperties), properties,
+            requestProperties);
     }
 
 
@@ -387,15 +548,17 @@ public abstract class RecordTypeHandler extends GenericTypeHandler implements Re
      * @param entry _more_
      * @param className _more_
      * @param properties _more_
+     * @param requestProperties _more_
      *
      * @return _more_
      *
      * @throws Exception _more_
      */
     private RecordFile doMakeRecordFile(Entry entry, String className,
-                                        Hashtable properties)
+                                        Hashtable properties,
+                                        Hashtable requestProperties)
             throws Exception {
-        String path = getPathForRecordEntry(entry);
+        String path = getPathForRecordEntry(entry, requestProperties);
         if (path == null) {
             return null;
         }
@@ -409,7 +572,10 @@ public abstract class RecordTypeHandler extends GenericTypeHandler implements Re
         ctor = Misc.findConstructor(c, new Class[] { String.class });
 
         if (ctor != null) {
-            return (RecordFile) ctor.newInstance(new Object[] { path });
+            RecordFile recordFile =
+                (RecordFile) ctor.newInstance(new Object[] { path });
+
+            return recordFile;
         }
 
         throw new IllegalArgumentException("Could not find constructor for "
@@ -532,9 +698,25 @@ public abstract class RecordTypeHandler extends GenericTypeHandler implements Re
      *
      * @return _more_
      */
-    public String getIconUrl(Request request, String icon) {
-        return request.getAbsoluteUrl(getRepository().iconUrl(icon));
+    public String getAbsoluteIconUrl(Request request, String icon) {
+        return request.getAbsoluteUrl(getRepository().getIconUrl(icon));
     }
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param prop _more_
+     * @param dflt _more_
+     *
+     * @return _more_
+     */
+    public String getChartProperty(Request request, Entry entry, String prop,
+                                   String dflt) {
+        return getTypeProperty(prop, dflt);
+    }
+
 
 
 }

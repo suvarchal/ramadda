@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -175,9 +175,11 @@ public class AcsTypeHandler extends PointTypeHandler {
                                   HtmlUtils.id("acs_get_text")
                                   + HtmlUtils.attr("placeholder", "Search")));
         sb.append(
-            HtmlUtils.importJS(getRepository().fileUrl("/census/census.js")));
+            HtmlUtils.importJS(
+                getRepository().getFileUrl("/census/census.js")));
         sb.append(
-            HtmlUtils.cssLink(getRepository().fileUrl("/census/census.css")));
+            HtmlUtils.cssLink(
+                getRepository().getFileUrl("/census/census.css")));
 
         sb.append(HtmlUtils.href(getRepository().getUrlBase()
                                  + "/census/index.html", "Help",

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ public class RadarTypeHandler extends GenericTypeHandler {
                     HtmlUtils.url(
                         "http://radar.weather.gov/radar.php", "rid",
                         (String) entry.getValues()[0], "product",
-                        (String) entry.getValues()[1]), iconUrl(
+                        (String) entry.getValues()[1]), getIconUrl(
                             "/icons/radar.gif"), "Show NWS Radar Site"));
         }
         */

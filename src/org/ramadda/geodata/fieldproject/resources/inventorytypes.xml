@@ -81,9 +81,8 @@
      <property name="form.date.show" value="false"/>
      <property name="form.area.show" value="false"/>
      <wiki><![CDATA[
-:title Vocabulary: {{name}} 
-
-{{description}}
++section title= "Vocabulary: {{name}}"
+{{description wikify=true}}
 {{display   
 type="entrylist"  
 columns="name,description,unit"
@@ -94,12 +93,13 @@ layoutHere="true"
 orientation="vertical"  
 showMetadata="true"
 innerHeight="500" 
-divid="listdiv" 
+xxdivid="listdiv" 
 entryParent="this"
 showType="false"
 formOpen="false"
 showSearchSettings="false"
 }}
+-section
 ]]></wiki>
 
    </type>

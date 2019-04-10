@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -91,7 +91,24 @@ public class KmlTypeHandler extends GenericTypeHandler {
         if ( !entry.isFile()) {
             return;
         }
-        Element kmlRoot = readKml(getRepository(), entry);
+        initializeKmlEntry(request, entry, newEntry);
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param newEntry _more_
+     *
+     * @throws Exception _more_
+     */
+    public static void initializeKmlEntry(Request request, Entry entry,
+                                          boolean newEntry)
+            throws Exception {
+
+        Element kmlRoot = readKml(request.getRepository(), entry);
         if (kmlRoot == null) {
             return;
         }
@@ -126,6 +143,32 @@ public class KmlTypeHandler extends GenericTypeHandler {
         if (nwse[3] != Entry.NONGEO) {
             entry.setEast(nwse[3]);
         }
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    @Override
+    public Result getHtmlDisplay(Request request, Entry entry)
+            throws Exception {
+        if ( !Misc.equals(entry.getValue(0, "false"), "true")) {
+            return null;
+        }
+        StringBuffer sb = new StringBuffer();
+        String wiki =
+            "+section title={{name}}\n{{description wikify=\"true\"}}\n+row\n+col-md-8\n{{map width=\"100%\" height=\"450\" viewBounds=\"<bounds>\" details=\"true\" displayDiv=\"mapDisplay\" showSearch=\"true\" }}\n-col\n+col-md-4\n<div style=\"padding-top:20px;\"></div>\n<div id=\"mapDisplay\" style=\"max-height:450px; overflow-y:auto;\"></div>\n-col\n-row\n-section\n";
+        sb.append(getRepository().getWikiManager().wikifyEntry(request,
+                entry, wiki));
+
+        return new Result("", sb);
     }
 
 
@@ -175,7 +218,8 @@ public class KmlTypeHandler extends GenericTypeHandler {
      * @param node _more_
      * @param nwse _more_
      */
-    private void initializeEntry(Entry entry, Element node, double[] nwse) {
+    private static void initializeEntry(Entry entry, Element node,
+                                        double[] nwse) {
         String tagName = node.getTagName();
         if (tagName.equals(KmlUtil.TAG_FOLDER)
                 || tagName.equals(KmlUtil.TAG_KML)
@@ -236,7 +280,7 @@ public class KmlTypeHandler extends GenericTypeHandler {
      * @param nwse _more_
      * @param coordString _more_
      */
-    private void setBounds(double[] nwse, String coordString) {
+    private static void setBounds(double[] nwse, String coordString) {
         if (coordString != null) {
             double[][] coords = KmlUtil.parseCoordinates(coordString);
             for (int i = 0; i < coords[0].length; i++) {
@@ -257,7 +301,7 @@ public class KmlTypeHandler extends GenericTypeHandler {
      *
      * @return _more_
      */
-    private double convert(String value, double dflt) {
+    private static double convert(String value, double dflt) {
         if (value == null) {
             return dflt;
         }
@@ -272,7 +316,7 @@ public class KmlTypeHandler extends GenericTypeHandler {
      * @param lat _more_
      * @param lon _more_
      */
-    private void setBounds(double[] nwse, double lat, double lon) {
+    private static void setBounds(double[] nwse, double lat, double lon) {
         setLat(nwse, lat);
         setLon(nwse, lon);
     }
@@ -283,7 +327,7 @@ public class KmlTypeHandler extends GenericTypeHandler {
      * @param nwse _more_
      * @param lon _more_
      */
-    private void setLon(double[] nwse, double lon) {
+    private static void setLon(double[] nwse, double lon) {
         nwse[1] = (nwse[1] == Entry.NONGEO)
                   ? lon
                   : Math.min(nwse[1], lon);
@@ -299,7 +343,7 @@ public class KmlTypeHandler extends GenericTypeHandler {
      * @param nwse _more_
      * @param lat _more_
      */
-    private void setLat(double[] nwse, double lat) {
+    private static void setLat(double[] nwse, double lat) {
         nwse[0] = (nwse[0] == Entry.NONGEO)
                   ? lat
                   : Math.max(nwse[0], lat);
@@ -315,7 +359,7 @@ public class KmlTypeHandler extends GenericTypeHandler {
      * @param nwse _more_
      * @param lat _more_
      */
-    private void setNorth(double[] nwse, double lat) {
+    private static void setNorth(double[] nwse, double lat) {
         nwse[0] = (nwse[0] == Entry.NONGEO)
                   ? lat
                   : Math.max(nwse[0], lat);
@@ -327,7 +371,7 @@ public class KmlTypeHandler extends GenericTypeHandler {
      * @param nwse _more_
      * @param lat _more_
      */
-    private void setSouth(double[] nwse, double lat) {
+    private static void setSouth(double[] nwse, double lat) {
         nwse[2] = (nwse[2] == Entry.NONGEO)
                   ? lat
                   : Math.min(nwse[2], lat);
@@ -340,7 +384,7 @@ public class KmlTypeHandler extends GenericTypeHandler {
      * @param nwse _more_
      * @param lon _more_
      */
-    private void setWest(double[] nwse, double lon) {
+    private static void setWest(double[] nwse, double lon) {
         nwse[1] = (nwse[1] == Entry.NONGEO)
                   ? lon
                   : Math.min(nwse[1], lon);
@@ -352,7 +396,7 @@ public class KmlTypeHandler extends GenericTypeHandler {
      * @param nwse _more_
      * @param lon _more_
      */
-    private void setEast(double[] nwse, double lon) {
+    private static void setEast(double[] nwse, double lon) {
         nwse[3] = (nwse[3] == Entry.NONGEO)
                   ? lon
                   : Math.max(nwse[3], lon);
@@ -373,7 +417,7 @@ public class KmlTypeHandler extends GenericTypeHandler {
             throws Exception {
         map.addKmlUrl(entry.getName(),
                       getEntryManager().getEntryResourceUrl(request, entry,
-                          false), true);
+                          false), true, null);
 
         return false;
     }

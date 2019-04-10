@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -22,12 +22,17 @@ import org.ramadda.repository.Link;
 import org.ramadda.repository.Repository;
 import org.ramadda.repository.Request;
 import org.ramadda.repository.Result;
+import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.output.JsonOutputHandler;
 import org.ramadda.repository.output.KmlOutputHandler;
 import org.ramadda.repository.output.OutputHandler;
 import org.ramadda.repository.output.OutputType;
+import org.ramadda.repository.output.WikiConstants;
+import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.Json;
 import org.ramadda.util.KmlUtil;
+import org.ramadda.util.Utils;
+import org.ramadda.util.text.CsvUtil;
 
 import org.w3c.dom.Element;
 
@@ -36,18 +41,30 @@ import ucar.unidata.gis.shapefile.DbaseData;
 import ucar.unidata.gis.shapefile.DbaseFile;
 import ucar.unidata.gis.shapefile.EsriShapefile;
 import ucar.unidata.util.IOUtil;
+
+import ucar.unidata.util.Misc;
+import ucar.unidata.util.StringUtil;
 import ucar.unidata.xml.XmlUtil;
+
+import java.awt.geom.Rectangle2D;
+
+import java.io.File;
+import java.io.FileInputStream;
+
+import java.text.DecimalFormat;
 
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
+import java.util.Properties;
 
 
 /**
  * Class to handle the output of shapefiles
  */
-public class ShapefileOutputHandler extends OutputHandler {
+public class ShapefileOutputHandler extends OutputHandler implements WikiConstants {
 
 
     /** Map output type */
@@ -55,12 +72,42 @@ public class ShapefileOutputHandler extends OutputHandler {
         new OutputType("Convert Shapefile to KML", "shapefile.kml",
                        OutputType.TYPE_FILE, "", ICON_KML);
 
+
+
     /** Map output type */
     public static final OutputType OUTPUT_GEOJSON =
         new OutputType("Convert Shapefile to GeoJSON", "geojson.geojson",
                        OutputType.TYPE_FILE, "", ICON_GEOJSON);
 
 
+    /** _more_ */
+    public static final OutputType OUTPUT_CSV =
+        new OutputType("Convert Shapefile to CSV", "shapefile.csv",
+                       OutputType.TYPE_FILE, "", ICON_CSV);
+
+    /** _more_ */
+    public static final OutputType OUTPUT_FIELDS_LIST =
+        new OutputType("Map Fields", "shapefile.fields_list",
+                       OutputType.TYPE_VIEW, "", ICON_TABLE);
+
+    /** _more_ */
+    public static final OutputType OUTPUT_FIELDS_TABLE =
+        new OutputType("Map Table", "shapefile.fields_table",
+                       OutputType.TYPE_VIEW, "", ICON_TABLE);
+
+
+
+
+    /** _more_ */
+    public static final DecimalFormat decimalFormat =
+        new DecimalFormat("#,##0.#");
+
+    /** _more_ */
+    public static final DecimalFormat intFormat = new DecimalFormat("#,###");
+
+    /** _more_ */
+    public static final DecimalFormat plainFormat =
+        new DecimalFormat("####.#");
 
     /**
      * Create a ShapefileOutputHandler
@@ -74,6 +121,10 @@ public class ShapefileOutputHandler extends OutputHandler {
         super(repository, element);
         addType(OUTPUT_KML);
         addType(OUTPUT_GEOJSON);
+        addType(OUTPUT_CSV);
+        addType(OUTPUT_FIELDS_TABLE);
+        addType(OUTPUT_FIELDS_LIST);
+
     }
 
 
@@ -91,8 +142,11 @@ public class ShapefileOutputHandler extends OutputHandler {
             throws Exception {
         if ((state.entry != null)
                 && state.entry.getTypeHandler().isType("geo_shapefile")) {
+            links.add(makeLink(request, state.entry, OUTPUT_FIELDS_TABLE));
+            links.add(makeLink(request, state.entry, OUTPUT_FIELDS_LIST));
             links.add(makeLink(request, state.entry, OUTPUT_KML));
             links.add(makeLink(request, state.entry, OUTPUT_GEOJSON));
+            links.add(makeLink(request, state.entry, OUTPUT_CSV));
         }
     }
 
@@ -115,10 +169,125 @@ public class ShapefileOutputHandler extends OutputHandler {
             return outputKml(request, entry);
         } else if (outputType.equals(OUTPUT_GEOJSON)) {
             return outputGeoJson(request, entry);
+        } else if (outputType.equals(OUTPUT_CSV)) {
+            return outputCsv(request, entry);
+        } else if (outputType.equals(OUTPUT_FIELDS_LIST)) {
+            return outputFields(request, entry, false, OUTPUT_FIELDS_LIST);
+        } else if (outputType.equals(OUTPUT_FIELDS_TABLE)) {
+            return outputFields(request, entry, true, OUTPUT_FIELDS_TABLE);
         }
 
         return null;
     }
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public Properties getExtraProperties(Request request, Entry entry)
+            throws Exception {
+        List<Metadata> metadataList =
+            getMetadataManager().findMetadata(request, entry,
+                "shapefile_properties", true);
+        if ((metadataList != null) && (metadataList.size() > 0)) {
+            Properties properties = new Properties();
+            for (Metadata metadata : metadataList) {
+                MetadataType    type = getMetadataManager().getType(metadata);
+                MetadataElement element = type.getChildren().get(0);
+                File            f = type.getFile(entry, metadata, element);
+                getRepository().loadProperties(properties, f.toString());
+            }
+
+            return properties;
+        }
+
+        return null;
+    }
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param dbfile _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public List<DbaseDataWrapper> getDatum(Request request, Entry entry,
+                                           DbaseFile dbfile)
+            throws Exception {
+        Properties             properties = getExtraProperties(request,
+                                                entry);
+        Properties pluginProperties = getRepository().getPluginProperties();
+        List<DbaseDataWrapper> fieldDatum = null;
+        if (dbfile != null) {
+            List<String> extraFields = null;
+            String       extraKey    = (properties != null)
+                                       ? (String) properties.get("map.key")
+                                       : null;
+            if (properties != null) {
+                String fields = (String) properties.get("map.fields");
+                if (fields != null) {
+                    extraFields = StringUtil.split(fields, ",");
+                }
+            }
+            DbaseDataWrapper keyWrapper = null;
+            String[]         fieldNames = dbfile.getFieldNames();
+            fieldDatum = new ArrayList<DbaseDataWrapper>();
+            Hashtable<String, DbaseDataWrapper> wrapperMap =
+                new Hashtable<String, DbaseDataWrapper>();
+            for (int j = 0; j < fieldNames.length; j++) {
+                DbaseDataWrapper dbd =
+                    new DbaseDataWrapper(fieldNames[j].toLowerCase(),
+                                         dbfile.getField(j), properties,
+                                         pluginProperties);
+                wrapperMap.put(dbd.getName(), dbd);
+                if (properties != null) {
+                    if (Misc.equals((String) properties.get("map."
+                            + dbd.getName() + ".drop"), "true")) {
+                        continue;
+                    }
+                }
+                fieldDatum.add(dbd);
+            }
+            if (extraFields != null) {
+                if (extraKey != null) {
+                    keyWrapper = wrapperMap.get(extraKey);
+                }
+                for (String extraField : extraFields) {
+                    DbaseDataWrapper dbd = new DbaseDataWrapper(extraField,
+                                               keyWrapper, properties,
+                                               pluginProperties);
+                    String combine = (String) properties.get("map."
+                                         + extraField + ".combine");
+                    if (combine != null) {
+                        List<DbaseDataWrapper> combineList = new ArrayList();
+                        for (String id :
+                                StringUtil.split(combine, ",", true, true)) {
+                            DbaseDataWrapper other = wrapperMap.get(id);
+                            if (other != null) {
+                                combineList.add(other);
+                            }
+                        }
+                        dbd.setCombine(combineList);
+                    }
+                    fieldDatum.add(dbd);
+                    wrapperMap.put(dbd.getName(), dbd);
+                }
+            }
+        }
+
+        return fieldDatum;
+    }
+
 
     /**
      * Make a FeatureCollection from the entry
@@ -136,50 +305,78 @@ public class ShapefileOutputHandler extends OutputHandler {
 
         EsriShapefile shapefile =
             new EsriShapefile(entry.getFile().toString());
-        DbaseFile   dbfile     = shapefile.getDbFile();
-        String      nameField  = null;
-        DbaseData[] dbd        = null;
-        String[]    fieldNames = null;
-        String schemaName = IOUtil.getFileTail(
-                                IOUtil.stripExtension(
-                                    entry.getResource().getPath()));
-        String schemaId = "S_" + schemaName + System.currentTimeMillis()
-                          + "_" + (int) (Math.random() * 1000);
+        DbaseFile              dbfile    = shapefile.getDbFile();
+        DbaseDataWrapper       nameField = null;
+        String                 schemaName;
+        String                 schemaId;
+        List<DbaseDataWrapper> fieldDatum = null;
+        HashMap                props      = new HashMap<String, Object>();
+        props.put("dbfile", dbfile);
+        props.put("shapefile", shapefile);
+        Metadata       colorBy = null;
+        List<Metadata> metadataList;
+        metadataList = getMetadataManager().findMetadata(request, entry,
+                "shapefile_color", true);
+        if ((metadataList != null) && (metadataList.size() > 0)) {
+            colorBy = metadataList.get(0);
+            props.put("colorby", colorBy);
+        }
+
+        String balloonTemplate = null;
+
+        metadataList = getMetadataManager().findMetadata(request, entry,
+                "shapefile_display", true);
+        if ((metadataList != null) && (metadataList.size() > 0)) {
+            Metadata kmlDisplay = metadataList.get(0);
+            schemaName      = schemaId = kmlDisplay.getAttr1();
+            balloonTemplate = kmlDisplay.getAttr2();
+            if ( !Utils.stringDefined(balloonTemplate)) {
+                balloonTemplate = null;
+            }
+        } else {
+            schemaId = schemaName = entry.getId();
+        }
+
+
         if (dbfile != null) {
-            fieldNames = dbfile.getFieldNames();
-            int nfld = fieldNames.length;
-            // look for a field with "NAME in it
-            dbd = new DbaseData[nfld];
+            fieldDatum = getDatum(request, entry, dbfile);
             int firstChar = -1;
-            for (int field = 0; field < nfld; field++) {
-                dbd[field] = dbfile.getField(field);
-                if (dbd[field].getType() == DbaseData.TYPE_CHAR) {
+            for (int i = 0; i < fieldDatum.size(); i++) {
+                DbaseDataWrapper dbd = fieldDatum.get(i);
+                if (dbd.getType() == DbaseData.TYPE_CHAR) {
                     if (firstChar < 0) {
-                        firstChar = field;
+                        firstChar = i;
                     }
-                    if (fieldNames[field].indexOf("NAME") >= 0) {
+                    if (dbd.getName().toLowerCase().indexOf("name") >= 0) {
                         if (nameField == null) {
-                            nameField = fieldNames[field];
+                            nameField = dbd;
                         }
                     }
                 }
             }
             if ((nameField == null) && (firstChar >= 0)) {
-                nameField = fieldNames[firstChar];
+                nameField = fieldDatum.get(firstChar);
             }
         }
 
-        HashMap<String, Object> props = new HashMap<String, Object>();
+
+
+        props.putAll(getRepository().getPluginProperties());
+
         if (dbfile != null) {
             props.put(FeatureCollection.PROP_SCHEMANAME, schemaName);
             props.put(FeatureCollection.PROP_SCHEMAID, schemaId);
+            props.put(FeatureCollection.PROP_STYLEID, schemaId);
+            if (balloonTemplate != null) {
+                props.put(FeatureCollection.PROP_BALLOON_TEMPLATE,
+                          balloonTemplate);
+            }
             HashMap<String, String[]> schema = new HashMap<String,
                                                    String[]>();
-            for (int i = 0; i < dbd.length; i++) {
-                DbaseData data  = dbd[i];
-                String[]  attrs = new String[4];
-                String    dtype = null;
-                switch (data.getType()) {
+            for (DbaseDataWrapper dbd : fieldDatum) {
+                String[] attrs = new String[4];
+                String   dtype = null;
+                switch (dbd.getType()) {
 
                   case DbaseData.TYPE_BOOLEAN :
                       dtype = "bool";
@@ -199,14 +396,15 @@ public class ShapefileOutputHandler extends OutputHandler {
                 attrs[0] = KmlUtil.ATTR_TYPE;
                 attrs[1] = dtype;
                 attrs[2] = KmlUtil.ATTR_NAME;
-                attrs[3] = fieldNames[i];
-                schema.put(fieldNames[i], attrs);
+                attrs[3] = dbd.getName();
+                schema.put(dbd.getName(), attrs);
             }
             props.put(FeatureCollection.PROP_SCHEMA, schema);
         }
         FeatureCollection fc = new FeatureCollection(entry.getName(),
-                                   entry.getDescription(), props);
-
+                                   entry.getDescription(),
+                                   (HashMap<String, Object>) props,
+                                   fieldDatum);
 
         List          features   = shapefile.getFeatures();
         List<Feature> fcfeatures = new ArrayList<Feature>(features.size());
@@ -240,7 +438,7 @@ public class ShapefileOutputHandler extends OutputHandler {
             String   name = "";
             if (dbfile != null) {
                 if (nameField != null) {
-                    name = dbfile.getField(nameField).getString(i).trim();
+                    name = nameField.getString(i).trim();
                 }
             }
             HashMap<String, Object> fprops = new HashMap<String, Object>();
@@ -248,22 +446,22 @@ public class ShapefileOutputHandler extends OutputHandler {
                 fprops.put(FeatureCollection.PROP_SCHEMANAME, schemaName);
                 fprops.put(FeatureCollection.PROP_SCHEMAID, schemaId);
                 HashMap<String, Object> schemaData =
-                    new HashMap<String, Object>(fieldNames.length);
-                for (int j = 0; j < fieldNames.length; j++) {
+                    new HashMap<String, Object>(fieldDatum.size());
+                for (int j = 0; j < fieldDatum.size(); j++) {
                     // since shapefile parser makes no distinction between ints & doubles,
                     // this hack will fix that.
-                    Object data = dbd[j].getData(i);
+                    Object data = fieldDatum.get(j).getData(i);
                     if (data instanceof Double) {
                         double d = ((Double) data).doubleValue();
                         if ((int) d == d) {
                             data = new Integer((int) d);
                         }
                     }
-                    schemaData.put(fieldNames[j], data);
+                    schemaData.put(fieldDatum.get(j).getName(), data);
                 }
                 fprops.put(FeatureCollection.PROP_SCHEMADATA, schemaData);
             }
-            Feature feature = new Feature(name, geom, fprops);
+            Feature feature = new Feature(name, geom, fprops, props);
             fcfeatures.add(feature);
         }
         fc.setFeatures(fcfeatures);
@@ -271,6 +469,29 @@ public class ShapefileOutputHandler extends OutputHandler {
 
         return fc;
 
+    }
+
+    /**
+     * _more_
+     *
+     * @param type _more_
+     *
+     * @return _more_
+     */
+    public static String getTypeName(int type) {
+        switch (type) {
+
+          case DbaseData.TYPE_BOOLEAN :
+              return "bool";
+
+          case DbaseData.TYPE_CHAR :
+              return "string";
+
+          case DbaseData.TYPE_NUMERIC :
+              return "double";
+        }
+
+        return "unknown:" + type;
     }
 
     /**
@@ -284,14 +505,83 @@ public class ShapefileOutputHandler extends OutputHandler {
      * @throws Exception _more_
      */
     private Result outputKml(Request request, Entry entry) throws Exception {
-        FeatureCollection fc   = makeFeatureCollection(request, entry);
-        Element           root = fc.toKml();
-        StringBuffer      sb   = new StringBuffer(XmlUtil.XML_HEADER);
-        sb.append(XmlUtil.toString(root));
-        Result result = new Result("", sb, KmlOutputHandler.MIME_KML);
-        result.setReturnFilename(
+        String fieldsArg = request.getString(ATTR_SELECTFIELDS,
+                                             (String) null);
+        String boundsArg = request.getString(ATTR_SELECTBOUNDS,
+                                             (String) null);
+        boolean forMap = request.get("formap", false);
+        String returnFile =
             IOUtil.stripExtension(getStorageManager().getFileTail(entry))
-            + ".kml");
+            + ".kml";
+        String filename = forMap + "_" + returnFile;
+        if (boundsArg != null) {
+            filename = boundsArg.replaceAll(",", "_") + filename;
+        }
+        if (fieldsArg != null) {
+            filename =
+                fieldsArg.replaceAll(",", "_").replaceAll(":",
+                                     "_").replaceAll("<",
+                                         "_lt_").replaceAll(">",
+                                             "_gt_").replaceAll("=",
+                                                 "_eq_").replaceAll("\\.",
+                                                     "_dot_") + filename;
+        }
+        File file = getEntryManager().getCacheFile(entry, filename);
+        if (file.exists()) {
+            Result result = new Result(new FileInputStream(file),
+                                       KmlOutputHandler.MIME_KML);
+            result.setReturnFilename(returnFile);
+
+            return result;
+        }
+
+
+        Rectangle2D.Double bounds = null;
+        if (boundsArg != null) {
+            List<String> toks = StringUtil.split(boundsArg, ",");
+            if (toks.size() == 4) {
+                double north = Double.parseDouble(toks.get(0));
+                double west  = Double.parseDouble(toks.get(1));
+                double south = Double.parseDouble(toks.get(2));
+                double east  = Double.parseDouble(toks.get(3));
+                bounds = new Rectangle2D.Double(west, south, east - west,
+                        north - south);
+            }
+        }
+
+        FeatureCollection fc          = makeFeatureCollection(request, entry);
+        long              t1          = System.currentTimeMillis();
+        List<String>      fieldValues = null;
+        if (fieldsArg != null) {
+            //selectFields=statefp:=:13,....
+            fieldValues = new ArrayList<String>();
+            List<String> toks = StringUtil.split(fieldsArg, ",", true, true);
+            for (String tok : toks) {
+                List<String> expr = StringUtil.splitUpTo(tok, ":", 3);
+                if (expr.size() >= 2) {
+                    fieldValues.add(expr.get(0));
+                    if (expr.size() == 2) {
+                        fieldValues.add("=");
+                        fieldValues.add(expr.get(1));
+                    } else {
+                        fieldValues.add(expr.get(1));
+                        fieldValues.add(expr.get(2));
+                    }
+                }
+            }
+        }
+
+        //        System.err.println("fieldValues:" + fieldValues);
+        Element      root = fc.toKml(forMap, bounds, fieldValues);
+        long         t2   = System.currentTimeMillis();
+        StringBuffer sb   = new StringBuffer(XmlUtil.XML_HEADER);
+        String       xml  = XmlUtil.toString(root, false);
+        sb.append(xml);
+        IOUtil.writeFile(file, xml);
+        long t3 = System.currentTimeMillis();
+        //        Utils.printTimes("OutputKml time:", t1,t2,t3);
+        Result result = new Result("", sb, KmlOutputHandler.MIME_KML);
+        result.setReturnFilename(returnFile);
 
         return result;
     }
@@ -316,6 +606,339 @@ public class ShapefileOutputHandler extends OutputHandler {
             + ".geojson");
 
         return result;
+    }
+
+    /**
+     * _more_
+     *
+     * @param v _more_
+     *
+     * @return _more_
+     */
+    public static String format(int v) {
+        return intFormat.format(v);
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param v _more_
+     *
+     * @return _more_
+     */
+    public static String format(double v) {
+        if (v == (int) v) {
+            return intFormat.format(v);
+        }
+
+        return decimalFormat.format(v);
+    }
+
+    /**
+     * Output the shapefile entry as GeoJSON
+     *
+     * @param request  the request
+     * @param entry  the entry
+     * @param output _more_
+     *
+     * @return the GeoJSON
+     *
+     * @throws Exception _more_
+     */
+    private Result outputCsv(Request request, Entry entry) throws Exception {
+        Result result = getCsvResult(request, entry);
+        result.setReturnFilename(
+            IOUtil.stripExtension(getStorageManager().getFileTail(entry))
+            + ".csv");
+        result.setMimeType("text/csv");
+
+        return result;
+    }
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    private Result getCsvResult(Request request, Entry entry)
+            throws Exception {
+
+        EsriShapefile shapefile =
+            new EsriShapefile(entry.getFile().toString());
+        DbaseFile     dbfile   = shapefile.getDbFile();
+        List          features = shapefile.getFeatures();
+        StringBuilder sb       = new StringBuilder();
+        if (dbfile == null) {
+            sb.append("#No fields");
+            getPageHandler().entrySectionClose(request, entry, sb);
+
+            return new Result("", sb);
+        }
+        Hashtable              props = getRepository().getPluginProperties();
+        List<DbaseDataWrapper> fieldDatum = getDatum(request, entry, dbfile);
+        int                    colCnt     = 0;
+        for (DbaseDataWrapper dbd : fieldDatum) {
+            if (colCnt++ > 0) {
+                sb.append(",");
+            }
+            sb.append(dbd.getName());
+        }
+        sb.append("\n");
+        int cnt = 0;
+        int i   = 0;
+        for (; i < features.size(); i++) {
+            cnt++;
+            colCnt = 0;
+            for (DbaseDataWrapper dbd : fieldDatum) {
+                String value;
+                if (dbd.getType() == DbaseData.TYPE_NUMERIC) {
+                    value = plainFormat.format(dbd.getDouble(i));
+                } else {
+                    value = "" + dbd.getData(i);
+                    value = value.trim();
+                }
+                if (colCnt++ > 0) {
+                    sb.append(",");
+                }
+                sb.append(CsvUtil.cleanColumnValue(value));
+            }
+            sb.append("\n");
+        }
+
+        return new Result("", sb);
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param table _more_
+     * @param output _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    private Result outputFields(Request request, Entry entry, boolean table,
+                                OutputType output)
+            throws Exception {
+
+        EsriShapefile shapefile =
+            new EsriShapefile(entry.getFile().toString());
+        DbaseFile     dbfile = shapefile.getDbFile();
+        StringBuilder sb     = new StringBuilder();
+        getPageHandler().entrySectionOpen(request, entry, sb, table
+                ? "Shapefile Table"
+                : "Shapefile Fields");
+        if (dbfile == null) {
+            sb.append("No fields");
+            getPageHandler().entrySectionClose(request, entry, sb);
+
+            return new Result("", sb);
+        }
+        HtmlUtils.open(sb, "div", HtmlUtils.cssClass("ramadda-links"));
+        Hashtable              props = getRepository().getPluginProperties();
+
+        List<DbaseDataWrapper> fieldDatum = getDatum(request, entry, dbfile);
+
+        String searchFieldId = request.getString("searchfield",
+                                   (String) null);
+        String searchText = request.getString("searchtext", (String) null);
+        String searchtext = null;
+        //        System.err.println("search:" + searchFieldId +"=" + searchText);
+        String baseUrl = request.entryUrl(getRepository().URL_ENTRY_SHOW,
+                                          entry) + "&output=" + output;
+        String           stepUrl     = baseUrl;
+        DbaseDataWrapper searchField = null;
+        if ((searchFieldId != null) && (searchText != null)) {
+            stepUrl += "&" + HtmlUtils.arg("searchfield", searchFieldId)
+                       + "&" + HtmlUtils.arg("searchtext", searchText);
+            searchtext = searchText.toLowerCase();
+            for (DbaseDataWrapper dbd : fieldDatum) {
+                if (dbd.getName().equals(searchFieldId)) {
+                    searchField = dbd;
+
+                    break;
+                }
+            }
+        }
+        if (searchField != null) {
+            sb.append("Searching for " + searchField.getLabel()
+                      + " contains " + searchText);
+            sb.append("<br>");
+        }
+
+        int  start    = request.get("start", 0);
+        int  i        = start;
+        List features = shapefile.getFeatures();
+        int  max      = request.get("max", 100);
+        HtmlUtils.open(sb, "div", HtmlUtils.cssClass("black_href"));
+        sb.append(features.size() + " Features&nbsp;&nbsp;");
+        if (start > 0) {
+            int prevStart = Math.max(0, start - max);
+            HtmlUtils.href(
+                sb, stepUrl + "&"
+                + HtmlUtils.args(
+                    "start", "" + prevStart, "max", ""
+                    + max), "Previous", HtmlUtils.style("color:#000000;"));
+            sb.append("&nbsp;&nbsp;");
+        }
+        if (i + max < features.size()) {
+            int nextStart = start + max;
+            HtmlUtils.href(
+                sb, stepUrl + "&"
+                + HtmlUtils.args(
+                    "start", "" + (nextStart), "max", ""
+                    + max), "Next", HtmlUtils.style("color:#000000;"));
+        }
+
+
+        String searchUrl = baseUrl + "&"
+                           + HtmlUtils.args("start", "" + start, "max",
+                                            "" + max);
+        sb.append(
+            HtmlUtils.script(
+                "\nfunction shapefileSearch(field) {\nvar shapefileSearchUrl='"
+                + searchUrl
+                + "';\nvar text=prompt('Search for');\nif(text) window.location.href=shapefileSearchUrl+'&' + HtmlUtil.urlArg('searchfield',field)+'&' +HtmlUtil.urlArg('searchtext',text);}\n"));
+        //        System.err.println(sb);
+
+        if (table) {
+            sb.append(
+                "<table class='stripe hover ramadda-table' table-height=400 >");
+            sb.append("<thead>");
+            sb.append("<tr valign=top>");
+            sb.append(HtmlUtils.th(HtmlUtils.b("Field&nbsp;#"),
+                                   HtmlUtils.style("padding:5px;")));
+            for (DbaseDataWrapper dbd : fieldDatum) {
+                String label = HtmlUtils.mouseClickHref("shapefileSearch('"
+                                   + dbd.getName() + "')", dbd.getLabel());
+                sb.append(HtmlUtils
+                    .th(HtmlUtils
+                        .div(label, HtmlUtils
+                            .attr("title", "id:" + dbd.getName()) + HtmlUtils
+                            .style("font-weight:bold;padding:5px;text-align:center;")), HtmlUtils
+                                .attr("align", "center")));
+            }
+            sb.append("</tr>");
+            sb.append("</thead>");
+            sb.append("</thead>");
+        } else {
+            sb.append("<ul>\n");
+        }
+
+        int    cnt       = 0;
+        String searchKey = (searchField != null)
+                           ? searchField.getLowerCaseName()
+                           : null;
+        for (; i < features.size(); i++) {
+            if (searchField != null) {
+                String value = searchField.getString(i).toLowerCase();
+                String fromProps = (String) props.get("map." + searchKey
+                                       + "." + value);
+                if (fromProps != null) {
+                    value = fromProps + " (" + value + ")";
+                    value = value.toLowerCase();
+                }
+                if ((value.indexOf(searchText) >= 0)
+                        || (value.indexOf(searchtext) >= 0)) {
+                    //OK
+                } else {
+                    continue;
+                }
+            }
+
+            cnt++;
+            if (cnt > max) {
+                break;
+            }
+
+            if (table) {
+                sb.append("<tr>");
+                sb.append(HtmlUtils.td("" + (i + 1),
+                                       HtmlUtils.style("padding:5px;")));
+            } else {
+                sb.append("<li> ");
+                sb.append("Field&nbsp;#" + (i + 1));
+                sb.append("<ul>\n");
+            }
+            //            sb.append(HtmlUtils.script("function fieldSelect(
+
+            String displayUrl =
+                request.entryUrl(getRepository().URL_ENTRY_SHOW, entry);
+
+            for (DbaseDataWrapper dbd : fieldDatum) {
+                String value;
+                String extra = "";
+                String url   = null;
+                String key   = dbd.getLowerCaseName();
+                if (dbd.getType() == DbaseData.TYPE_NUMERIC) {
+                    value = format(dbd.getDouble(i));
+                    extra = " align=right ";
+                } else {
+                    value = "" + dbd.getData(i);
+                    url = displayUrl + "&"
+                          + HtmlUtils.arg("mapsubset", "true") + "&"
+                          + HtmlUtils.arg(ATTR_SELECTFIELDS,
+                                          key + ":=:" + value);
+                }
+
+                String fromProps = (String) props.get("map." + key + "."
+                                       + value);
+                if (fromProps != null) {
+                    value = fromProps + " (" + value + ")";
+                }
+
+                String rawValue = value;
+                if (url != null) {
+                    value = HtmlUtils.href(url, value,
+                                           HtmlUtils.attr("title",
+                                               "Show in map"));
+                }
+                if (table) {
+                    sb.append(HtmlUtils.td(HtmlUtils.div(value,
+                            HtmlUtils.style("padding:5px;")), extra));
+                } else {
+                    sb.append("<li>");
+                    String label = HtmlUtils.href(searchUrl + "&"
+                                       + HtmlUtils.args("searchfield",
+                                           dbd.getName(), "searchtext",
+                                           rawValue), dbd.getLabel(),
+                                               HtmlUtils.attr("title",
+                                                   "Search for value"));
+                    sb.append(
+                        HtmlUtils.span(
+                            label + ": ",
+                            HtmlUtils.attr("title", "id:" + dbd.getName())
+                            + HtmlUtils.style("font-weight:bold;")));
+                    sb.append(value);
+                }
+            }
+            if (table) {
+                sb.append("</tr>");
+            } else {
+                sb.append("</ul>\n");
+            }
+        }
+        if (table) {
+            sb.append("</tbody>");
+            sb.append("</table>");
+        } else {
+            sb.append("</ul>");
+        }
+        HtmlUtils.close(sb, "div");
+        HtmlUtils.close(sb, "div");
+
+        return new Result("", sb);
+
     }
 
 
@@ -394,4 +1017,55 @@ public class ShapefileOutputHandler extends OutputHandler {
 
         return tag;
     }
+
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public static String makeMapStyle(Request request, Entry entry)
+            throws Exception {
+        List<Metadata> metadataList =
+            request.getRepository().getMetadataManager().findMetadata(
+                request, entry, "map_style", true);
+        List<String> values = new ArrayList<String>();
+        if ((metadataList != null) && (metadataList.size() > 0)) {
+            Metadata kmlDisplay = metadataList.get(0);
+            if (Utils.stringDefined(kmlDisplay.getAttr1())) {
+                values.add("strokeColor");
+                values.add(kmlDisplay.getAttr1());
+            }
+            if (Utils.stringDefined(kmlDisplay.getAttr2())) {
+                values.add("fillColor");
+                values.add(kmlDisplay.getAttr2());
+            }
+            if (Utils.stringDefined(kmlDisplay.getAttr3())) {
+                values.add("select_strokeColor");
+                values.add(kmlDisplay.getAttr3());
+            }
+            if (Utils.stringDefined(kmlDisplay.getAttr4())) {
+                values.add("select_fillColor");
+                values.add(kmlDisplay.getAttr4());
+            }
+            if (Utils.stringDefined(kmlDisplay.getAttr(5))) {
+                values.add("strokeWidth");
+                values.add(kmlDisplay.getAttr(5));
+            }
+            if (Utils.stringDefined(kmlDisplay.getAttr(6))) {
+                values.add("pointRadius");
+                values.add(kmlDisplay.getAttr(6));
+            }
+        }
+
+        return Json.mapAndQuote(values);
+    }
+
+
+
 }

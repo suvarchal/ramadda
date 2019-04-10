@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -133,6 +133,9 @@ public abstract class TextFile extends PointFile {
     }
 
 
+    public TextFile(String filename, RecordFileContext context, Hashtable properties) {
+        super(filename, context, properties);
+    }
 
     /**
      * _more_
@@ -145,10 +148,9 @@ public abstract class TextFile extends PointFile {
      */
     public RecordIO doMakeInputIO(boolean buffered) throws IOException {
         String file = getFilename();
-        if (file.endsWith(".xls")) {
+        if ((file != null) && file.endsWith(".xls")) {
             return new RecordIO(
                 new BufferedReader(new StringReader(XlsUtil.xlsToCsv(file))));
-
         }
 
         return super.doMakeInputIO(buffered);
@@ -282,6 +284,20 @@ public abstract class TextFile extends PointFile {
      */
     public List<String> getHeaderLines() {
         return headerLines;
+    }
+
+    /**
+     * _more_
+     *
+     * @param record _more_
+     * @param toks _more_
+     * @param header _more_
+     *
+     * @return _more_
+     */
+    public List<String> processTokens(TextRecord record, List<String> toks,
+                                      boolean header) {
+        return toks;
     }
 
     /**

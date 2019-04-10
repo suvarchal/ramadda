@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -647,6 +647,11 @@ public class Request implements Constants, Cloneable {
     public void uploadFormWithAuthToken(Appendable sb, RequestUrl theUrl,
                                         String extra) {
         Utils.append(sb, HtmlUtils.uploadForm(makeUrl(theUrl), extra));
+        try {
+            sb.append("\n");
+        } catch (Exception exc) {
+            throw new IllegalArgumentException(exc);
+        }
         repository.addAuthToken(this, sb);
     }
 
@@ -812,12 +817,11 @@ public class Request implements Constants, Cloneable {
                           : "http";
         if ((httpServletRequest != null) && !alwaysHttps) {
             String scheme = httpServletRequest.getScheme();
-            if(scheme!=null) {
-                List<String> toks = StringUtil.split(scheme, "/",
-                                                     true, true);
-                if(toks.size()>0) {
+            if (scheme != null) {
+                List<String> toks = StringUtil.split(scheme, "/", true, true);
+                if (toks.size() > 0) {
                     protocol = toks.get(0);
-                } 
+                }
             }
         }
         //        System.err.println("Request.getAbsoluteUrl:" + protocol +" port:" + port);
@@ -998,7 +1002,9 @@ public class Request implements Constants, Cloneable {
                     }
                     for (int i = 0; i < l.size(); i++) {
                         String svalue = (String) l.get(i);
-                        if (svalue.length() == 0) {
+                        if (svalue.equals(VALUE_BLANK)) {
+                            svalue = "";
+                        } else if (svalue.length() == 0) {
                             continue;
                         }
                         if (cnt++ > 0) {
@@ -1010,7 +1016,9 @@ public class Request implements Constants, Cloneable {
                     continue;
                 }
                 String svalue = value.toString();
-                if (svalue.length() == 0) {
+                if (svalue.equals(VALUE_BLANK)) {
+                    svalue = "";
+                } else if (svalue.length() == 0) {
                     continue;
                 }
                 if (cnt++ > 0) {
@@ -1212,7 +1220,32 @@ public class Request implements Constants, Cloneable {
      * @param value _more_
      */
     public void put(Object key, Object value) {
-        parameters.put(key, value);
+        put(key, value, true);
+    }
+
+    /**
+     * _more_
+     *
+     * @param key _more_
+     * @param value _more_
+     * @param singular _more_
+     */
+    public void put(Object key, Object value, boolean singular) {
+        Object existing = singular
+                          ? null
+                          : parameters.get(key);
+        if (existing != null) {
+            if (existing instanceof List) {
+                ((List) existing).add(value);
+            } else {
+                List newList = new ArrayList();
+                newList.add(existing);
+                newList.add(value);
+                parameters.put(key, newList);
+            }
+        } else {
+            parameters.put(key, value);
+        }
     }
 
 
@@ -1372,7 +1405,7 @@ public class Request implements Constants, Cloneable {
     public String getEncodedString(String key, String dflt) {
         String s = getString(key, dflt);
         if (s != null) {
-            s = RepositoryUtil.encodeUntrustedText(s);
+            s = Utils.encodeUntrustedText(s);
             //            s = HtmlUtils.entityEncode(s);
         }
 
@@ -1422,42 +1455,6 @@ public class Request implements Constants, Cloneable {
     }
 
 
-    /**
-     * _more_
-     *
-     * @param key _more_
-     * @param dflt _more_
-     * @param pattern _more_
-     *
-     * @return _more_
-     */
-    public String getCheckedString(String key, String dflt, Pattern pattern) {
-        String v = (String) getValue(key, (String) null);
-        if (v == null) {
-            return dflt;
-        }
-
-        //If the user is anonymous then replace all "script" strings with "_script_"
-        //encode < and >
-        if (isAnonymous()) {
-            v = v.replaceAll("([sS][cC][rR][iI][pP][tT])", "_$1_");
-            v = v.replaceAll("<", "&lt;");
-            v = v.replaceAll(">", "&gt;");
-        }
-
-
-        Matcher matcher = pattern.matcher(v);
-        if ( !matcher.find()) {
-            throw new BadInputException("Incorrect input for:" + key
-                                        + " value:" + v + ":");
-        }
-
-        //        v = HtmlUtils.entityEncode(v);
-        //TODO:Check the value
-        return v;
-        //        return repository.getDatabaseManager().escapeString(v);
-    }
-
 
 
     /**
@@ -1473,16 +1470,6 @@ public class Request implements Constants, Cloneable {
 
 
 
-    /**
-     * _more_
-     *
-     * @param key _more_
-     *
-     * @return _more_
-     */
-    public String getString(String key) {
-        return getString(key, "");
-    }
 
     /**
      * _more_
@@ -1497,16 +1484,16 @@ public class Request implements Constants, Cloneable {
      * _more_
      */
     public void ensureAuthToken() {
-        String authToken   = getString(ARG_AUTHTOKEN, (String) null);
-        String mySessionId = getSessionId();
+        String authToken    = getString(ARG_AUTHTOKEN, (String) null);
+        String mySessionId  = getSessionId();
         String argSessionId = getString(ARG_SESSIONID, (String) null);
         if (mySessionId == null) {
             mySessionId = argSessionId;
         }
 
         //        System.err.println("ensureAuthToken authToken:" + authToken +" arg session:"+ argSessionId +" session id:"+ mySessionId);
-        if(authToken == null && argSessionId!=null) {
-            if(argSessionId.equals(mySessionId)) {
+        if ((authToken == null) && (argSessionId != null)) {
+            if (argSessionId.equals(mySessionId)) {
                 //                System.err.println("ensureAuthToken arg session id == session id");
                 return;
             }
@@ -1557,13 +1544,37 @@ public class Request implements Constants, Cloneable {
         return false;
     }
 
-    public String getEnum(String arg, String dflt, String...values) {
-        String value = getString(arg,"");
-        for(String enumValue:values) {
-            if(value.equals(enumValue)) return value;
+    /**
+     * _more_
+     *
+     * @param arg _more_
+     * @param dflt _more_
+     * @param values _more_
+     *
+     * @return _more_
+     */
+    public String getEnum(String arg, String dflt, String... values) {
+        String value = getString(arg, "");
+        for (String enumValue : values) {
+            if (value.equals(enumValue)) {
+                return value;
+            }
         }
+
         return dflt;
     }
+
+    /**
+     * _more_
+     *
+     * @param key _more_
+     *
+     * @return _more_
+     */
+    public String getString(String key) {
+        return getString(key, "");
+    }
+
 
     /**
      * _more_
@@ -1588,6 +1599,60 @@ public class Request implements Constants, Cloneable {
     /**
      * _more_
      *
+     * @param key _more_
+     * @param dflt _more_
+     *
+     * @return _more_
+     */
+    public String getString(String key, String dflt) {
+        if (checker == null) {
+            //Don't run the checker for now
+            //checker =  Pattern.compile(repository.getProperty(PROP_REQUEST_PATTERN));
+        }
+
+        return getCheckedString(key, dflt, checker);
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param key _more_
+     * @param dflt _more_
+     * @param pattern _more_
+     *
+     * @return _more_
+     */
+    public String getCheckedString(String key, String dflt, Pattern pattern) {
+        String v = (String) getValue(key, (String) null);
+        if (v == null) {
+            return dflt;
+        }
+
+        //If the user is anonymous then replace all "script" strings with "_script_"
+        //encode < and >
+        if (isAnonymous()) {
+            v = v.replaceAll("([sS][cC][rR][iI][pP][tT])", "_$1_");
+            v = v.replaceAll("<", "&lt;");
+            v = v.replaceAll(">", "&gt;");
+        }
+
+
+        if (pattern != null) {
+            Matcher matcher = pattern.matcher(v);
+            if ( !matcher.find()) {
+                throw new BadInputException("Incorrect input for:" + key
+                                            + " value:" + v + ":");
+            }
+        }
+
+        return v;
+    }
+
+
+    /**
+     * _more_
+     *
      * @param arg _more_
      * @param dflt _more_
      *
@@ -1605,23 +1670,6 @@ public class Request implements Constants, Cloneable {
 
 
 
-
-    /**
-     * _more_
-     *
-     * @param key _more_
-     * @param dflt _more_
-     *
-     * @return _more_
-     */
-    public String getString(String key, String dflt) {
-        if (checker == null) {
-            checker =
-                Pattern.compile(repository.getProperty(PROP_REQUEST_PATTERN));
-        }
-
-        return getCheckedString(key, dflt, checker);
-    }
 
     /**
      * _more_
@@ -1947,7 +1995,7 @@ public class Request implements Constants, Cloneable {
         }
         String dateString = (String) getDateSelect(from, "").trim();
 
-        return repository.getPageHandler().parseDate(dateString);
+        return repository.getDateHandler().parseDate(dateString);
     }
 
 
@@ -2134,6 +2182,33 @@ public class Request implements Constants, Cloneable {
     public Hashtable getHttpHeaderArgs() {
         return httpHeaderArgs;
     }
+
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
+    public boolean canAcceptGzip() {
+        String accept = (String) httpHeaderArgs.get("Accept-Encoding");
+        if (accept == null) {
+            System.err.println("no accept:" + httpHeaderArgs);
+
+            return false;
+        }
+        List<String> toks = StringUtil.split(accept, ",", true, true);
+        for (String tok : toks) {
+            if ( !tok.startsWith("gzip")) {
+                continue;
+            }
+            if (StringUtil.splitUpTo(tok, ";",
+                                     2).get(0).trim().equals("gzip")) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 
     /**
      * _more_
@@ -2625,7 +2700,7 @@ public class Request implements Constants, Cloneable {
             return htmlTemplateId;
         }
 
-        return getString(ARG_TEMPLATE, "");
+        return getString(ARG_TEMPLATE, (String) null);
     }
 
 

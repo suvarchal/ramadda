@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -252,7 +252,7 @@ public class WolframSearchProvider extends SearchProvider {
      * @return _more_
      */
     @Override
-    public String getIconUrl() {
+    public String getSearchProviderIconUrl() {
         return "${root}/search/wolfram.png";
     }
 
@@ -324,7 +324,7 @@ public class WolframSearchProvider extends SearchProvider {
                                      ContentMetadataHandler.TYPE_ATTACHMENT,
                                      false, imgUrl, "image", null, null,
                                      null);
-                    newEntry.addMetadata(metadata);
+                    getMetadataManager().addMetadata(newEntry, metadata);
                     desc.append(XmlUtil.toString(img, false));
                     desc.append(HtmlUtils.br());
                 }

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.ramadda.repository.map;
 
 
+import org.ramadda.plugins.map.ShapefileOutputHandler;
 import org.ramadda.repository.Entry;
 import org.ramadda.repository.Repository;
 import org.ramadda.repository.RepositoryManager;
@@ -29,9 +30,12 @@ import org.ramadda.repository.output.KmlOutputHandler;
 import org.ramadda.repository.output.OutputHandler;
 import org.ramadda.repository.output.WikiConstants;
 import org.ramadda.repository.output.WikiManager;
+
+
+import org.ramadda.repository.type.TypeHandler;
 import org.ramadda.util.HtmlUtils;
-import org.ramadda.util.Json;
 import org.ramadda.util.JQuery;
+import org.ramadda.util.Json;
 import org.ramadda.util.Utils;
 
 import ucar.unidata.geoloc.Bearing;
@@ -57,7 +61,19 @@ import java.util.List;
  *
  * @author Jeff McWhirter
  */
-public class MapManager extends RepositoryManager {
+public class MapManager extends RepositoryManager implements WikiConstants {
+
+    /** _more_ */
+    public static final String ADDED_IMPORTS = "initmap";
+
+
+
+
+    /** _more_ */
+    public static final String PROP_SCREENBIGRECTS = "screenBigRects";
+
+    /** _more_ */
+    public static final String PROP_DETAILED = "detailed";
 
     /** _more_ */
     public static final String PROP_INITIAL_LOCATION = "initialLocation";
@@ -89,41 +105,23 @@ public class MapManager extends RepositoryManager {
 
 
     /**
-     * Should maps be shown?
-     *
-     * @return  true if okay to show maps
-     * @deprecated
-     */
-    public boolean shouldShowMaps() {
-        return showMaps();
-    }
-
-    /**
-     * Should maps be shown?
-     *
-     * @return the show maps property value
-     */
-    public boolean showMaps() {
-        return getRepository().getProperty(PROP_SHOWMAP, true);
-    }
-
-
-
-
-
-    /**
      * Create a map
      *
      * @param request      the Request
+     * @param entry _more_
      * @param forSelection true if map used for selection
      * @param props _more_
      *
      * @return a map information holder
+     *
+     * @throws Exception _more_
      */
-    public MapInfo createMap(Request request, boolean forSelection,
-                             Hashtable<String, String> props) {
-        return createMap(request, MapInfo.DFLT_WIDTH, MapInfo.DFLT_HEIGHT,
-                         forSelection, props);
+    public MapInfo createMap(Request request, Entry entry,
+                             boolean forSelection,
+                             Hashtable<String, String> props)
+            throws Exception {
+        return createMap(request, entry, MapInfo.DFLT_WIDTH,
+                         MapInfo.DFLT_HEIGHT, forSelection, props);
     }
 
 
@@ -160,6 +158,7 @@ public class MapManager extends RepositoryManager {
                 didLoc = true;
             }
         }
+
 
         if ( !didLoc) {
             String userLoc =
@@ -209,54 +208,134 @@ public class MapManager extends RepositoryManager {
         return props;
     }
 
+    /** _more_ */
+    private String defaultMapLayer;
+
+    /** _more_ */
+    private String mapLayers;
+
+    /**
+     * _more_
+     */
+    @Override
+    public void initAttributes() {
+        super.initAttributes();
+        defaultMapLayer = getRepository().getProperty(PROP_MAP_DEFAULTLAYER,
+                "osm");
+        mapLayers = getRepository().getProperty(PROP_MAP_LAYERS, null);
+    }
+
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
+    public String getDefaultMapLayer() {
+        return defaultMapLayer;
+    }
+
+    /**
+     * _more_
+     *
+     * @return _more_
+     */
+    public String getMapLayers() {
+        return mapLayers;
+    }
 
     /**
      * Create a map
      *
      * @param request      the Request
+     * @param entry _more_
      * @param width        map width
      * @param height       map height
      * @param forSelection true if map used for selection
      * @param props _more_
      *
      * @return a map information holder
+     *
+     * @throws Exception _more_
      */
-    public MapInfo createMap(Request request, int width, int height,
-                             boolean forSelection,
-                             Hashtable<String, String> props) {
+    public MapInfo createMap(Request request, Entry entry, int width,
+                             int height, boolean forSelection,
+                             Hashtable<String, String> props)
+            throws Exception {
+        return createMap(request, entry, width, height, forSelection, false,
+                         props);
+    }
+
+
+    /**
+     * _more_
+     *
+     * @param request _more_
+     * @param entry _more_
+     * @param width _more_
+     * @param height _more_
+     * @param forSelection _more_
+     * @param hidden _more_
+     * @param props _more_
+     *
+     * @return _more_
+     *
+     * @throws Exception _more_
+     */
+    public MapInfo createMap(Request request, Entry entry, int width,
+                             int height, boolean forSelection,
+                             boolean hidden, Hashtable<String, String> props)
+            throws Exception {
 
         //        System.err.println("MapManager.createMap: " + width + " " + height);
+
+        if (props == null) {
+            props = new Hashtable<String, String>();
+        }
+        String style = props.get("style");
+        props.remove("style");
         MapInfo mapInfo = new MapInfo(request, getRepository(), width,
                                       height, forSelection);
 
-        String maplayers = getRepository().getProperty(PROP_MAP_LAYERS, null);
-        if (maplayers != null) {
+        if (style != null) {
+            mapInfo.setStyle(style);
+        }
+        mapInfo.setMapHidden(hidden);
+        String showSearch = (String) props.get("showSearch");
+        if (showSearch != null) {
+            mapInfo.addProperty("showSearch", "" + showSearch.equals("true"));
+        }
+        if (mapLayers != null) {
             mapInfo.addProperty("mapLayers",
-                                StringUtil.split(maplayers, ";", true, true));
+                                StringUtil.split(mapLayers, ";", true, true));
+        }
+
+        for (Enumeration keys = props.keys(); keys.hasMoreElements(); ) {
+            String key   = (String) keys.nextElement();
+            String value = props.get(key);
+            mapInfo.addProperty(key, Json.quote(value));
         }
 
 
-
-        if (props != null) {
-            for (Enumeration keys = props.keys(); keys.hasMoreElements(); ) {
-                String key   = (String) keys.nextElement();
-                String value = props.get(key);
-                mapInfo.addProperty(key, Json.quote(value));
+        String mapLayer = null;
+        if (entry != null) {
+            List<Metadata> layers =
+                getMetadataManager().findMetadata(request, entry,
+                    "map_layer", true);
+            if ((layers != null) && (layers.size() > 0)) {
+                mapLayer = layers.get(0).getAttr1();
             }
         }
 
 
-        mapInfo.addProperty(
-            "defaultMapLayer",
-            Json.quote(
-                getRepository().getProperty(
-                    PROP_MAP_DEFAULTLAYER, "google.hybrid")));
-
-        if ( !showMaps()) {
-            return mapInfo;
+        if (mapLayer == null) {
+            mapLayer = (String) props.get("defaultMapLayer");
         }
+        if (mapLayer == null) {
+            mapLayer = getDefaultMapLayer();
+        }
+        mapInfo.addProperty("defaultMapLayer", Json.quote(mapLayer));
 
-        String key = KEY2;
+        String key = ADDED_IMPORTS;
         if (request.getExtraProperty(key) == null) {
             mapInfo.addHtml(getHtmlImports(request));
             request.putExtraProperty(key, "");
@@ -265,12 +344,6 @@ public class MapManager extends RepositoryManager {
         return mapInfo;
     }
 
-
-    /** _more_ */
-    private static final String KEY1 = "initmap";
-
-    /** _more_ */
-    private static final String KEY2 = "initmap";
 
     /**
      * _more_
@@ -282,7 +355,7 @@ public class MapManager extends RepositoryManager {
      */
     public void addMapImports(Request request, Appendable sb)
             throws Exception {
-        String key = KEY1;
+        String key = ADDED_IMPORTS;
         if (request.getExtraProperty(key) == null) {
             sb.append(HtmlUtils.comment("map imports"));
             sb.append(getHtmlImports(request));
@@ -315,27 +388,42 @@ public class MapManager extends RepositoryManager {
      * @param request the Request
      *
      * @return  the imports
+     *
+     * @throws Exception _more_
      */
-    private String getHtmlImports(Request request) {
-        StringBuilder sb = new StringBuilder();
+    private String getHtmlImports(Request request) throws Exception {
+        StringBuilder sb       = new StringBuilder();
+        boolean       minified = getRepository().getMinifiedOk();
         if (OPENLAYERS_VERSION == OPENLAYERS_V2) {
-            sb.append(
+            if (minified) {
                 HtmlUtils.cssLink(
-                    getRepository().htdocsUrl(
-                        OPENLAYERS_BASE_V2 + "/theme/default/style.css")));
-            sb.append(
+                    sb,
+                    getRepository().getHtdocsUrl(
+                        OPENLAYERS_BASE_V2
+                        + "/theme/default/style.mini.css"));
                 HtmlUtils.importJS(
-                    getRepository().htdocsUrl(
-                        OPENLAYERS_BASE_V2 + "/OpenLayers.debug.js")));
+                    sb,
+                    getRepository().getHtdocsUrl(
+                        OPENLAYERS_BASE_V2 + "/OpenLayers.mini.js"));
+            } else {
+                HtmlUtils.cssLink(
+                    sb,
+                    getRepository().getHtdocsUrl(
+                        OPENLAYERS_BASE_V2 + "/theme/default/style.css"));
+                HtmlUtils.importJS(
+                    sb,
+                    getRepository().getHtdocsUrl(
+                        OPENLAYERS_BASE_V2 + "/OpenLayers.debug.js"));
+            }
         } else {
             /*
             sb.append(
                 HtmlUtils.cssLink(
-                    getRepository().htdocsUrl(
+                    getRepository().getHtdocsUrl(
                         OPENLAYERS_BASE_V3 + "/ol.css")));
             sb.append(
                 HtmlUtils.importJS(
-                    getRepository().htdocsUrl(
+                    getRepository().getHtdocsUrl(
                         OPENLAYERS_BASE_V3 + "/ol.js")));
 */
             sb.append(
@@ -344,21 +432,29 @@ public class MapManager extends RepositoryManager {
             sb.append(
                 HtmlUtils.importJS(
                     "https://cdnjs.cloudflare.com/ajax/libs/openlayers/4.6.4/ol-debug.js"));
-
         }
 
-        addGoogleMapsApi(request, sb);
+        //        addGoogleMapsApi(request, sb);
         if (OPENLAYERS_VERSION == OPENLAYERS_V2) {
-            sb.append(
+            if (minified) {
                 HtmlUtils.importJS(
-                    getRepository().htdocsUrl("/ramaddamap.js")));
+                    sb,
+                    getPageHandler().getCdnPath("/min/ramaddamap.min.js"));
+            } else {
+                HtmlUtils.importJS(
+                    sb, getPageHandler().getCdnPath("/ramaddamap.js"));
+            }
         } else {
-            sb.append(
-                HtmlUtils.importJS(
-                    getRepository().htdocsUrl("/ramaddamap3.js")));
+            HtmlUtils.importJS(
+                sb, getPageHandler().getCdnPath("/ramaddamap3.js"));
         }
-        sb.append(
-            HtmlUtils.cssLink(getRepository().htdocsUrl("/ramaddamap.css")));
+        if (minified) {
+            HtmlUtils.cssLink(
+                sb, getPageHandler().getCdnPath("/min/ramaddamap.min.css"));
+        } else {
+            HtmlUtils.cssLink(sb,
+                              getPageHandler().getCdnPath("/ramaddamap.css"));
+        }
 
         return sb.toString();
     }
@@ -370,7 +466,6 @@ public class MapManager extends RepositoryManager {
      * @param sb  the html
      */
     private void addGoogleMapsApi(Request request, StringBuilder sb) {
-        String mapLayers = getRepository().getProperty(PROP_MAP_LAYERS, null);
         if ((mapLayers != null)
                 && (mapLayers.toLowerCase().indexOf("google") < 0)) {
             return;
@@ -584,10 +679,10 @@ public class MapManager extends RepositoryManager {
             getPageHandler().addGoogleJSImport(request, sb);
             sb.append(
                 HtmlUtils.importJS(
-                    getRepository().htdocsUrl("/google/googleearth.js")));
+                    getRepository().getHtdocsUrl("/google/googleearth.js")));
             sb.append(
                 HtmlUtils.importJS(
-                    getRepository().htdocsUrl(
+                    getRepository().getHtdocsUrl(
                         "/google/extensions-0.2.1.pack.js")));
         }
 
@@ -669,13 +764,13 @@ public class MapManager extends RepositoryManager {
                     + HtmlUtils.onMouseClick(id + ".togglePlacemarkVisible("
                         + HtmlUtils.squote(entry.getId()) + ")")));
 
-            String navUrl  = "javascript:" + call;
-            String iconUrl = getPageHandler().getIconUrl(request, entry);
+            String navUrl     = "javascript:" + call;
+            String getIconUrl = getPageHandler().getIconUrl(request, entry);
             catSB.append(
                 HtmlUtils.href(
                     getEntryManager().getEntryURL(request, entry),
                     HtmlUtils.img(
-                        iconUrl, msg("Click to view entry details"))));
+                        getIconUrl, msg("Click to view entry details"))));
             catSB.append("&nbsp;");
             catSB.append(HtmlUtils.href(navUrl, getEntryDisplayName(entry)));
             //            catSB.append("</td>");
@@ -685,7 +780,7 @@ public class MapManager extends RepositoryManager {
                 HtmlUtils.href(
                     navUrl,
                     HtmlUtils.img(
-                        getRepository().iconUrl(ICON_MAP_NAV),
+                        getRepository().getIconUrl(ICON_MAP_NAV),
                         "View entry"), HtmlUtils.cssClass(
                             CSS_CLASS_EARTH_LINK)));
             catSB.append("</td>");
@@ -698,37 +793,36 @@ public class MapManager extends RepositoryManager {
             double  lon          = entry.getEast();
             String  pointsString = "null";
             boolean hasPolygon   = false;
-            List<Metadata> metadataList =
-                getMetadataManager().getMetadata(entry);
-            for (Metadata metadata : metadataList) {
-                if ( !metadata.getType().equals(
-                        MetadataHandler.TYPE_SPATIAL_POLYGON)) {
-                    continue;
-                }
-                List<double[]> points   = new ArrayList<double[]>();
-                String         s        = metadata.getAttr1();
-                StringBuilder  pointsSB = new StringBuilder();
-                for (String pair : StringUtil.split(s, ";", true, true)) {
-                    List<String> toks = StringUtil.splitUpTo(pair, ",", 2);
-                    if (toks.size() != 2) {
-                        continue;
-                    }
-                    double polyLat = Utils.decodeLatLon(toks.get(0));
-                    double polyLon = Utils.decodeLatLon(toks.get(1));
-                    if (pointsSB.length() == 0) {
-                        pointsSB.append("new Array(");
-                    } else {
+            if (entry.getTypeHandler().shouldShowPolygonInMap()) {
+                List<Metadata> metadataList =
+                    getMetadataManager().getMetadata(entry,
+                        MetadataHandler.TYPE_SPATIAL_POLYGON);
+                for (Metadata metadata : metadataList) {
+                    List<double[]> points   = new ArrayList<double[]>();
+                    String         s        = metadata.getAttr1();
+                    StringBuilder  pointsSB = new StringBuilder();
+                    for (String pair : StringUtil.split(s, ";", true, true)) {
+                        List<String> toks = StringUtil.splitUpTo(pair, ",",
+                                                2);
+                        if (toks.size() != 2) {
+                            continue;
+                        }
+                        double polyLat = Utils.decodeLatLon(toks.get(0));
+                        double polyLon = Utils.decodeLatLon(toks.get(1));
+                        if (pointsSB.length() == 0) {
+                            pointsSB.append("new Array(");
+                        } else {
+                            pointsSB.append(",");
+                        }
+                        pointsSB.append(polyLat);
                         pointsSB.append(",");
+                        pointsSB.append(polyLon);
                     }
-                    pointsSB.append(polyLat);
-                    pointsSB.append(",");
-                    pointsSB.append(polyLon);
+                    hasPolygon = true;
+                    pointsSB.append(")");
+                    pointsString = pointsSB.toString();
                 }
-                hasPolygon = true;
-                pointsSB.append(")");
-                pointsString = pointsSB.toString();
             }
-
             //            hasPolygon = false;
             if ((kmlUrl == null) && !hasPolygon && entry.hasAreaDefined()
                     && !justPoints) {
@@ -748,7 +842,7 @@ public class MapManager extends RepositoryManager {
             name = name.replace("\"", "\\\"");
             name = name.replace("'", "\\'");
 
-            String desc = HtmlUtils.img(iconUrl)
+            String desc = HtmlUtils.img(getIconUrl)
                           + getEntryManager().getEntryLink(request, entry);
             desc = desc.replace("\r", " ");
             desc = desc.replace("\n", " ");
@@ -791,7 +885,7 @@ public class MapManager extends RepositoryManager {
                                 + lon) + "," + HtmlUtils.squote(detailsUrl)
                                     + "," + HtmlUtils.squote(
                                         request.getAbsoluteUrl(
-                                            iconUrl)) + "," + pointsString
+                                            getIconUrl)) + "," + pointsString
                                                 + "," + kmlUrl + ","
                                                     + fromTime + ","
                                                         + toTime));
@@ -805,8 +899,8 @@ public class MapManager extends RepositoryManager {
 
         String listwidth = request.getString(WikiManager.ATTR_LISTWIDTH,
                                              "20%");
-        layoutMap(request, sb, null, includeList, numEntries, listwidth, height,
-                  categories, catMap, mapSB.toString(), "","");
+        layoutMap(request, sb, null, includeList, numEntries, listwidth,
+                  height, categories, catMap, mapSB.toString(), "", "");
 
         sb.append(HtmlUtils.script(js.toString()));
 
@@ -818,6 +912,7 @@ public class MapManager extends RepositoryManager {
      *
      * @param request _more_
      * @param sb          StringBuilder to append to
+     * @param map _more_
      * @param includeList flag to include the list or not
      * @param numEntries  number of entries
      * @param listwidth   width of list table element
@@ -825,12 +920,12 @@ public class MapManager extends RepositoryManager {
      * @param categories  list of categories
      * @param catMap      category map
      * @param mapHtml     the map html
+     * @param navTop _more_
      * @param extraNav _more_
      *
      * @throws Exception _more_
      */
-    private void layoutMap(Request request, Appendable sb,
-                           MapInfo map,
+    private void layoutMap(Request request, Appendable sb, MapInfo map,
                            boolean includeList, int numEntries,
                            String listwidth, int height,
                            List<String> categories,
@@ -839,32 +934,37 @@ public class MapManager extends RepositoryManager {
             throws Exception {
 
         getRepository().getWikiManager().addDisplayImports(request, sb);
-        HtmlUtils.open(sb, HtmlUtils.TAG_DIV, HtmlUtils.cssClass("row"));
         int weight = 12;
-        if (includeList || extraNav.length()>0) {
+        if (includeList || (extraNav.length() > 0)) {
+            HtmlUtils.open(sb, HtmlUtils.TAG_DIV, HtmlUtils.cssClass("row"));
             HtmlUtils.open(sb, HtmlUtils.TAG_DIV,
                            HtmlUtils.cssClass("col-md-3"));
+
+            HtmlUtils.open(sb, HtmlUtils.TAG_DIV,
+                           HtmlUtils.cssClass("ramadda-links"));
             weight -= 3;
             sb.append(
                 HtmlUtils.open(
                     HtmlUtils.TAG_DIV,
-                    HtmlUtils.cssClass(CSS_CLASS_EARTH_ENTRIES +
-                                       (map==null?"":" " + map.getVariableName()))
-                    + HtmlUtils.style(
+                    HtmlUtils.cssClass(
+                        CSS_CLASS_EARTH_ENTRIES + ((map == null)
+                    ? ""
+                    : " " + map.getVariableName())) + HtmlUtils.style(
                         "max-height:" + height + "px; overflow-y: auto;")));
 
-            if(!includeList) {
-                sb.append(extraNav); 
+            if ( !includeList) {
+                sb.append(extraNav);
             } else {
                 sb.append(navTop);
 
-                boolean doToggle = (numEntries > 5) && (categories.size() > 1);
+                boolean doToggle = (numEntries > 5)
+                                   && (categories.size() > 1);
                 for (int catIdx = 0; catIdx < categories.size(); catIdx++) {
                     String        category = categories.get(catIdx);
                     StringBuilder catSB    = catMap.get(category);
                     if (doToggle) {
                         sb.append(HtmlUtils.makeShowHideBlock(category,
-                                                              catSB.toString(), catIdx == 0));
+                                catSB.toString(), catIdx == 0));
                     } else {
                         if (categories.size() > 1) {
                             sb.append(HtmlUtils.b(category));
@@ -876,14 +976,18 @@ public class MapManager extends RepositoryManager {
             }
             sb.append(HtmlUtils.close(HtmlUtils.TAG_DIV));
             sb.append(HtmlUtils.close(HtmlUtils.TAG_DIV));
+            sb.append(HtmlUtils.close(HtmlUtils.TAG_DIV));
             //            sb.append("</td>");
             //            sb.append("<td align=left>");
+            HtmlUtils.open(sb, HtmlUtils.TAG_DIV,
+                           HtmlUtils.cssClass("col-md-" + weight));
         }
-        HtmlUtils.open(sb, HtmlUtils.TAG_DIV,
-                       HtmlUtils.cssClass("col-md-" + weight));
+
         sb.append(mapHtml);
-        sb.append(HtmlUtils.close(HtmlUtils.TAG_DIV));
-        sb.append(HtmlUtils.close(HtmlUtils.TAG_DIV));
+        if (weight != 12) {
+            sb.append(HtmlUtils.close(HtmlUtils.TAG_DIV));
+            sb.append(HtmlUtils.close(HtmlUtils.TAG_DIV));
+        }
         if (includeList) {
             //            sb.append("</td></tr></table>");
         }
@@ -929,7 +1033,12 @@ public class MapManager extends RepositoryManager {
         String fromEntry = entry.getTypeHandler().getMapInfoBubble(request,
                                entry);
         if (fromEntry != null) {
-            return fromEntry;
+            fromEntry = getWikiManager().wikifyEntry(request, entry,
+                    fromEntry, false, null, null,
+                    new String[] { WikiConstants.WIKI_TAG_MAPENTRY,
+                                   WikiConstants.WIKI_TAG_MAP });
+
+            return getRepository().translate(request, fromEntry);
         }
         StringBuilder info    = new StringBuilder();
 
@@ -956,7 +1065,7 @@ public class MapManager extends RepositoryManager {
             //"slides_image"
             String image =
                 HtmlUtils.img(
-                              getRepository().getHtmlOutputHandler().getImageUrl(
+                    getRepository().getHtmlOutputHandler().getImageUrl(
                         request, entry), "", extra);
             if (request.get(WikiManager.ATTR_LINK, true)) {
                 image = HtmlUtils.href(
@@ -1030,28 +1139,38 @@ public class MapManager extends RepositoryManager {
 
         if (bubble != null) {
             bubble = getWikiManager().wikifyEntry(request, entry, bubble,
-                                                  false, null, null,new String[]{WikiConstants.WIKI_TAG_MAPENTRY,WikiConstants.WIKI_TAG_MAP});
+                    false, null, null,
+                    new String[] { WikiConstants.WIKI_TAG_MAPENTRY,
+                                   WikiConstants.WIKI_TAG_MAP });
 
             return getRepository().translate(request, bubble);
         }
 
+        String wikiTemplate = null;
+        //            getRepository().getHtmlOutputHandler().getWikiText(request,   entry);
 
+        String description = entry.getDescription();
+        if (TypeHandler.isWikiText(description)) {
+            wikiTemplate = description;
+        }
 
-        String wikiTemplate = getRepository().getHtmlOutputHandler().getWikiText(request, entry);
         if (wikiTemplate != null) {
             String wiki = getWikiManager().wikifyEntry(request, entry,
-                                                       wikiTemplate, true,null,null,new String[]{WikiConstants.WIKI_TAG_MAPENTRY,WikiConstants.WIKI_TAG_MAP});
+                              wikiTemplate, true, null, null,
+                              new String[] { WikiConstants.WIKI_TAG_MAPENTRY,
+                                             WikiConstants.WIKI_TAG_MAP });
             info.append(wiki);
         } else {
             HtmlUtils.sectionHeader(
-                                    info,
-                                    getPageHandler().getEntryHref(
-                                                                  request, entry, entry.getTypeHandler().getEntryName(entry)));
+                info,
+                getPageHandler().getEntryHref(
+                    request, entry,
+                    entry.getTypeHandler().getEntryName(entry)));
 
             info.append("<table class=\"formtable\">");
             info.append(entry.getTypeHandler().getInnerEntryContent(entry,
-                                                                    request, null, OutputHandler.OUTPUT_HTML, true, false,
-                                                                    false));
+                    request, null, OutputHandler.OUTPUT_HTML, true, false,
+                    false));
 
             List<String> urls = new ArrayList<String>();
             getMetadataManager().getThumbnailUrls(request, entry, urls);
@@ -1074,56 +1193,130 @@ public class MapManager extends RepositoryManager {
      * Get the map information
      *
      * @param request       the Request
+     * @param mainEntry _more_
      * @param entriesToUse  the list of Entrys
      * @param sb            StringBuilder to pass back html
      * @param width         width of the map
      * @param height        height of the map
-     * @param detailed      detailed or not
-     * @param listentries  if true, include the entries on the side
      * @param mapProps _more_
-     * @param args _more_
+     * @param props _more_
      *
      * @return MapInfo (not really used)
      *
      * @throws Exception  problem creating map
      */
-    public MapInfo getMap(Request request, List<Entry> entriesToUse,
-                          StringBuilder sb, int width, int height,
-                          List<Object[]> mapProps, String... args)
+    public MapInfo getMap(Request request, Entry mainEntry,
+                          List<Entry> entriesToUse, Appendable sb, int width,
+                          int height, Hashtable mapProps, Hashtable props)
             throws Exception {
-        Hashtable props = new Hashtable();
 
-        for (int i = 0; i < args.length; i += 2) {
-            if(args[i+1] == null)continue;
-            props.put(args[i], args[i + 1]);
+        boolean doCategories = Utils.getProperty(props, "doCategories", false);
+        boolean details = request.get("mapdetails",
+                                      Utils.getProperty(props, ATTR_DETAILS,
+                                          Utils.getProperty(props,
+                                              ATTR_MAPDETAILS, false)));
+        boolean listentries = Utils.getProperty(props, ATTR_LISTENTRIES,
+                                  false);
+        boolean cbx = Utils.getProperty(props, "showCheckbox", false);
+        boolean search = Utils.getProperty(props, "showSearch", false);
+        boolean searchMarkers = Utils.getProperty(props, "showMarkersSearch", false);
+        boolean showLocationSearch = Utils.getProperty(props,
+                                         "showLocationSearch", false);
 
+        boolean cbxOn        = Utils.getProperty(props, "checkboxOn", true);
+        String  mapVar       = Utils.getProperty(props, ATTR_MAPVAR);
+        String  selectFields = Utils.getProperty(props, ATTR_SELECTFIELDS);
+        String  selectBounds = Utils.getProperty(props, ATTR_SELECTBOUNDS);
+        boolean forceBounds  = true;
+        String viewBounds = Utils.getProperty(props, ATTR_VIEWBOUNDS,
+                                selectBounds);
+
+
+        if ((viewBounds != null) && viewBounds.equals("<bounds>")) {
+            viewBounds = mainEntry.getBoundsString();
+        }
+        if (request.get("mapsubset", false)) {
+            forceBounds = false;
+        }
+        if (selectFields != null) {
+            forceBounds = false;
         }
 
-        boolean doCategories = Misc.getProperty(props, "doCategories", true);
-        boolean detailed    = Misc.getProperty(props, "detailed", false);
-        detailed = request.get("mapdetails", detailed);
-        boolean listentries = Misc.getProperty(props, "listEntries", false);
-        boolean cbx         = Misc.getProperty(props, "showCheckbox", false);
-        boolean cbxOn       = Misc.getProperty(props, "checkboxOn", true);
-        String mapVar =      Misc.getProperty(props,"mapVar",(String) null);
-
-        MapInfo map         = createMap(request, width, height, false, null);
+        boolean hidden = Misc.equals(props.get("mapHidden"), "true");
+        MapInfo map = createMap(request, mainEntry, width, height, false,
+                                hidden, null);
         if (map == null) {
             return null;
         }
-        if(mapVar!=null) {
+        if (selectFields != null) {
+            map.setSelectFields(selectFields);
+        }
+        if (selectBounds != null) {
+            map.setSelectBounds(selectBounds);
+        }
+
+        if (mapVar != null) {
+            mapVar = mapVar.replace("${entryid}", mainEntry.getId());
             map.setMapVar(mapVar);
         }
         if (mapProps != null) {
-            for (Object[] pair : mapProps) {
-                map.addProperty(pair[0].toString(), pair[1]);
+            map.getMapProps().putAll(mapProps);
+        }
+        map.getMapProps().put("showSearch", "" + search);
+        map.getMapProps().put("showLocationSearch", "" + showLocationSearch);
+
+        Hashtable theProps = Utils.makeMap(PROP_DETAILED, "" + details,
+                                           PROP_SCREENBIGRECTS, "true");
+
+        if(mapProps!=null) 
+            theProps.putAll(mapProps);
+        if(props!=null) 
+            theProps.putAll(props);
+        addToMap(request, map, entriesToUse, theProps);
+
+        Rectangle2D.Double bounds = null;
+        if (viewBounds != null) {
+            List<String> toks = StringUtil.split(viewBounds, ",");
+            if (toks.size() == 4) {
+                double north = Double.parseDouble(toks.get(0));
+                double west  = Double.parseDouble(toks.get(1));
+                double south = Double.parseDouble(toks.get(2));
+                double east  = Double.parseDouble(toks.get(3));
+                bounds = new Rectangle2D.Double(west, south, east - west,
+                        north - south);
             }
         }
-        addToMap(request, map, entriesToUse, detailed, true);
+        if (bounds == null) {
+            bounds = getEntryManager().getBounds(entriesToUse);
+        }
+        boolean haveLocation = false;
 
-        Rectangle2D.Double bounds = getEntryManager().getBounds(entriesToUse);
-        map.centerOn(bounds);
 
+        if (request.defined("map_bounds")) {
+            haveLocation = true;
+            List<String> toks =
+                StringUtil.split(request.getString("map_bounds", ""), ",",
+                                 true, true);
+            if (toks.size() == 4) {
+                map.addProperty(MapManager.PROP_INITIAL_BOUNDS,
+                                Json.list(toks.get(0), toks.get(1),
+                                          toks.get(2), toks.get(3)));
+            }
+        } else if (request.defined("map_location")) {
+            haveLocation = true;
+            List<String> toks =
+                StringUtil.split(request.getString("map_location", ""), ",",
+                                 true, true);
+            if (toks.size() == 2) {
+                map.addProperty(MapManager.PROP_INITIAL_LOCATION,
+                                Json.list(toks.get(0), toks.get(1)));
+            }
+        }
+
+
+        if ( !haveLocation) {
+            map.centerOn(bounds, forceBounds);
+        }
 
         List<String> categories = new ArrayList<String>();
         Hashtable<String, StringBuilder> catMap = new Hashtable<String,
@@ -1136,14 +1329,14 @@ public class MapManager extends RepositoryManager {
             }
 
             String category;
-            if(!doCategories) {
+            if ( !doCategories) {
                 category = "";
             } else {
                 if (Misc.equals(categoryType, "parent")) {
                     category = getEntryDisplayName(entry.getParentEntry());
                 } else {
                     category = entry.getTypeHandler().getCategory(
-                                                                  entry).getLabel().toString();
+                        entry).getLabel().toString();
                 }
             }
 
@@ -1152,19 +1345,20 @@ public class MapManager extends RepositoryManager {
                 catMap.put(category, catSB = new StringBuilder());
                 categories.add(category);
             }
+            String suffix = map.getMapId() + "_" + entry.getId();
             catSB.append(
                 HtmlUtils.open(
                     HtmlUtils.TAG_DIV,
-                    "data-mapid=\"" + entry.getId() +"\" "+
-                    HtmlUtils.cssClass(CSS_CLASS_EARTH_NAV)));
-            String iconUrl = getPageHandler().getIconUrl(request, entry);
+                    HtmlUtils.id("block_" + suffix) +
+                    "data-mapid=\"" + entry.getId() + "\" "
+                    + HtmlUtils.cssClass(CSS_CLASS_EARTH_NAV)));
+            String getIconUrl = getPageHandler().getIconUrl(request, entry);
 
             String navUrl = "javascript:" + map.getVariableName()
                             + ".hiliteMarker(" + sqt(entry.getId()) + ");";
 
             if (cbx) {
-                String cbxId = "visible_" + map.getMapId() + "_"
-                               + entry.getId();
+                String cbxId = "visible_" + suffix;
                 catSB.append(HtmlUtils.checkbox("tmp", "true", cbxOn,
                         HtmlUtils.id(cbxId)) + HtmlUtils.space(2));
             }
@@ -1172,32 +1366,60 @@ public class MapManager extends RepositoryManager {
                 HtmlUtils.href(
                     getEntryManager().getEntryURL(request, entry),
                     HtmlUtils.img(
-                        iconUrl, msg("Click to view entry details"))));
+                        getIconUrl, msg("Click to view entry details"))));
             catSB.append("&nbsp;");
-            catSB.append(HtmlUtils.href(navUrl, getEntryDisplayName(entry)));
+            String label = getEntryDisplayName(entry);
+            catSB.append(HtmlUtils.href(navUrl, label,
+                                        HtmlUtils.attr(HtmlUtils.ATTR_TITLE,
+                                            label)));
             catSB.append(HtmlUtils.close(HtmlUtils.TAG_DIV));
             numEntries++;
         }
         String listwidth = request.getString(WikiManager.ATTR_LISTWIDTH,
                                              "250");
-        String navTop = "";
+        String navTop   = "";
+        String searchId = "";
+        if (searchMarkers) {
+            searchId = "search_" + map.getMapId();
+            navTop += HtmlUtils.input(
+                "tmp", "", 20,
+                HtmlUtils.attr("placeholder", msg(" Search text"))
+                + HtmlUtils.id(searchId)) + "<br>";
+
+        }
         if (cbx) {
             String cbxId = "visibleall_" + map.getMapId();
-            navTop = HtmlUtils.checkbox("tmp", "true", true,
-                                          HtmlUtils.id(cbxId)) + "<br>";
+            navTop += HtmlUtils.checkbox("tmp", "true", true,
+                                         HtmlUtils.id(cbxId)) + "<br>";
 
         }
 
-        if(map.getHtml().length()==0 && catMap.size()==0) {
-            listentries=false;
+        if ((map.getHtml().length() == 0) && (catMap.size() == 0)) {
+            listentries = false;
         }
+        if (request.defined("map_layer")) {
+            map.addProperty("defaultMapLayer",
+                            Json.quote(request.getString("map_layer", "")));
+        }
+
         String extra = map.getExtraNav();
-        layoutMap(request, sb, map, listentries, numEntries, listwidth, height,
-                  categories, catMap, map.getHtml(), navTop, extra);
+        layoutMap(request, sb, map, listentries, numEntries, listwidth,
+                  height, categories, catMap, map.getHtml(), navTop, extra);
 
-        String js ="highlightMarkers('." + map.getVariableName() +" .ramadda-earth-nav', " + map.getVariableName() +", '#ffffcc', 'white');";
+        String js = "highlightMarkers('." + map.getVariableName()
+                    + " .ramadda-earth-nav', " + map.getVariableName()
+                    + ", '#ffffcc', 'white');";
+
+        if (searchMarkers) {
+            js += map.getVariableName() + ".initSearch(" + sqt(searchId)
+                  + ");";
+        }
+
+
         sb.append(HtmlUtils.script(JQuery.ready(js)));
+
         return map;
+
     }
 
     /**
@@ -1206,15 +1428,49 @@ public class MapManager extends RepositoryManager {
      * @param request      The request
      * @param map          the map information
      * @param entriesToUse the Entrys to use
-     * @param detailed     deatiled or not
-     * @param screenBigRects     handle big rectangles
+     * @param props _more_
      *
      * @throws Exception  problem adding entries to map
      */
     public void addToMap(Request request, MapInfo map,
-                         List<Entry> entriesToUse, boolean detailed,
-                         boolean screenBigRects)
+                         List<Entry> entriesToUse, Hashtable props)
             throws Exception {
+
+        boolean detailed = Misc.getProperty(props, PROP_DETAILED, false);
+        boolean showBounds = Utils.getProperty(props,  "showBounds", true);
+        boolean showMarkers = Utils.getProperty(props,  "showMarkers", true);
+        boolean screenBigRects = Misc.getProperty(props, PROP_SCREENBIGRECTS,
+                                     false);
+
+        if ((entriesToUse.size() == 1) && detailed) {
+            List<Metadata> metadataList =
+                getMetadataManager().findMetadata(request,
+                    entriesToUse.get(0), "map_displaymap", true);
+            if ((metadataList != null) && (metadataList.size() > 0)) {
+                for (Metadata metadata : metadataList) {
+                    if (Utils.stringDefined(metadata.getAttr1())) {
+                        Entry mapEntry =
+                            (Entry) getEntryManager().getEntry(request,
+                                metadata.getAttr1());
+                        if ((mapEntry != null)
+                                && (mapEntry.getTypeHandler()
+                                    .isType("geo_shapefile") || mapEntry
+                                    .getTypeHandler()
+                                    .isType("geo_geojson"))) {
+                            String kmlUrl =
+                                request.entryUrl(getRepository()
+                                    .URL_ENTRY_SHOW, mapEntry, ARG_OUTPUT,
+                                        ShapefileOutputHandler.OUTPUT_KML
+                                            .toString(), "formap", "true");
+                            map.addKmlUrl(
+                                mapEntry.getName(), kmlUrl, true,
+                                ShapefileOutputHandler.makeMapStyle(
+                                    request, mapEntry));
+                        }
+                    }
+                }
+            }
+        }
         screenBigRects = false;
         int cnt = 0;
         for (Entry entry : entriesToUse) {
@@ -1227,14 +1483,14 @@ public class MapManager extends RepositoryManager {
         boolean          makeRectangles = cnt <= 100;
         MapBoxProperties mapProperties  = new MapBoxProperties("blue", false);
 
-
         if (request.get(ARG_MAP_ICONSONLY, false)) {
             makeRectangles = false;
         }
 
+        if(!showBounds) makeRectangles = false;
+
 
         for (Entry entry : entriesToUse) {
-
             boolean addMarker = true;
             String  idBase    = entry.getId();
             List<Metadata> metadataList =
@@ -1274,17 +1530,22 @@ public class MapManager extends RepositoryManager {
                     if (metadata.getType().equals(
                             JpegMetadataHandler.TYPE_CAMERA_DIRECTION)) {
                         double dir = Double.parseDouble(metadata.getAttr1());
+                        double km  = 1.0;
+                        String kms = metadata.getAttr2();
+                        if (Utils.stringDefined(kms)) {
+                            km = Double.parseDouble(kms);
+                        }
                         LatLonPointImpl fromPt =
                             new LatLonPointImpl(location[0], location[1]);
                         LatLonPointImpl pt = Bearing.findPoint(fromPt, dir,
-                                                 0.5, null);
+                                                 km, null);
                         map.addLine(entry, entry.getId(), fromPt, pt, null);
 
                         break;
                     }
                 }
 
-                if (addMarker) {
+                if (addMarker && showMarkers) {
                     if (entry.getTypeHandler().getTypeProperty("map.circle",
                             false)) {
                         map.addCircle(request, entry);
@@ -1294,6 +1555,7 @@ public class MapManager extends RepositoryManager {
                 }
             }
         }
+
 
 
 
@@ -1311,7 +1573,7 @@ public class MapManager extends RepositoryManager {
      *
      * @throws Exception _more_
      */
-    private String cleanupInfo(Request request, String infoHtml)
+    public String cleanupInfo(Request request, String infoHtml)
             throws Exception {
         infoHtml = infoHtml.replace("\r", " ");
         infoHtml = infoHtml.replace("\n", " ");

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -218,9 +218,9 @@ public class HipchatGroupTypeHandler extends ExtensibleGroupTypeHandler {
                                     Entry parentEntry, String synthId)
             throws Exception {
 
-        System.err.println("HipchatGroupTypeHandler.getSynthIds:" + synthId
-                           + " parent:" + parentEntry.getName() + " group: "
-                           + groupEntry.getName());
+        //        System.err.println("HipchatGroupTypeHandler.getSynthIds:" + synthId
+        //                           + " parent:" + parentEntry.getName() + " group: "
+        //                           + groupEntry.getName());
         List<String> ids = parentEntry.getChildIds();
         if (ids != null) {
             return ids;
@@ -413,14 +413,13 @@ public class HipchatGroupTypeHandler extends ExtensibleGroupTypeHandler {
                 String thumbnailUrl = Json.readValue(link,
                                           "video.thumbnailUrl", null);
                 String title = Json.readValue(link, "video.title", null);
-                System.err.println("url:" + url + " " + title + " thumb:"
-                                   + thumbnailUrl);
+                //                System.err.println("url:" + url + " " + title + " thumb:"  + thumbnailUrl);
                 //TODO:add this as metadata
-                messageEntry.addMetadata(
-                    new Metadata(
-                        getRepository().getGUID(), messageEntry.getId(),
-                        ContentMetadataHandler.TYPE_URL, false, url, title,
-                        null, null, null));
+                getMetadataManager().addMetadata(messageEntry,
+                        new Metadata(getRepository().getGUID(),
+                                     messageEntry.getId(),
+                                     ContentMetadataHandler.TYPE_URL, false,
+                                     url, title, null, null, null));
                 if (thumbnailUrl != null) {
                     Metadata thumbnailMetadata =
                         new Metadata(getRepository().getGUID(),
@@ -428,7 +427,8 @@ public class HipchatGroupTypeHandler extends ExtensibleGroupTypeHandler {
                                      ContentMetadataHandler.TYPE_THUMBNAIL,
                                      false, thumbnailUrl, null, null, null,
                                      null);
-                    messageEntry.addMetadata(thumbnailMetadata);
+                    getMetadataManager().addMetadata(messageEntry,
+                            thumbnailMetadata);
                 }
             }
         }
@@ -454,8 +454,8 @@ public class HipchatGroupTypeHandler extends ExtensibleGroupTypeHandler {
     @Override
     public Entry makeSynthEntry(Request request, Entry groupEntry, String id)
             throws Exception {
-        System.err.println("HipchatGroup.makeSynthEntry id = " + id
-                           + " group:" + groupEntry.getName());
+        //System.err.println("HipchatGroup.makeSynthEntry id = " + id
+        //                           + " group:" + groupEntry.getName());
         String token = getToken(request, groupEntry);
         if ( !Utils.stringDefined(token)) {
             return null;

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -205,12 +205,12 @@ public class FitsOutputHandler extends OutputHandler {
             throws Exception {
 
         StringBuffer sb = new StringBuffer();
-        String fileUrl = getEntryManager().getEntryResourceUrl(request,
-                             entry, false);
+        String getFileUrl = getEntryManager().getEntryResourceUrl(request,
+                                entry, false);
         //TODO: set the path right
         sb.append(
             "<applet archive=\"/repository/fits/fits1.3.jar\" code=\"eap.fitsbrowser.BrowserApplet\" width=700 height=700 ><param name=\"FILE\" value=\""
-            + fileUrl
+            + getFileUrl
             + "\">Your browser is ignoring the applet tag</applet>");
 
         return new Result("", sb);

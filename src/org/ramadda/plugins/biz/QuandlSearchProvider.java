@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -56,7 +56,6 @@ public class QuandlSearchProvider extends SearchProvider {
      * _more_
      *
      * @param repository _more_
-     * @param args _more_
      */
     public QuandlSearchProvider(Repository repository) {
         super(repository, "quandl", "Quandl Data");
@@ -80,7 +79,7 @@ public class QuandlSearchProvider extends SearchProvider {
      * @return _more_
      */
     @Override
-    public String getIconUrl() {
+    public String getSearchProviderIconUrl() {
         return "${root}/biz/quandl.png";
     }
 
@@ -126,7 +125,7 @@ public class QuandlSearchProvider extends SearchProvider {
             return entries;
         }
 
-        System.out.println("quandl:" + url);
+        //        System.out.println("quandl:" + url);
 
         Entry parent = getSynthTopLevelEntry();
         TypeHandler seriesTypeHandler =

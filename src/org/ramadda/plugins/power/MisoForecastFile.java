@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -77,19 +77,22 @@ public class MisoForecastFile extends CsvFile {
 
             StringBuilder s     = new StringBuilder("#converted stream\n");
 
-            List         nodes = XmlUtil.findChildren(root, windForecast
+            List          nodes = XmlUtil.findChildren(root, windForecast
                     ? "Forecast"
                     : "instance");
 
             for (int i = 0; i < nodes.size(); i++) {
                 Element node = (Element) nodes.get(i);
-                String dttm = XmlUtil.getGrandChildText(node, "ForecastDateTimeEST",
-                                  null);
+                String dttm = XmlUtil.getGrandChildText(node,
+                                  "ForecastDateTimeEST", null);
                 String hour = XmlUtil.getGrandChildText(node,
                                   "ForecastHourEndingEST", null);
-                String forecastValue = XmlUtil.getGrandChildText(node, "ForecasetValue", "NaN");
-                String value = XmlUtil.getGrandChildText(node, "ActualValue", "NaN");
-                s.append(dttm + "," + hour + "," + forecastValue +","+ value + "\n");
+                String forecastValue = XmlUtil.getGrandChildText(node,
+                                           "ForecasetValue", "NaN");
+                String value = XmlUtil.getGrandChildText(node, "ActualValue",
+                                   "NaN");
+                s.append(dttm + "," + hour + "," + forecastValue + ","
+                         + value + "\n");
             }
 
 
@@ -134,8 +137,8 @@ public class MisoForecastFile extends CsvFile {
             makeField("hour_ending", attrType("string"),
                       attrLabel("Hour Ending")),
             makeField(varName, attrLabel(varLabel), attrChartable()),
-            makeField("actual_value", attrLabel("Actual Value"), attrChartable()),
-            });
+            makeField("actual_value", attrLabel("Actual Value"),
+                      attrChartable()), });
 
         return visitInfo;
     }

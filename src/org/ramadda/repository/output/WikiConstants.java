@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -82,6 +82,9 @@ public interface WikiConstants {
 
     /** show the details attribute */
     public static final String ATTR_DETAILS = "details";
+
+    /** _more_ */
+    public static final String ATTR_MAPDETAILS = "mapDetails";
 
     /** _more_ */
     public static final String ATTR_DECORATE = "decorate";
@@ -236,6 +239,7 @@ public interface WikiConstants {
     /** attribute in import tag */
     public static final String ATTR_FOLDERS = "folders";
 
+
     /** images only attribute */
     public static final String ATTR_IMAGES = "images";
 
@@ -323,6 +327,13 @@ public interface WikiConstants {
     public static final String WIKI_TAG_GROUP = "group";
 
     /** _more_ */
+    public static final String WIKI_TAG_WIKITEXT = "wikitext";
+
+    /** _more_          */
+    public static final String WIKI_TAG_JAVASCRIPT = "javascript";
+
+
+    /** _more_ */
     public static final String WIKI_TAG_EMBED = "embed";
 
     /** _more_ */
@@ -330,6 +341,9 @@ public interface WikiConstants {
 
     /** _more_ */
     public static final String WIKI_TAG_DISPLAY = "display";
+
+    /** _more_ */
+    public static final String WIKI_TAG_DISPLAYPROPERTY = "displayProperty";
 
     /** wiki import */
     public static final String WIKI_TAG_IMPORT = "import";
@@ -380,6 +394,8 @@ public interface WikiConstants {
     /** _more_ */
     public static final String WIKI_TAG_TREEVIEW = "treeview";
 
+    public static final String WIKI_TAG_FRAMES = "frames";
+
     /** the table property */
     public static final String WIKI_TAG_TABLE = "table";
 
@@ -405,6 +421,9 @@ public interface WikiConstants {
     public static final String WIKI_TAG_TABS = "tabs";
 
     /** _more_ */
+    public static final String WIKI_TAG_BOUNDS = "bounds";
+
+    /** _more_ */
     public static final String WIKI_TAG_BOOTSTRAP = "bootstrap";
 
     /** _more_ */
@@ -416,6 +435,18 @@ public interface WikiConstants {
     /** _more_ */
     public static final String ATTR_APPLY_TAG = APPLY_PREFIX + "tag";
 
+    /** _more_ */
+    public static final String ATTR_SELECTFIELDS = "selectFields";
+
+    /** _more_ */
+    public static final String ATTR_SELECTBOUNDS = "selectBounds";
+
+    /** _more_ */
+    public static final String ATTR_VIEWBOUNDS = "viewBounds";
+
+    /** _more_ */
+    public static final String ATTR_MAPVAR = "mapVar";
+
     /** accordian property */
     public static final String WIKI_TAG_ACCORDIAN = "accordian";
 
@@ -424,6 +455,9 @@ public interface WikiConstants {
 
     /** wiki import */
     public static final String WIKI_TAG_GRID = "grid";
+
+    /** _more_          */
+    public static final String WIKI_TAG_CARD = "card";
 
     /** wiki import */
     public static final String WIKI_TAG_TOOLBAR = "toolbar";
@@ -449,6 +483,7 @@ public interface WikiConstants {
     /** wiki import */
     public static final String WIKI_TAG_MAP = "map";
 
+
     /** wiki import */
     public static final String WIKI_TAG_EARTH = "earth";
 
@@ -466,6 +501,13 @@ public interface WikiConstants {
 
     /** wiki import */
     public static final String WIKI_TAG_PROPERTIES = "properties";
+
+    /** _more_ */
+    public static final String WIKI_TAG_PROPERTY = "property";
+
+    /** _more_ */
+    public static final String WIKI_TAG_LABEL = "label";
+
 
     /** wiki import */
     public static final String WIKI_TAG_LINKS = "links";
@@ -561,6 +603,9 @@ public interface WikiConstants {
 
     /** _more_ */
     public static final String ATTR_SHOWFORM = "showForm";
+
+    /** _more_ */
+    public static final String ATTR_TEXT = "text";
 
     /** _more_ */
     public static final String ATTR_FORMOPEN = "formOpen";

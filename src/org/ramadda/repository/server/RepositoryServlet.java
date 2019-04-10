@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -278,12 +278,11 @@ public class RepositoryServlet extends HttpServlet implements Constants {
                 return;
             }
         }
-        request.setCharacterEncoding("UTF-8");
-        response.setCharacterEncoding("UTF-8");
+        //        request.setCharacterEncoding("UTF-8");
+        //        response.setCharacterEncoding("UTF-8");
 
         RequestHandler handler          = new RequestHandler(request);
         Result         repositoryResult = null;
-
         boolean        isHeadRequest    = request.getMethod().equals("HEAD");
         try {
             try {
@@ -346,8 +345,7 @@ public class RepositoryServlet extends HttpServlet implements Constants {
                         //                                           "Tue, 20 Jan 2010 01:45:54 GMT");
                     }
                 } else {
-                    response.setHeader("Cache-Control",
-                                       "no-cache");
+                    response.setHeader("Cache-Control", "no-cache");
                 }
 
                 if (isHeadRequest) {

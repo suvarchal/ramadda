@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.ramadda.geodata.model;
 
 
 import org.ramadda.geodata.cdmdata.CdmDataOutputHandler;
+import org.ramadda.repository.DateHandler;
 
 import org.ramadda.repository.Entry;
 import org.ramadda.repository.Link;
@@ -235,6 +236,9 @@ public class CDOOutputHandler extends OutputHandler implements ServiceProvider {
     /** day period */
     public static final String PERIOD_DAY = "day";
 
+    /** date formatter */
+    public static final CalendarDateFormatter dateFormatter  = new CalendarDateFormatter("yyyy-MM-dd'T'HH:mm:ss");
+    
     /** start year */
     int startYear = 1979;
 
@@ -754,12 +758,12 @@ public class CDOOutputHandler extends OutputHandler implements ServiceProvider {
         }
         if (date instanceof CalendarDate) {
             String dateFormat = getRepository().getProperty(PROP_DATE_FORMAT,
-                                    PageHandler.DEFAULT_TIME_FORMAT);
+                                    DateHandler.DEFAULT_TIME_FORMAT);
 
             return new CalendarDateFormatter(dateFormat).toString(
                 (CalendarDate) date);
         } else if (date instanceof Date) {
-            return getPageHandler().formatDate(request, (Date) date);
+            return getDateHandler().formatDate(request, (Date) date);
         } else {
             return date.toString();
         }
@@ -780,16 +784,16 @@ public class CDOOutputHandler extends OutputHandler implements ServiceProvider {
         List formattedDates = new ArrayList();
         formattedDates.add(new TwoFacedObject("---", ""));
         for (CalendarDate date : dates) {
-            //formattedDates.add(getPageHandler().formatDate(request, date));
+            //formattedDates.add(getDateHandler().formatDate(request, date));
             formattedDates.add(formatDate(request, date));
         }
         /*
           for now default to "" for dates
         String fromDate = request.getUnsafeString(ARG_CDO_FROMDATE,
-        getPageHandler().formatDate(request,
+        getDateHandler().formatDate(request,
                                   dates.get(0)));
         String toDate = request.getUnsafeString(ARG_CDO_TODATE,
-                            getPageHandler().formatDate(request,
+                            getDateHandler().formatDate(request,
                                 dates.get(dates.size() - 1)));
         */
         String fromDate = request.getUnsafeString(ARG_CDO_FROMDATE, "");
@@ -798,7 +802,7 @@ public class CDOOutputHandler extends OutputHandler implements ServiceProvider {
             HtmlUtils.formEntry(
                 msgLabel("Time Range"),
                 HtmlUtils.select(ARG_CDO_FROMDATE, formattedDates, fromDate)
-                + HtmlUtils.img(iconUrl(ICON_ARROW))
+                + HtmlUtils.img(getIconUrl(ICON_ARROW))
                 + HtmlUtils.select(ARG_CDO_TODATE, formattedDates, toDate)));
     }
 
@@ -933,8 +937,8 @@ public class CDOOutputHandler extends OutputHandler implements ServiceProvider {
 
         MapInfo map;
         if ( !usePopup) {
-            map = getRepository().getMapManager().createMap(request, 250,
-                    150, true, null);
+            map = getRepository().getMapManager().createMap(request, null,
+                    250, 150, true, null);
             String maplayers = getRepository().getProperty(PROP_MAP_LAYERS,
                                    null);
             String defaultMap =
@@ -952,8 +956,8 @@ public class CDOOutputHandler extends OutputHandler implements ServiceProvider {
             map.addProperty("showZoomPanControl", "false");
             map.addProperty("showZoomOnlyControl", "true");
         } else {
-            map = getRepository().getMapManager().createMap(request, true,
-                    null);
+            map = getRepository().getMapManager().createMap(request, null,
+                    true, null);
         }
 
         map.setMapRegions(getPageHandler().getMapRegions(mapRegionGroup));
@@ -1220,7 +1224,7 @@ public class CDOOutputHandler extends OutputHandler implements ServiceProvider {
                         dataUnit = zAxis.getUnitsString();
                         levelUnit = request.getString(levelArg + "_unit",
                                 dataUnit);
-                    } else { // no level for this parameter
+                    } else {  // no level for this parameter
                         return;
                     }
                     if ( !Misc.equals(levelUnit, dataUnit)
@@ -1367,9 +1371,9 @@ public class CDOOutputHandler extends OutputHandler implements ServiceProvider {
                 } else {
                     dateSelect =
                         OP_SELDATE + ","
-                        + CalendarDateFormatter.toDateTimeStringISO(dates[0])
+                        + dateFormatter.toString(dates[0])
                         + ","
-                        + CalendarDateFormatter.toDateTimeStringISO(dates[1]);
+                        + dateFormatter.toString(dates[1]);
                 }
             }
         } else {                                // month and year

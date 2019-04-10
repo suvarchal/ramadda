@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -22,11 +22,11 @@ import org.ramadda.repository.auth.*;
 import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.output.*;
 import org.ramadda.repository.type.*;
-
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.Utils;
+
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -1132,14 +1132,14 @@ public class PatternHarvester extends Harvester /*implements EntryInitializer*/ 
             }
             if (makeGroup && (parentGroup != null)) {
                 String groupPath =
-                    HtmlUtils.concat(parentGroup.getFullName(),
-                                     Entry.PATHDELIMITER, name);
+                    Utils.concatString(parentGroup.getFullName(),
+                                       Entry.PATHDELIMITER, name);
                 Entry group = getEntryManager().findGroupFromName(request,
                                   groupPath, getUser(), false);
 
                 if ((group == null) && (name.indexOf("_") >= 0)) {
                     String blankName = name.replaceAll("_", " ");
-                    groupPath = HtmlUtils.concat(parentGroup.getFullName(),
+                    groupPath = Utils.concatString(parentGroup.getFullName(),
                             Entry.PATHDELIMITER, blankName);
                     group = getEntryManager().findGroupFromName(request,
                             groupPath, getUser(), false);
@@ -1529,7 +1529,7 @@ public class PatternHarvester extends Harvester /*implements EntryInitializer*/ 
         }
         if (getTestMode()) {
             debug("\tname: " + name + "\n\tgroup:" + groupName
-                  + "\n\tfromdate:" + getPageHandler().formatDate(fromDate));
+                  + "\n\tfromdate:" + getDateHandler().formatDate(fromDate));
             if (values != null) {
                 for (int i = 0; i < values.length; i++) {
                     debug("\tvalue: " + values[i]);
@@ -1654,9 +1654,12 @@ public class PatternHarvester extends Harvester /*implements EntryInitializer*/ 
                 String newThumbFile =
                     getStorageManager().copyToEntryDir(entry, thumbnail,
                         jpegFile).getName();
-                entry.addMetadata(new Metadata(getRepository().getGUID(),
-                        entry.getId(), ContentMetadataHandler.TYPE_THUMBNAIL,
-                        false, newThumbFile, null, null, null, null));
+                getMetadataManager().addMetadata(entry,
+                        new Metadata(getRepository().getGUID(),
+                                     entry.getId(),
+                                     ContentMetadataHandler.TYPE_THUMBNAIL,
+                                     false, newThumbFile, null, null, null,
+                                     null));
 
             }
         }

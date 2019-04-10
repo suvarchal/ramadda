@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ import org.ramadda.repository.*;
 import org.ramadda.repository.auth.*;
 
 import org.ramadda.repository.output.*;
-
-
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.HtmlUtils;
+
+
+import org.ramadda.util.sql.SqlUtil;
 
 
 import org.w3c.dom.*;
@@ -84,6 +84,22 @@ public class LdmOutputHandler extends OutputHandler {
     }
 
 
+    /** _more_ */
+    private boolean enabled = false;
+
+    /** _more_ */
+    private String pqinsert;
+
+    /**
+     * _more_
+     */
+    @Override
+    public void initAttributes() {
+        super.initAttributes();
+        pqinsert = getRepository().getProperty(LdmAction.PROP_LDM_PQINSERT,
+                (String) null);
+        enabled = pqinsert != null;
+    }
 
     /**
      * _more_
@@ -99,8 +115,7 @@ public class LdmOutputHandler extends OutputHandler {
             throws Exception {
 
         //Are we configured to do the LDM
-        if (getRepository().getProperty(LdmAction.PROP_LDM_PQINSERT,
-                                        "").length() == 0) {
+        if ( !enabled) {
             return;
         }
         if (getRepository().getProperty(LdmAction.PROP_LDM_QUEUE,
@@ -264,8 +279,6 @@ public class LdmOutputHandler extends OutputHandler {
         } else {
             String queue =
                 getRepository().getProperty(LdmAction.PROP_LDM_QUEUE, "");
-            String pqinsert =
-                getRepository().getProperty(LdmAction.PROP_LDM_PQINSERT, "");
             for (Entry entry : fileEntries) {
                 String id =
                     getRepository().getEntryManager().replaceMacros(entry,

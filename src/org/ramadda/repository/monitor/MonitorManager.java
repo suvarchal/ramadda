@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -21,12 +21,12 @@ import org.ramadda.repository.*;
 import org.ramadda.repository.auth.*;
 import org.ramadda.repository.database.*;
 
-import org.ramadda.sql.Clause;
-
-
-import org.ramadda.sql.SqlUtil;
-
 import org.ramadda.util.HtmlUtils;
+
+import org.ramadda.util.sql.Clause;
+
+
+import org.ramadda.util.sql.SqlUtil;
 
 import ucar.unidata.util.DateUtil;
 
@@ -662,7 +662,7 @@ public class MonitorManager extends RepositoryManager implements EntryChecker {
                     HtmlUtils.url(
                         getRepositoryBase().URL_USER_MONITORS.toString(),
                         ARG_MONITOR_ID, monitor.getId()), HtmlUtils.img(
-                            iconUrl(ICON_EDIT))));
+                            getIconUrl(ICON_EDIT))));
             sb.append(HtmlUtils.space(1));
             sb.append(
                 HtmlUtils.href(
@@ -670,7 +670,7 @@ public class MonitorManager extends RepositoryManager implements EntryChecker {
                         getRepositoryBase().URL_USER_MONITORS.toString(),
                         ARG_MONITOR_DELETE, "true", ARG_MONITOR_ID,
                         monitor.getId()), HtmlUtils.img(
-                            iconUrl(ICON_DELETE))));
+                            getIconUrl(ICON_DELETE))));
             if ( !monitor.isActive()) {
                 sb.append(HtmlUtils.space(1));
                 sb.append(msg("not active"));

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -35,8 +35,8 @@ import org.ramadda.repository.util.RequestArgument;
 import org.ramadda.service.Service;
 import org.ramadda.service.ServiceInput;
 import org.ramadda.service.ServiceOperand;
-import org.ramadda.sql.Clause;
 import org.ramadda.util.HtmlUtils;
+import org.ramadda.util.sql.Clause;
 
 import ucar.nc2.dt.grid.GridDataset;
 import ucar.nc2.time.Calendar;
@@ -236,13 +236,10 @@ public abstract class CDODataService extends Service {
      * Make the standard deviation of the anomaly
      *
      * @param request the request
-     * @param entry the entry
      * @param mean the file for the statistic to work on
      * @param dpi the input
      * @param tail the file tail
-     * @param the years (comma list, or start/end)
      * @param stat  the statistic to create (mean, sprd, climo)
-     * @param selyears  the selected years from the dataset
      * @param startYear start year
      * @param endYear   end year
      *
@@ -424,10 +421,15 @@ public abstract class CDODataService extends Service {
             throws Exception {
 
         //System.out.println(commands);
+        // Have to add this for our stupid system
+        Map<String, String> envMap = new HashMap<String, String>();
+        envMap.put("HDF5_USE_FILE_LOCKING", "FALSE");
+        //envMap.put("HDF5_DISABLE_VERSION_CHECK", "2");
+
 
         long millis = System.currentTimeMillis();
         JobManager.CommandResults results =
-            getRepository().getJobManager().executeCommand(commands, null,
+            getRepository().getJobManager().executeCommand(commands, envMap,
                 processDir, 60);
         //System.out.println("processing took: " + (System.currentTimeMillis()-millis));
         String errorMsg = results.getStderrMsg();
@@ -811,7 +813,8 @@ public abstract class CDODataService extends Service {
      *
      * @throws Exception  problem reading the data
      */
-    protected static boolean doMonthsSpanYearEnd(Request request, Entry oneOfThem)
+    protected static boolean doMonthsSpanYearEnd(Request request,
+            Entry oneOfThem)
             throws Exception {
         if (request.defined(CDOOutputHandler.ARG_CDO_MONTHS)
                 && request.getString(
@@ -1074,33 +1077,43 @@ public abstract class CDODataService extends Service {
                     //frequency = collection.getValues()[0].toString();
                     frequency = collection.getValue(0).toString();
                 }
-                if (frequency.toLowerCase().indexOf("mon") >= 0) {
-                    if ( !useThreads || ((threadNum == 0) && needAnom)) {
+                boolean isMonthly = frequency.toLowerCase().indexOf("mon")
+                                    >= 0;
+                if ( !useThreads || ((threadNum == 0) && needAnom)) {
+                    if (isMonthly) {
                         outputEntries.add(evaluateMonthlyRequest(request,
                                 myInput, op, opNum, myType, myClimSample));
                     } else {
-                        final int myOp = opNum;
-                        //System.out.println("making thread " + opNum);
-                        threadManager.addRunnable(
-                            new ThreadManager.MyRunnable() {
-                            public void run() throws Exception {
-                                try {
-                                    ServiceOperand so =
-                                        evaluateMonthlyRequest(myRequest,
+                        outputEntries.add(evaluateDailyRequest(request,
+                                myInput, op, opNum, myType, myClimSample));
+                    }
+                } else {
+                    final int     myOp        = opNum;
+                    final boolean myIsMonthly = isMonthly;
+                    //System.out.println("making thread " + opNum);
+                    threadManager.addRunnable(new ThreadManager.MyRunnable() {
+                        public void run() throws Exception {
+                            try {
+                                ServiceOperand so;
+                                if (myIsMonthly) {
+                                    so = evaluateMonthlyRequest(myRequest,
                                             myInput, op, myOp, myType,
                                             myClimSample);
-                                    if (so != null) {
-                                        synchronized (outputEntries) {
-                                            outputEntries.add(so);
-                                        }
-                                    }
-                                } catch (Exception ve) {
-                                    ve.printStackTrace();
+                                } else {
+                                    so = evaluateDailyRequest(myRequest,
+                                            myInput, op, myOp, myType,
+                                            myClimSample);
                                 }
+                                if (so != null) {
+                                    synchronized (outputEntries) {
+                                        outputEntries.add(so);
+                                    }
+                                }
+                            } catch (Exception ve) {
+                                ve.printStackTrace();
                             }
-                        });
-                    }
-
+                        }
+                    });
                 }
                 //if (myInput.getOperands().size() <= 2) {
                 //    opNum++;
@@ -1197,15 +1210,19 @@ public abstract class CDODataService extends Service {
      *
      * @param request  the request
      * @param dpi      the ServiceInput
+     * @param op _more_
+     * @param opNum _more_
+     * @param type _more_
+     * @param climSample _more_
      *
      * @return  some output
      *
      * @throws Exception problem processing the daily data
      */
-    protected Entry evaluateDailyRequest(Request request, ServiceInput dpi)
-            throws Exception {
-        throw new Exception("can't handle daily data yet");
-    }
+    protected abstract ServiceOperand evaluateDailyRequest(Request request,
+            ServiceInput dpi, ServiceOperand op, int opNum, String type,
+            Entry climSample)
+     throws Exception;
 
     /**
      * Get the climatology entry
@@ -1215,6 +1232,7 @@ public abstract class CDODataService extends Service {
      * @param oneOfThem  a sample from the input
      * @param climstartYear  starting year for climatology
      * @param climendYear    ending year for climatology
+     * @param climType _more_
      *
      * @return  the entry or null
      *
@@ -1223,7 +1241,7 @@ public abstract class CDODataService extends Service {
     protected Entry getClimatologyEntry(Request request, ServiceInput dpi,
                                         Entry oneOfThem,
                                         String climstartYear,
-                                        String climendYear)
+                                        String climendYear, String climType)
             throws Exception {
         Entry  climEntry     = null;
         String climFileToUse = null;
@@ -1240,7 +1258,15 @@ public abstract class CDODataService extends Service {
                     System.out.println("Couldn't find mean, using entry");
                     meanEntry = oneOfThem;
                 } else {
-                    meanEntry = mean.get(0);
+                    if (mean.size() == 1) {
+                        meanEntry = mean.get(0);
+                    } else {
+                        String id =
+                            ModelUtil.makeValuesKey(oneOfThem.getValues(),
+                                true);
+                        meanEntry = ModelUtil.aggregateEntriesByTime(request,
+                                mean, id, dpi.getProcessDir());
+                    }
                 }
                 //meanEntry = oneOfThem;
                 //Object[] mvals = meanEntry.getValues();
@@ -1267,7 +1293,15 @@ public abstract class CDODataService extends Service {
                         System.out.println("Couldn't find mean, using entry");
                         meanEntry = oneOfThem;
                     } else {
-                        meanEntry = mean.get(0);
+                        if (mean.size() == 1) {
+                            meanEntry = mean.get(0);
+                        } else {
+                            String id = ModelUtil.makeValuesKey(
+                                            oneOfThem.getValues(), true);
+                            meanEntry =
+                                ModelUtil.aggregateEntriesByTime(request,
+                                    mean, id, dpi.getProcessDir());
+                        }
                     }
                     //Object[] mvals = meanEntry.getValues();
                     //String climTail = mvals[4] + "_" + mvals[1] + "_" + mvals[2];

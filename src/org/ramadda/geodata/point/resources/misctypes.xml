@@ -1,0 +1,300 @@
+<types supercategory="Geoscience">
+
+  <type name="type_point_openaq"  description="Open AQ Air Quality" super="type_point" category="Point Data" foruser="true" handler="org.ramadda.geodata.point.OpenAQTypeHandler">
+     <property name="icon" value="/point/openaq.png"/>
+     <column  name="location"  label="Location" cansearch="true"/>
+     <column  name="country"  label="Country" cansearch="true"/>
+     <column  name="city"  label="City" cansearch="true"/>
+     <column  name="hours_offset"  label="Offset Hours" type="int" default="24" cansearch="true"/>
+<wiki>
+<![CDATA[
++section  title="Air Quality Station: {{name}}"
+{{description}}
+----
++row
++col-md-8
+{{group showMenu="true" layoutType="table" layoutColumns="1" showTitle="false"}}
+{{display type="linechart" showTitle="false" layoutHere="false" vAxisMinValue="0"}}
+{{resource  message="" title="Download Data"}}
+-col
++col-md-4
+{{map showSearchLocation="false" }}
+<table class="formtable">
+     {{field name="location"  row.label="Location:"}}
+     {{field name="city"  row.label="City:"}}
+     {{field name="country"  row.label="Country:"}}
+</table>
+-col
+-row
+]]>
+
+</wiki>
+
+  </type>
+
+  <type name="type_sounding"  description="Sounding" super="type_point" category="Point Data" foruser="false" handler="org.ramadda.data.services.PointTypeHandler">
+</type>
+
+  <type name="type_sounding_wyoming"  description="UW Sounding" super="type_sounding"  foruser="true" >
+     <property name="record.file.class" value="org.ramadda.data.point.text.CsvFile"/>
+     <property name="icon" value="/point/uw.png"/>
+     <property name="record.file.cacheok" value="true"/>
+     <property name="record.patterns" value="latitude:latitude: *(-?[\d\.]+),longitude:longitude: *(-?[\d\.]+),elevation:elevation: *([\d\.]+),station_id:identifier: *(.*),station_number:number: *(.*),date:time: *(.*),variables:(?s)(?m)(\s+Showalter.*)&lt;/PRE&gt;"/>
+     <property name="record.pattern.date.format" value="yyMMdd/HHmm"/>
+     <property name="nameTemplate" value="Sounding - ${station_id} ${date}"/>
+     <property name="form.area.show" value="false"/>
+     <property name="form.location.show" value="true"/>
+ <property name="record.properties">
+fields=pressure[unit="hPa" label="pressure" type=double],height[unit="meters" label="Height" type=double],temperature[unit="C" label="Temperature" type=double],dewpoint[unit="C" label="Dewpoint" type=double],relative_humidity[unit="%" label="Relative humidity" type=double],mixing_ratio[unit="g/kg" label="Mixing ratio" type=double],wind_direction[unit="degrees" label="Wind direction" type=double],wind_speed[unit="knots" label="Wind speed" type=double],theta[unit="K" label="Theta" type=double],thetae[unit="K" label="Theta-E" type=double],thetav[unit="K" label="Theta-V" type=double]
+picky=false
+delimiter=space
+point.csvcommands=-skip, 10,-stop,.*&lt;PRE&gt;.*,-print
+     </property>
+     <column  name="station_id"  label="Station ID" type="string" />
+     <column  name="station_number"  label="Station Number" type="string" />
+     <column  name="variables"  rows="10" htmlTemplate="&lt;pre&gt;${value}&lt;/pre&gt;" showinhtml="false" label="Variables" size="2000" type="string" />
+<wiki>
+<![CDATA[
++section title={{name}}
+{{description wikify=true}}
+<div style="height:600">
+{{display type=skewt layoutHere=true  skewtWidth="550" skewtHeight="550" hodographWidth=200 showMenu=false showTitle=false}}
+</div>
+:br
++row
++col-md-9
+{{information  details="true"  showTitle="false"  }} 
+-col
++col-3
+Data courtesy of
+:br
+[http://weather.uwyo.edu/upperair/sounding.html University of Wyoming]
+{{map}}
+-col
+-row
+-section
+]]>
+</wiki>
+
+
+</type>
+
+
+
+  <type name="type_sounding_cod"  description="COD Sounding" super="type_sounding"  foruser="true" >
+     <property name="record.file.class" value="org.ramadda.data.point.text.CsvFile"/>
+     <property name="icon" value="/point/noaa.gif"/>
+     <property name="record.patterns" value="latitude:Latitude: *(-?[\d\.]+),longitude:Longitude: *(-?[\d\.]+),elevation:Elevation: *([\d\.]+),station_id:Station: *(.*),date:Date: *(.*),variables:(?s)(?m)indices(.*)Wind level data"/>
+     <property name="record.pattern.date.format" value="HHmm'Z' dd MMM yy"/>
+     <property name="record.file.cacheok" value="true"/>
+     <property name="nameTemplate" value="Sounding - ${station_id} ${date}"/>
+     <property name="form.area.show" value="false"/>
+     <property name="form.location.show" value="true"/>
+ <property name="record.properties">
+fields=level[type=string],pressure[unit="mb" label="pressure" type=double],height[unit="meters" label="Height" type=double],temperature[unit="C" label="Temperature" type=double],dewpoint[unit="C" label="Dewpoint" type=double],relative_humidity[unit="%" label="Relative humidity" type=double],dd[label="DD" unit="C" type="double"],wetbulb[label="Wet Bulb" unit="C" type="double"],wind_direction[unit="degrees" label="Wind direction" type=double],wind_speed[unit="knots" label="Wind speed" type=double],theta[label="Theta" unit="K" type=double],thetav[unit="K" label="Theta-V" type=double],thetaw[unit="K" label="Theta-W"  type=double],thetae[unit="K" label="Theta-E"  type=double],mixing_ratio[unit="g/kg" label="Mixing ratio" type=double]
+picky=false
+delimiter=space
+point.csvcommands=-start,(?s)----.*,-start,(?s)----.*,-stop,(?s)TRP.*,-print
+     </property>
+     <column  name="station_id"  label="Station ID" type="string" />
+     <column  name="variables"  rows="10" htmlTemplate="&lt;pre&gt;${value}&lt;/pre&gt;" showinhtml="false" label="Variables" size="2000" type="string" />
+<wiki>
+<![CDATA[
++section title={{name}}
+{{description wikify=true}}
+<div style="height:600">
+{{display type=skewt layoutHere=true  skewtWidth="550" skewtHeight="550" hodographWidth=200 showMenu=false showTitle=false}}
+</div>
+:br
++row
++col-md-9
+{{information  details="true"  showTitle="false"  }} 
+-col
++col-3
+Data courtesy of
+:br
+[https://weather.cod.edu/buildmap/analysis/raob_build.php College of Dupage]
+{{map}}
+-col
+-row
+-section
+]]>
+</wiki>
+
+
+
+
+
+
+
+
+
+</type>
+
+
+  <type name="type_sounding_gsd"  description="GSD Sounding" super="type_sounding"  foruser="true" 
+        handler="org.ramadda.geodata.point.GsdTypeHandler">
+     <property name="record.file.class" value="org.ramadda.data.point.text.CsvFile"/>
+     <property name="record.file.cacheok" value="false"/>
+     <property name="icon" value="/point/noaa.gif"/>
+     <property name="form.area.show" value="false"/>
+     <property name="form.location.show" value="true"/>
+     <property name="form.date.show" value="false"/>
+     <property name="form.resource.show" value="false"/>
+     <column  name="model"  label="Model" type="enumeration" default="GFS" values="GFS,NAM,Op40,Bak40"/>
+
+
+ <property name="record.properties">
+fields=cape[type=double],pressure[unit="mb" label="pressure" type=double],height[unit="meters" label="Height" type=double],temperature[unit="C" label="Temperature" type=double],dewpoint[unit="C" label="Dewpoint" type=double],wind_direction[unit="degrees" label="Wind direction" type=double],wind_speed[unit="knots" label="Wind speed" type=double],date[type=date format=yyyy-MMM-dd-HH'Z' label=Date],latitude[label="Latitude" type=double],longitude[label="Longitude" type=double]
+point.csvcommands=-alldata,-skip,7,-widths,7_comma_7_comma_7_comma_7_comma_7_comma_7_comma_7, -change,0-6,99999,NaN, -macro,(\d\d) +(\d\d) +([a-zA-Z]+)  +(\d\d\d\d),{4}-{3}-{2}-{1}Z, none, -macro,from *([-0-9\.]+)_comma_,{1},none,-macro,from *[^_comma_]+_comma_([^:]+):,{1},none,  -scale, 1, 0, 0.1, 0, -scale, 3, 0, 0.1, 0, -scale, 4, 0, 0.1, 0, -decimals, 1_comma_2_comma_3, 10, -print
+     </property>
+<wiki>
+<![CDATA[
++section title={{name}}
+{{description wikify=true}}
+<div style="height:600">
++row
++col-8
+{{display type=skewt layoutHere=true  skewtWidth="500" skewtHeight="550" hodographWidth=150 showMenu=false showTitle=false}}
+-col
++col-4
+Click to select new sounding
+{{display type="map" showTitle="false" showMenu="false" justOneMarker="true"}}
+-col
+-row
+</div>
+:br
++row
++col-md-9
+{{information  details="true"  showTitle="false"  }} 
+-col
++col-3
+Data courtesy of
+:br
+[https://rucsoundings.noaa.gov/ NOAA]
+-col
+-row
+-section
+]]>
+</wiki>
+
+
+
+
+
+
+
+
+
+</type>
+
+
+
+
+
+
+
+  <type name="type_daymet"  description="Daymet Daily Weather" super="type_point" category="Point Data" foruser="true" handler="org.ramadda.geodata.point.DaymetTypeHandler">
+     <property name="icon" value="/point/ornl.png"/>
+     <property name="form.area.show" value="false"/>
+     <property name="form.location.show" value="true"/>
+     <property name="form.resource.show" value="false"/>
+     <column  name="stride"  label="Stride" type="int" default="14" />
+<wiki>
+<![CDATA[
++section  title="Daymet Data: {{name}}"
+{{description}}
+----
++row
++col-md-8
+{{group showMenu="true" layoutType="table" layoutColumns="1" showTitle="false"}}
+{{display type="linechart" showTitle="false" layoutHere="false" fields="tmax,tmin" vAxisMinValue="-40" vAxisMaxValue="40"}}
+{{display type="linechart" showTitle="false" layoutHere="false" fields="swe"}}
+{{display type="barchart" showTitle="false" layoutHere="false" fields="precipitation"}}
+-col
++col-md-4
+<center>
+Data courtesy of <a href="https://daymet.ornl.gov/">ORNL Daymet</a>
+{{resource  message="" title="Download Data"}}
+</center>
+{{map}}
+-col
+-row
+{{display  type="correlation"  fields="precipitation,tmax,tmin,vp,srad,swe"  layoutHere="true"  showMenu="true"  showTitle="false" 
+}}
+]]>
+</wiki>
+
+
+
+
+  </type>
+
+
+
+
+  <type name="type_tmy"  description="NREL TMY Data" super="type_point" category="Point Data" foruser="true" handler="org.ramadda.geodata.point.TmyTypeHandler">
+     <property name="icon" value="/point/nrel.png"/>
+     <property name="form.area.show" value="false"/>
+     <property name="form.location.show" value="true"/>
+     <property name="form.url.show" value="false"/>
+     <property name="point.default.max" value="10000"/>
+     <column  name="state"  label="State" type="enumeration"  values="file:/org/ramadda/repository/resources/geo/statesmap.txt" />
+<wiki>
+<![CDATA[
++section  title="NREL TMY Data: {{name}}"
++note
+Note - dates are nominal and represent monthly data from 1996-2004
+{{label id="tmy.label" wikify="false" text="" }}
+-note
+{{description wikify=true}}
+----
++row
++col-md-8
+{{group showMenu="true" layoutType="table" layoutColumns="1" showTitle="false" layoutHere="true"}}
+{{display type="linechart" showTitle="false"  fields="etr,ghi" vAxisMinValue="0" vAxisMaxValue="1200"}}
+{{display type="linechart" showTitle="false"  fields="zenith_lum"  vAxisMinValue="0" vAxisMaxValue="1200" padRight="true"}}
+{{display type="linechart" showTitle="false"  fields="totcld"  padRight="true"}}
+{{display type="linechart" showTitle="false"  fields="dry_bulb,pressure" }}
+-col
++col-md-4
+<center>
+Data courtesy of <a href="https://rredc.nrel.gov/solar/old_data/nsrdb/1991-2005/tmy3//">NREL</a>
+{{resource  message="" title="Download Data"}}
+</center>
+{{map}}
+-col
+-row
+{{display type="correlation" width="100%" showTitle="true" title="Correlation" layoutHere="true" short="true"
+useIdTop="true" useIdSide="false"
+fields="etr,etrn,ghi,dni,dhi,gh_illum,dn_illum,dh_illum,zenith_lum,totcld,opqcld,dry_bulb,dew_point,rhum,pressure,hvis,ceilhgt,pwat,aod,alb"
+}}
+-section
+]]>
+
+</wiki>
+
+
+
+
+  </type>
+
+
+
+  <type name="type_point_text"  description="Record Text File" super="type_point" category="Point Data" foruser="true" handler="org.ramadda.data.services.PointTypeHandler">
+     <property name="record.file.class" value="org.ramadda.data.point.text.CsvFile"/>
+     <property name="form.area.show" value="false"/>
+     <property name="form.location.show" value="false"/>
+ <property name="record.properties">
+<![CDATA[
+delimiter=_none_
+fields=sentence[label="Sentence" type="string"]
+skiplines=0
+commentLineStart=#
+]]>
+     </property>
+</type>
+
+
+
+</types>

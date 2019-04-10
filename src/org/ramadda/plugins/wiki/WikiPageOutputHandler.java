@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -20,8 +20,6 @@ package org.ramadda.plugins.wiki;
 import org.incava.util.diff.Diff;
 import org.incava.util.diff.Difference;
 
-import org.ramadda.repository.metadata.*;
-
 import org.ramadda.repository.Association;
 import org.ramadda.repository.Entry;
 import org.ramadda.repository.Link;
@@ -29,6 +27,8 @@ import org.ramadda.repository.Repository;
 import org.ramadda.repository.Request;
 import org.ramadda.repository.Result;
 import org.ramadda.repository.auth.AccessException;
+
+import org.ramadda.repository.metadata.*;
 import org.ramadda.repository.output.HtmlOutputHandler;
 import org.ramadda.repository.output.OutputHandler;
 import org.ramadda.repository.output.OutputType;
@@ -97,7 +97,7 @@ public class WikiPageOutputHandler extends HtmlOutputHandler {
 
     /** _more_ */
     public static final OutputType OUTPUT_WIKI_HISTORY =
-        new OutputType("Wiki History", "wiki.history", OutputType.TYPE_OTHER,
+        new OutputType("Wiki History", "wiki.history", OutputType.TYPE_VIEW,
                        "", ICON_WIKI, GROUP_WIKI);
 
     /** _more_ */
@@ -121,7 +121,7 @@ public class WikiPageOutputHandler extends HtmlOutputHandler {
      */
     public WikiPageOutputHandler(Repository repository, Element element)
             throws Exception {
-        super(repository, element);
+        super(repository, element, true);
         addType(OUTPUT_WIKI);
         addType(OUTPUT_WIKI_HISTORY);
         addType(OUTPUT_WIKI_DETAILS);
@@ -150,10 +150,10 @@ public class WikiPageOutputHandler extends HtmlOutputHandler {
         if (canAccessDetails(request)) {
             if (stateEntry.getType().equals(
                     WikiPageTypeHandler.TYPE_WIKIPAGE)) {
-                links.add(makeLink(request, stateEntry, OUTPUT_WIKI));
-                links.add(makeLink(request, stateEntry, OUTPUT_WIKI_DETAILS));
+                //                links.add(makeLink(request, stateEntry, OUTPUT_WIKI));
+                //                links.add(makeLink(request, stateEntry, OUTPUT_WIKI_DETAILS));
                 links.add(makeLink(request, stateEntry, OUTPUT_WIKI_HISTORY));
-                links.add(makeLink(request, stateEntry, OUTPUT_WIKI_TEXT));
+                //                links.add(makeLink(request, stateEntry, OUTPUT_WIKI_TEXT));
             }
         }
     }
@@ -223,7 +223,7 @@ public class WikiPageOutputHandler extends HtmlOutputHandler {
             wikiText = wph.getText();
             header =
                 getPageHandler().showDialogNote(msgLabel("Text from version")
-                    + getPageHandler().formatDate(wph.getDate()));
+                    + getDateHandler().formatDate(wph.getDate()));
         } else {
             Object[] values = entry.getValues();
             if ((values != null) && (values.length > 0)
@@ -248,34 +248,39 @@ public class WikiPageOutputHandler extends HtmlOutputHandler {
 
         List<Metadata> metadataList =
             getMetadataManager().findMetadata(request, entry,
-                                              ContentMetadataHandler.TYPE_PAGESTYLE, true);
+                ContentMetadataHandler.TYPE_PAGESTYLE, true);
         String template = null;
-        if (metadataList != null && (metadataList.size() > 0)) {
+        if ((metadataList != null) && (metadataList.size() > 0)) {
             for (Metadata metadata : metadataList) {
                 if (Misc.equals(metadata.getAttr(7), "false")) {
                     if (metadata.getEntryId().equals(entry.getId())) {
                         continue;
                     }
                 }
-                String types = metadata.getAttr(6);
+                String  types  = metadata.getAttr(6);
 
                 boolean typeOk = true;
-                if(types!=null && types.trim().length()>0) {
+                if ((types != null) && (types.trim().length() > 0)) {
                     typeOk = false;
-                    for (String type : StringUtil.split(types, ",", true, true)) {
+                    for (String type :
+                            StringUtil.split(types, ",", true, true)) {
                         if (entry.getTypeHandler().isType(type)) {
                             typeOk = true;
+
                             break;
                         }
                     }
                 }
 
 
-                if(!typeOk) continue;
+                if ( !typeOk) {
+                    continue;
+                }
 
                 if ((metadata.getAttr(8) != null)
-                    && (metadata.getAttr(8).trim().length() > 0)) {
+                        && (metadata.getAttr(8).trim().length() > 0)) {
                     template = metadata.getAttr(8);
+
                     break;
                 }
             }
@@ -290,7 +295,9 @@ public class WikiPageOutputHandler extends HtmlOutputHandler {
         StringBuffer sb = new StringBuffer();
         sb.append(header);
         sb.append(getRepository().getWikiManager().wikifyEntry(request,
-                                                               entry, wikiUtil, template!=null?template:wikiText, true, null, null,null));
+                entry, wikiUtil, (template != null)
+                                 ? template
+                                 : wikiText, true, null, null, null));
         Hashtable links = (Hashtable) wikiUtil.getProperty("wikilinks");
         if (links != null) {
             List<Association> associations =
@@ -338,11 +345,11 @@ public class WikiPageOutputHandler extends HtmlOutputHandler {
         }
 
         String lbl1 = "Revision as of "
-                      + getPageHandler().formatDate(wph1.getDate())
+                      + getDateHandler().formatDate(wph1.getDate())
                       + HtmlUtils.br() + wph1.getUser() + HtmlUtils.br()
                       + wph1.getDescription();
         String lbl2 = "Revision as of "
-                      + getPageHandler().formatDate(wph2.getDate())
+                      + getDateHandler().formatDate(wph2.getDate())
                       + HtmlUtils.br() + wph2.getUser() + HtmlUtils.br()
                       + wph2.getDescription();
         sb.append("<table width=100% border=0 cellspacing=5 cellpadding=4>");
@@ -377,6 +384,7 @@ public class WikiPageOutputHandler extends HtmlOutputHandler {
         }
 
 
+        getPageHandler().entrySectionOpen(request, entry, sb, "Wiki History");
 
 
         sb.append(request.form(getRepository().URL_ENTRY_SHOW));
@@ -402,7 +410,7 @@ public class WikiPageOutputHandler extends HtmlOutputHandler {
                         .getEntryURL(
                             request, entry, ARG_WIKI_EDITWITH,
                             wph.getDate().getTime() + ""), HtmlUtils
-                                .img(getRepository().iconUrl(ICON_EDIT),
+                                .img(getRepository().getIconUrl(ICON_EDIT),
                                      msg("Edit with this version")));
             }
             String view = HtmlUtils.href(
@@ -411,7 +419,7 @@ public class WikiPageOutputHandler extends HtmlOutputHandler {
                                   ARG_WIKI_VERSION,
                                   wph.getDate().getTime()
                                   + ""), HtmlUtils.img(
-                                      getRepository().iconUrl(ICON_WIKI),
+                                      getRepository().getIconUrl(ICON_WIKI),
                                       msg("View this page")));
             String btns =
                 HtmlUtils.radio(ARG_WIKI_COMPARE1,
@@ -426,7 +434,7 @@ public class WikiPageOutputHandler extends HtmlOutputHandler {
             }
             sb.append(HtmlUtils.row(HtmlUtils.cols(new Object[] {
                 versionLabel, btns, edit, view, wph.getUser().getLabel(),
-                getPageHandler().formatDate(wph.getDate()),
+                getDateHandler().formatDate(wph.getDate()),
                 wph.getDescription()
             })));
         }
@@ -435,6 +443,8 @@ public class WikiPageOutputHandler extends HtmlOutputHandler {
 
         sb.append(HtmlUtils.submit("Compare Selected Versions"));
         sb.append(HtmlUtils.formClose());
+
+        getPageHandler().entrySectionClose(request, entry, sb);
 
         return makeLinksResult(request, msg("Wiki History"), sb,
                                new State(entry));

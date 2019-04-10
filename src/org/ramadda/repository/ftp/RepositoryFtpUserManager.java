@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -109,8 +109,7 @@ public class RepositoryFtpUserManager implements org.ramadda.repository
                     return null;
                 }
             } else if (auth instanceof AnonymousAuthentication) {
-                if (getRepository().getProperty(PROP_ACCESS_REQUIRELOGIN,
-                        false)) {
+                if (getRepository().getRequireLogin()) {
                     return null;
                 }
                 name = org.ramadda.repository.auth.UserManager.USER_ANONYMOUS;
@@ -127,7 +126,7 @@ public class RepositoryFtpUserManager implements org.ramadda.repository
                 return null;
             }
 
-            if (getRepository().getProperty(PROP_ACCESS_ADMINONLY, false)) {
+            if (getRepository().getAdminOnly()) {
                 if ( !repositoryUser.getAdmin()) {
                     ftpManager.logInfo(
                         "Only site administrators can access this server");

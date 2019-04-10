@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import org.ramadda.util.GeoUtils;
 
 
 import org.ramadda.util.HtmlUtils;
+import org.ramadda.util.Place;
 import org.ramadda.util.Utils;
 
 
@@ -126,14 +127,14 @@ public class LocationTypeHandler extends ExtensibleGroupTypeHandler {
         if ( !Utils.stringDefined(address)) {
             return;
         }
-        String   fullAddress = address + "," + city + "," + state;
-        double[] loc         = GeoUtils.getLocationFromAddress(fullAddress);
-        if (loc == null) {
+        String fullAddress = address + "," + city + "," + state;
+        Place  place       = GeoUtils.getLocationFromAddress(fullAddress);
+        if (place == null) {
             System.err.println("no geo for address:" + fullAddress);
         } else {
             System.err.println("got geo for address:" + fullAddress);
-            entry.setLatitude(loc[0]);
-            entry.setLongitude(loc[1]);
+            entry.setLatitude(place.getLatitude());
+            entry.setLongitude(place.getLongitude());
         }
     }
 
@@ -149,16 +150,17 @@ public class LocationTypeHandler extends ExtensibleGroupTypeHandler {
      * @throws Exception _more_
      */
     @Override
-    public String getIconUrl(Request request, Entry entry) throws Exception {
+    public String getEntryIconUrl(Request request, Entry entry)
+            throws Exception {
         double depth = entry.getValue(4, 0.0);
         if (depth == 0) {
-            return iconUrl("/incident/flag_green.png");
+            return getIconUrl("/incident/flag_green.png");
         }
         if (depth <= 2) {
-            return iconUrl("/incident/flag_blue.png");
+            return getIconUrl("/incident/flag_blue.png");
         }
 
-        return iconUrl("/incident/flag_red.png");
+        return getIconUrl("/incident/flag_red.png");
     }
 
 

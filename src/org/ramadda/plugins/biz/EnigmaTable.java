@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -28,12 +28,12 @@ import org.ramadda.data.record.*;
 import org.ramadda.repository.*;
 import org.ramadda.repository.database.*;
 import org.ramadda.repository.type.*;
-
-import org.ramadda.sql.*;
 import org.ramadda.util.FormInfo;
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.Json;
 import org.ramadda.util.Utils;
+
+import org.ramadda.util.sql.*;
 import org.ramadda.util.text.Row;
 import org.ramadda.util.text.TextReader;
 

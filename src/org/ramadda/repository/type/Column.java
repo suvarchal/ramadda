@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2018 Geode Systems LLC
+* Copyright (c) 2008-2019 Geode Systems LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -28,12 +28,12 @@ import org.ramadda.repository.RepositoryUtil;
 import org.ramadda.repository.Request;
 import org.ramadda.repository.database.DatabaseManager;
 import org.ramadda.repository.map.MapInfo;
-import org.ramadda.sql.Clause;
-import org.ramadda.sql.SqlUtil;
 import org.ramadda.util.FormInfo;
 import org.ramadda.util.HtmlUtils;
 import org.ramadda.util.Json;
 import org.ramadda.util.Utils;
+import org.ramadda.util.sql.Clause;
+import org.ramadda.util.sql.SqlUtil;
 
 import org.w3c.dom.Element;
 
@@ -73,7 +73,7 @@ public class Column implements DataTypes, Constants {
 
 
     /** _more_ */
-    public static final String ARG_EDIT_PREFIX = "edit.";
+    public static final String ARG_EDIT_PREFIX = "edit_";
 
     /** _more_ */
     public static final String ARG_SEARCH_PREFIX = "search.";
@@ -160,6 +160,9 @@ public class Column implements DataTypes, Constants {
     /** _more_ */
     public static final String ATTR_SUFFIX = "suffix";
 
+    /** _more_          */
+    public static final String ATTR_HELP = "help";
+
     /** _more_ */
     public static final String ATTR_PROPERTIES = "properties";
 
@@ -180,6 +183,12 @@ public class Column implements DataTypes, Constants {
 
     /** _more_ */
     public static final String ATTR_CANSEARCH = "cansearch";
+
+    /** _more_ */
+    public static final String ATTR_SEARCHROWS = "searchrows";
+
+    /** _more_ */
+    public static final String ATTR_CANSEARCHTEXT = "cansearchtext";
 
     /** _more_ */
     public static final String ATTR_ADVANCED = "advanced";
@@ -268,8 +277,13 @@ public class Column implements DataTypes, Constants {
     private String htmlTemplate;
 
     /** _more_ */
-    private String defaultValue;
+    private String displayTemplate;
 
+    /** _more_ */
+    private String displayPatternFrom;
+
+    /** _more_ */
+    private String displayPatternTo;
 
     /** _more_ */
     private String type;
@@ -282,6 +296,9 @@ public class Column implements DataTypes, Constants {
 
     /** _more_ */
     private String suffix;
+
+    /** _more_          */
+    private String help;
 
     /** _more_ */
     private String searchType = SEARCHTYPE_TEXT;
@@ -297,6 +314,12 @@ public class Column implements DataTypes, Constants {
 
     /** _more_ */
     private boolean canSearch;
+
+    /** _more_ */
+    private int searchRows;
+
+    /** _more_ */
+    private boolean canSearchText;
 
 
     /** _more_ */
@@ -327,7 +350,7 @@ public class Column implements DataTypes, Constants {
     /** _more_ */
     private String databaseDflt;
 
-    /** _more_          */
+    /** _more_ */
     private double databaseDfltNum = Double.NaN;
 
     /** _more_ */
@@ -351,6 +374,7 @@ public class Column implements DataTypes, Constants {
 
     /** _more_ */
     private int rows = 1;
+
 
     /** _more_ */
     private int columns = 40;
@@ -423,6 +447,7 @@ public class Column implements DataTypes, Constants {
         oldNames = StringUtil.split(XmlUtil.getAttribute(element,
                 ATTR_OLDNAMES, ""), ",", true, true);
         suffix = Utils.getAttributeOrTag(element, ATTR_SUFFIX, "");
+        help   = Utils.getAttributeOrTag(element, ATTR_HELP, (String) null);
         //The suffix might have the ${root} macro in it
         if (typeHandler != null) {
             suffix =
@@ -448,10 +473,15 @@ public class Column implements DataTypes, Constants {
 
         description = getAttributeOrTag(element, ATTR_DESCRIPTION, label);
 
-        htmlTemplate = Utils.getAttributeOrTag(element, "htmlTemplate",
+        displayPatternFrom = Utils.getAttributeOrTag(element,
+                "displayPatternFrom", (String) null);
+        displayPatternTo = Utils.getAttributeOrTag(element,
+                "displayPatternTo", (String) null);
+
+        displayTemplate = Utils.getAttributeOrTag(element, "displayTemplate",
                 (String) null);
 
-        defaultValue = Utils.getAttributeOrTag(element, "htmlTemplate",
+        htmlTemplate = Utils.getAttributeOrTag(element, "htmlTemplate",
                 (String) null);
 
         type = Utils.getAttributeOrTag(element, ATTR_TYPE, DATATYPE_STRING);
@@ -461,17 +491,21 @@ public class Column implements DataTypes, Constants {
         dflt       = getAttributeOrTag(element, ATTR_DEFAULT, "").trim();
         databaseDflt = getAttributeOrTag(element, "databaseDefault",
                                          (String) null);
-        alias          = getAttributeOrTag(element, "alias", (String) null);
-        isIndex        = getAttributeOrTag(element, ATTR_ISINDEX, false);
-        isWiki         = getAttributeOrTag(element, "iswiki", false);
-        isCategory     = getAttributeOrTag(element, ATTR_ISCATEGORY, false);
-        canSearch      = getAttributeOrTag(element, ATTR_CANSEARCH, false);
+        alias      = getAttributeOrTag(element, "alias", (String) null);
+        isIndex    = getAttributeOrTag(element, ATTR_ISINDEX, false);
+        isWiki     = getAttributeOrTag(element, "iswiki", false);
+        isCategory = getAttributeOrTag(element, ATTR_ISCATEGORY, false);
+        canSearch  = getAttributeOrTag(element, ATTR_CANSEARCH, false);
+        searchRows = getAttributeOrTag(element, ATTR_SEARCHROWS, 1);
+        canSearchText = getAttributeOrTag(element, ATTR_CANSEARCHTEXT,
+                                          canSearch);
         advancedSearch = getAttributeOrTag(element, ATTR_ADVANCED, false);
         editable       = getAttributeOrTag(element, ATTR_EDITABLE, true);
         showInForm = getAttributeOrTag(element, ATTR_SHOWINFORM, showInForm);
         canShow        = getAttributeOrTag(element, ATTR_SHOWINHTML, canShow);
         showLabel      = getAttributeOrTag(element, ATTR_SHOWLABEL,
                                            showLabel);
+
         canExport      = getAttributeOrTag(element, ATTR_CANEXPORT,
                                            canExport);
         canList        = getAttributeOrTag(element, ATTR_CANLIST, true);
@@ -655,8 +689,6 @@ public class Column implements DataTypes, Constants {
         col.add(Json.quote(getName()));
         col.add("label");
         col.add(Json.quote(getLabel()));
-        col.add("name");
-        col.add(Json.quote(getName()));
         col.add("type");
         col.add(Json.quote(getType()));
         col.add("namespace");
@@ -667,6 +699,10 @@ public class Column implements DataTypes, Constants {
         col.add("" + getCanShow());
         col.add("cansearch");
         col.add("" + getCanSearch());
+        col.add("searchrows");
+        col.add("" + getSearchRows());
+        col.add("cansearchtext");
+        col.add("" + getCanSearchText());
         col.add("canlist");
         col.add("" + getCanList());
         if (isEnumeration()) {
@@ -880,7 +916,7 @@ public class Column implements DataTypes, Constants {
      *
      * @return _more_
      */
-    private String toLatLonString(Object[] values, int idx) {
+    private String toLatLonString(Object[] values, int idx, boolean raw) {
         if (values == null) {
             return ((dflt != null)
                     ? dflt
@@ -895,7 +931,7 @@ public class Column implements DataTypes, Constants {
             return "NA";
         }
         double d = ((Double) values[idx]).doubleValue();
-
+        if(raw) return ""+d;
         return latLonFormat.format(d);
     }
 
@@ -932,9 +968,9 @@ public class Column implements DataTypes, Constants {
      * @throws Exception _more_
      */
     public void formatValue(Entry entry, Appendable sb, String output,
-                            Object[] values)
+                            Object[] values, boolean raw)
             throws Exception {
-        formatValue(entry, sb, output, values, null);
+        formatValue(entry, sb, output, values, null, raw);
     }
 
 
@@ -950,28 +986,29 @@ public class Column implements DataTypes, Constants {
      * @throws Exception _more_
      */
     public void formatValue(Entry entry, Appendable result, String output,
-                            Object[] values, SimpleDateFormat sdf)
+                            Object[] values, SimpleDateFormat sdf,boolean raw)
             throws Exception {
 
         Appendable sb        = new StringBuilder();
         boolean    csv       = Misc.equals(output, OUTPUT_CSV);
+        if(csv) raw = true;
         String     delimiter = csv
                                ? "|"
                                : ",";
         if (isType(DATATYPE_LATLON)) {
-            sb.append(toLatLonString(values, offset));
+            sb.append(toLatLonString(values, offset, raw));
             sb.append(delimiter);
-            sb.append(toLatLonString(values, offset + 1));
+            sb.append(toLatLonString(values, offset + 1, raw));
         } else if (isType(DATATYPE_LATLONBBOX)) {
-            sb.append(toLatLonString(values, offset));
+            sb.append(toLatLonString(values, offset,raw));
             sb.append(delimiter);
-            sb.append(toLatLonString(values, offset + 1));
+            sb.append(toLatLonString(values, offset + 1,raw));
             sb.append(delimiter);
-            sb.append(toLatLonString(values, offset + 2));
+            sb.append(toLatLonString(values, offset + 2,raw));
             sb.append(delimiter);
-            sb.append(toLatLonString(values, offset + 3));
+            sb.append(toLatLonString(values, offset + 3,raw));
         } else if (isType(DATATYPE_PERCENTAGE)) {
-            if (csv) {
+            if (raw) {
                 sb.append(toString(values, offset));
             } else {
                 //                System.err.println("offset:" + offset +" values:");
@@ -981,7 +1018,7 @@ public class Column implements DataTypes, Constants {
             }
 
         } else if (isType(DATATYPE_DOUBLE)) {
-            if (csv) {
+            if (raw) {
                 sb.append(toString(values, offset));
             } else {
                 Double v = (Double) values[offset];
@@ -1024,7 +1061,7 @@ public class Column implements DataTypes, Constants {
                     throw new RuntimeException(exc);
                 }
             }
-            if (csv) {
+            if (raw) {
                 sb.append(entryId);
             } else {
                 if (theEntry != null) {
@@ -1045,14 +1082,14 @@ public class Column implements DataTypes, Constants {
             }
         } else if (isType(DATATYPE_EMAIL)) {
             String s = toString(values, offset);
-            if (csv) {
+            if (raw) {
                 sb.append(s);
             } else {
                 sb.append("<a href=\"mailto:" + s + "\">" + s + "</a>");
             }
         } else if (isType(DATATYPE_JSONLIST)) {
             String s = toString(values, offset);
-            if (csv) {
+            if (raw) {
                 sb.append(s);
             } else {
                 if (s.length() > 0) {
@@ -1082,7 +1119,7 @@ public class Column implements DataTypes, Constants {
         } else if (isType(DATATYPE_URL)) {
             String       s    = toString(values, offset);
             List<String> urls = StringUtil.split(s, "\n");
-            if (csv) {
+            if (raw) {
                 s = StringUtil.join(delimiter, urls);
                 sb.append(s);
             } else {
@@ -1100,7 +1137,7 @@ public class Column implements DataTypes, Constants {
 
         } else {
             String s = toString(values, offset);
-            if (csv) {
+            if (raw) {
                 s = s.replaceAll(",", "_COMMA_");
                 s = s.replaceAll("\n", " ");
             } else {
@@ -1118,8 +1155,8 @@ public class Column implements DataTypes, Constants {
                 s = getRepository().getWikiManager().wikifyEntry(
                     getRepository().getTmpRequest(), entry, s, false, null,
                     null);
-            } else if (isEnumeration() && !csv) {
-                String label = enumMap.get(s);
+            } else if (isEnumeration() && !raw) {
+                String label = getEnumLabel(s);
                 if (label != null) {
                     s = label;
                 }
@@ -1147,15 +1184,64 @@ public class Column implements DataTypes, Constants {
 
 
     /**
-     * _more_
+     * Gets the string to display for enumeration values
      *
      * @param value _more_
      *
      * @return _more_
      */
     public String getEnumLabel(String value) {
+        return getEnumLabel(value, true);
+    }
+
+    /**
+     * _more_
+     *
+     * @param value _more_
+     * @param forDisplay _more_
+     *
+     * @return _more_
+     */
+    public String getEnumLabel(String value, boolean forDisplay) {
+        String label = getEnumLabelInner(value);
+        if ( !forDisplay && (label.length() == 0)) {
+            label = "&lt;blank&gt;";
+        }
+
+        return label;
+    }
+
+    /**
+     * _more_
+     *
+     * @param value _more_
+     *
+     * @return _more_
+     */
+    private String getEnumLabelInner(String value) {
+        if (value == null) {
+            return "null";
+        }
+        //enumMap is from the values field in the types.xml column specifier
         String label = enumMap.get(value);
         if (label == null) {
+            //If we don't have a label in the enumMap then see if we have a displayTemplate (from types.xml)
+            //<column name="status"  type="enumerationplus"  values="active:Active,inactive:Inactive" label="Status" cansearch="true" 
+            //displayTemplate="Type:${value}" />
+            if (displayTemplate != null) {
+                return displayTemplate.replace("${value}", value);
+            }
+            //If we don't have a displayTemplate then check for a displayPattern. This is in types.xml as, e.g.:
+            // <column name="status"  type="enumerationplus"  values="active:Active,inactive:Inactive" label="Status" cansearch="true" 
+            // displayPatternFrom=".*([0-9]+).*" displayPatternTo="Should be a number:$1"/>
+            if ((displayPatternFrom != null) && (displayPatternTo != null)) {
+                //only do this if it matches the pattern
+                if (value.matches(displayPatternFrom)) {
+                    return value.replaceAll(displayPatternFrom,
+                                            displayPatternTo);
+                }
+            }
+
             return value;
         }
 
@@ -1367,7 +1453,7 @@ public class Column implements DataTypes, Constants {
                           int valueIdx)
             throws Exception {
         if (isType(DATATYPE_INT)) {
-            int value  = results.getInt(valueIdx);
+            int value = results.getInt(valueIdx);
             if (results.wasNull()) {
                 //                System.err.println(this  +" was null:" + value);
                 if (databaseDflt != null) {
@@ -1654,10 +1740,16 @@ public class Column implements DataTypes, Constants {
         DatabaseManager dbm        = getDatabaseManager();
 
         if (isType(DATATYPE_LATLON)) {
-            double north = request.get(searchArg + "_north", Double.NaN);
-            double south = request.get(searchArg + "_south", Double.NaN);
-            double east  = request.get(searchArg + "_east", Double.NaN);
-            double west  = request.get(searchArg + "_west", Double.NaN);
+            double north = request.get(searchArg + "_north",
+                                       request.get(ARG_AREA_NORTH,
+                                           Double.NaN));
+            double south = request.get(searchArg + "_south",
+                                       request.get(ARG_AREA_SOUTH,
+                                           Double.NaN));
+            double east = request.get(searchArg + "_east",
+                                      request.get(ARG_AREA_EAST, Double.NaN));
+            double west = request.get(searchArg + "_west",
+                                      request.get(ARG_AREA_WEST, Double.NaN));
             if (latLonOk(north)) {
                 where.add(Clause.le(columnName + "_lat", north));
             }
@@ -1694,9 +1786,9 @@ public class Column implements DataTypes, Constants {
                     south, east);
 
         } else if (isNumeric()) {
-            String expr = request.getEnum(searchArg + "_expr",
-                                          "",
-                                          "",EXPR_EQUALS,EXPR_LE,EXPR_GE,EXPR_BETWEEN);                                          
+            String expr = request.getEnum(searchArg + "_expr", "", "",
+                                          EXPR_EQUALS, EXPR_LE, EXPR_GE,
+                                          EXPR_BETWEEN);
             expr = expr.replace("&lt;", "<").replace("&gt;", ">");
             double from  = request.get(searchArg + "_from", Double.NaN);
             double to    = request.get(searchArg + "_to", Double.NaN);
@@ -1716,7 +1808,7 @@ public class Column implements DataTypes, Constants {
                 to   = value;
             }
             if (from == from) {
-                if(expr.equals("")) {
+                if (expr.equals("")) {
                     expr = EXPR_EQUALS;
                 }
                 if (expr.equals(EXPR_EQUALS)) {
@@ -1780,6 +1872,9 @@ public class Column implements DataTypes, Constants {
             if ((values != null) && (values.size() > 0)) {
                 List<Clause> subClauses = new ArrayList<Clause>();
                 for (String value : values) {
+                    if (value.equals(TypeHandler.ALL)) {
+                        continue;
+                    }
                     if (value.startsWith("!")) {
                         subClauses.add(Clause.neq(columnName,
                                 value.substring(1)));
@@ -1787,7 +1882,9 @@ public class Column implements DataTypes, Constants {
                         subClauses.add(Clause.eq(columnName, value));
                     }
                 }
-                where.add(Clause.or(subClauses));
+                if (subClauses.size() > 0) {
+                    where.add(Clause.or(subClauses));
+                }
             }
         } else {
             String value = getSearchValue(request, null);
@@ -1809,18 +1906,33 @@ public class Column implements DataTypes, Constants {
      * @param value _more_
      * @param where _more_
      */
-    public void addTextSearch(String value, List<Clause> where) {
-        if (value.startsWith("!")) {
+    public void addTextSearch(String text, List<Clause> where) {
+        text = text.trim();
+        List<String> values  = StringUtil.split(text, ",",true,true);
+        List<Clause> clauses= new ArrayList<Clause>();
+        for(String value: values) {
+
+        if (value.equals("<blank>")) {
+            clauses.add(Clause.eq(getFullName(), ""));
+        } else if (value.startsWith("!")) {
             value = value.substring(1);
-            where.add(Clause.notLike(getFullName(), "%" + value + "%"));
+            if (value.length() == 0) {
+                clauses.add(Clause.neq(getFullName(), ""));
+            } else {
+                clauses.add(Clause.notLike(getFullName(), "%" + value + "%"));
+            }
         } else if (value.startsWith("=")) {
             value = value.substring(1);
-            where.add(Clause.eq(getFullName(), value));
+            clauses.add(Clause.eq(getFullName(), value));
+        } else if ( !value.startsWith("%") && value.endsWith("%")) {
+            clauses.add(getDatabaseManager().makeLikeTextClause(getFullName(),
+                    value, false));
         } else {
-            where.add(getDatabaseManager().makeLikeTextClause(getFullName(),
+            clauses.add(getDatabaseManager().makeLikeTextClause(getFullName(),
                     "%" + value + "%", false));
         }
-
+        }
+        where.add(Clause.or(clauses));
     }
 
     /**
@@ -1851,10 +1963,9 @@ public class Column implements DataTypes, Constants {
     private List<String> getSearchValues(Request request) {
         List<String> result    = new ArrayList<String>();
         String       searchArg = getSearchArg();
-        if (request.defined(searchArg)) {
-            for (String arg : (List<String>) request.get(searchArg, result)) {
-                result.addAll(StringUtil.split(arg, ",", true, true));
-            }
+        for (String arg : (List<String>) request.get(searchArg, result)) {
+            //            result.addAll(StringUtil.split(arg, ",", true));
+            result.add(arg);
         }
 
         return result;
@@ -1934,6 +2045,12 @@ public class Column implements DataTypes, Constants {
                         2)));
             state.put(group, group);
         }
+
+        if (help != null) {
+            formBuffer.append(typeHandler.formEntry(request, "", getRepository().getPageHandler().applyBaseMacros(help)));
+        }
+
+
         if (rows > 1) {
             formBuffer.append(typeHandler.formEntryTop(request,
                     getLabel() + ":", widget));
@@ -1947,7 +2064,7 @@ public class Column implements DataTypes, Constants {
 
 
 
-    //For now just change the edit argument by adding a edit. prefix
+    //For now just change the edit argument by adding a edit_ prefix
 
     /**
      * _more_
@@ -1955,7 +2072,7 @@ public class Column implements DataTypes, Constants {
      * @return _more_
      */
     public String getEditArg() {
-        return ARG_EDIT_PREFIX + getFullName();
+        return ARG_EDIT_PREFIX + getFullName().replace(".", "_");
     }
 
 
@@ -1997,7 +2114,7 @@ public class Column implements DataTypes, Constants {
                 lon = ((Double) values[offset + 1]).doubleValue();
             }
             MapInfo map = getRepository().getMapManager().createMap(request,
-                              true, null);
+                              entry, true, null);
             widget = map.makeSelector(urlArg, true,
                                       new String[] { latLonOk(lat)
                     ? lat + ""
@@ -2018,7 +2135,7 @@ public class Column implements DataTypes, Constants {
                               : "", };
             }
             MapInfo map = getRepository().getMapManager().createMap(request,
-                              true, null);
+                              entry, true, null);
             widget = map.makeSelector(urlArg, true, nwse, "", "");
         } else if (isType(DATATYPE_BOOLEAN)) {
             boolean value = true;
@@ -2045,7 +2162,7 @@ public class Column implements DataTypes, Constants {
             } else {
                 date = new Date();
             }
-            widget = getRepository().getPageHandler().makeDateInput(request,
+            widget = getRepository().getDateHandler().makeDateInput(request,
                     urlArg, "", date, null);
         } else if (isType(DATATYPE_DATE)) {
             Date date;
@@ -2054,28 +2171,24 @@ public class Column implements DataTypes, Constants {
             } else {
                 date = new Date();
             }
-            widget = getRepository().getPageHandler().makeDateInput(request,
+            widget = getRepository().getDateHandler().makeDateInput(request,
                     urlArg, "", date, null, false);
         } else if (isType(DATATYPE_ENUMERATION)) {
             String value = ((dflt != null)
                             ? dflt
                             : "");
-            if (request.defined(urlArg)) {
-                value = request.getString(urlArg);
-            } else if (values != null) {
-                value = (String) toString(values, offset);
-            }
+            value = request.getString(urlArg, ((values != null)
+                    ? (String) toString(values, offset)
+                    : ""));
             widget = HtmlUtils.select(urlArg, enumValues, value,
                                       HtmlUtils.cssClass("column-select"));
         } else if (isType(DATATYPE_ENUMERATIONPLUS)) {
             String value = ((dflt != null)
                             ? dflt
                             : "");
-            if (request.defined(urlArg)) {
-                value = request.getString(urlArg);
-            } else if (values != null) {
-                value = (String) toString(values, offset);
-            }
+            value = request.getString(urlArg, ((values != null)
+                    ? (String) toString(values, offset)
+                    : ""));
             List enums = getEnumPlusValues(request, entry);
             widget = HtmlUtils.select(
                 urlArg, enums, value,
@@ -2146,25 +2259,9 @@ public class Column implements DataTypes, Constants {
             if (values != null) {
                 value = toString(values, offset);
             }
-
-            Entry theEntry = null;
-            if (value.length() > 0) {
-                theEntry =
-                    getRepository().getEntryManager().getEntry(request,
-                        value);
-            }
-            StringBuffer sb = new StringBuffer();
-            String select =
-                getRepository().getHtmlOutputHandler().getSelect(request,
-                    urlArg, "Select", true, null, entry);
-            sb.append(HtmlUtils.hidden(urlArg + "_hidden", value,
-                                       HtmlUtils.id(urlArg + "_hidden")));
-            sb.append(HtmlUtils.disabledInput(urlArg, ((theEntry != null)
-                    ? theEntry.getFullName()
-                    : ""), HtmlUtils.id(urlArg)
-                           + HtmlUtils.SIZE_60) + select);
-
-            widget = sb.toString();
+            widget =
+                getRepository().getEntryManager().getEntryFormSelect(request,
+                    entry, urlArg, value);
         } else {
             String value = ((dflt != null)
                             ? dflt
@@ -2203,19 +2300,16 @@ public class Column implements DataTypes, Constants {
                         value = StringUtil.join("\n",
                                 StringUtil.split(value, ",", true, true));
                     }
-                    String buttons = "";
                     if (isWiki) {
-                        buttons =
-                            getRepository().getWikiManager().makeWikiEditBar(
-                                request, entry, domId) + HtmlUtils.br();
+                        StringBuilder tmp = new StringBuilder();
+                        typeHandler.addWikiEditor(request, entry, tmp,
+                                formInfo, urlArg, value, null, false, size);
+                        widget = tmp.toString();
+                    } else {
+                        int areaRows = rows;
+                        widget = HtmlUtils.textArea(urlArg, value, areaRows,
+                                columns, HtmlUtils.id(domId));
                     }
-                    int areaRows = rows;
-                    if ((areaRows <= 1) && isWiki) {
-                        areaRows = 50;
-                    }
-                    widget = buttons
-                             + HtmlUtils.textArea(urlArg, value, areaRows,
-                                 columns, HtmlUtils.id(domId));
                 } else {
                     widget = HtmlUtils.input(urlArg, value,
                                              HtmlUtils.id(domId) + " size=\""
@@ -2298,8 +2392,15 @@ public class Column implements DataTypes, Constants {
      * @return _more_
      */
     public double[] getLatLon(Object[] values) {
-        return new double[] { (Double) values[offset],
-                              (Double) values[offset + 1] };
+        Double lat = (Double) values[offset];
+        Double lon = (Double) values[offset + 1];
+
+        return new double[] { (lat == null)
+                              ? Double.NaN
+                              : lat.doubleValue(), (lon == null)
+                ? Double.NaN
+                : lon.doubleValue() };
+
     }
 
     /**
@@ -2443,8 +2544,6 @@ public class Column implements DataTypes, Constants {
             }
 
         } else if (isType(DATATYPE_ENUMERATIONPLUS)) {
-
-
             String theValue = "";
             if (request.defined(urlArg + "_plus")) {
                 theValue = request.getAnonymousEncodedString(urlArg
@@ -2623,11 +2722,13 @@ public class Column implements DataTypes, Constants {
      * @param request _more_
      * @param entry _more_
      * @param searchArg _more_
+     * @param fromEntry _more_
      *
      * @return _more_
      */
-    private String[] getNWSE(Request request, Entry entry, String searchArg, boolean fromEntry) {
-        if (!fromEntry && request.defined(searchArg + "_north")) {
+    private String[] getNWSE(Request request, Entry entry, String searchArg,
+                             boolean fromEntry) {
+        if ( !fromEntry && request.defined(searchArg + "_north")) {
             return new String[] { request.getString(searchArg + "_north", ""),
                                   request.getString(searchArg + "_west", ""),
                                   request.getString(searchArg + "_south", ""),
@@ -2663,24 +2764,25 @@ public class Column implements DataTypes, Constants {
         }
 
 
-
         String       searchArg  = getSearchArg();
         String       columnName = getFullName();
 
         List<Clause> tmp        = new ArrayList<Clause>(where);
         String       widget     = "";
         if (isType(DATATYPE_LATLON)) {
-            String[] nwseValues = getNWSE(request, null, searchArg,false);
-            String[] nwseView = getNWSE(request, entry, searchArg, true);
+            String[] nwseValues = getNWSE(request, null, searchArg, false);
+            String[] nwseView   = getNWSE(request, entry, searchArg, true);
             MapInfo map = getRepository().getMapManager().createMap(request,
-                              true, null);
-            widget = map.makeSelector(searchArg, true, nwseValues, nwseView, "", "");
+                              entry, true, null);
+            widget = map.makeSelector(searchArg, true, nwseValues, nwseView,
+                                      "", "");
         } else if (isType(DATATYPE_LATLONBBOX)) {
-            String[] nwseValues = getNWSE(request, null, searchArg,false);
-            String[] nwseView = getNWSE(request, entry, searchArg, true);
+            String[] nwseValues = getNWSE(request, null, searchArg, false);
+            String[] nwseView   = getNWSE(request, entry, searchArg, true);
             MapInfo map = getRepository().getMapManager().createMap(request,
-                              true, null);
-            widget = map.makeSelector(searchArg, true, nwseValues, nwseView, "", "");
+                              entry, true, null);
+            widget = map.makeSelector(searchArg, true, nwseValues, nwseView,
+                                      "", "");
         } else if (isDate()) {
             List dateSelect = new ArrayList();
             dateSelect.add(new TwoFacedObject(msg("Relative Date"), ""));
@@ -2692,7 +2794,11 @@ public class Column implements DataTypes, Constants {
             dateSelect.add(new TwoFacedObject(msg("Last 12 hours"),
                     "-12 hours"));
             dateSelect.add(new TwoFacedObject(msg("Last day"), "-1 day"));
-            dateSelect.add(new TwoFacedObject(msg("Last 7 days"), "-7 days"));
+            dateSelect.add(new TwoFacedObject(msg("Last week"), "-7 days"));
+            dateSelect.add(new TwoFacedObject(msg("Last 2 weeks"),
+                    "-14 days"));
+            dateSelect.add(new TwoFacedObject(msg("Last month"), "-1 month"));
+
             String dateSelectValue;
             String relativeArg = searchArg + "_relative";
             if (request.exists(relativeArg)) {
@@ -2700,24 +2806,24 @@ public class Column implements DataTypes, Constants {
             } else {
                 dateSelectValue = "none";
             }
-            if(dateSelectValue.equals("")) 
+            if (dateSelectValue.equals("")) {
                 dateSelectValue = "none";
+            }
             String dateSelectInput =
                 HtmlUtils.select(searchArg + "_relative", dateSelect,
                                  dateSelectValue,
                                  HtmlUtils.cssClass("search-select"));
 
-            widget =
-                getRepository().getPageHandler().makeDateInput(
-                    request, searchArg + "_fromdate", "searchform", null,
-                    null, isType(DATATYPE_DATETIME)) + HtmlUtils.space(1)
-                        + HtmlUtils.img(getRepository().iconUrl(ICON_RANGE))
-                        + HtmlUtils.space(1)
-                        + getRepository().getPageHandler().makeDateInput(
-                            request, searchArg + "_todate", "searchform",
-                            null, null,
-                            isType(DATATYPE_DATETIME)) + HtmlUtils.space(4)
-                                + msgLabel("Or") + dateSelectInput;
+            widget = getRepository().getDateHandler().makeDateInput(
+                request, searchArg + "_fromdate", "searchform", null, null,
+                isType(DATATYPE_DATETIME)) + HtmlUtils.space(1)
+                    + HtmlUtils.img(getRepository().getIconUrl(ICON_RANGE))
+                    + HtmlUtils.space(1)
+                    + getRepository().getDateHandler().makeDateInput(
+                        request, searchArg + "_todate", "searchform", null,
+                            null, isType(
+                                DATATYPE_DATETIME)) + HtmlUtils.space(4)
+                                    + msgLabel("Or") + dateSelectInput;
         } else if (isType(DATATYPE_BOOLEAN)) {
             widget = HtmlUtils.select(
                 searchArg,
@@ -2730,26 +2836,38 @@ public class Column implements DataTypes, Constants {
             //            widget = HtmlUtils.select(searchArg, tmpValues, request.getString(searchArg));
         } else if (isType(DATATYPE_ENUMERATIONPLUS)
                    || isType(DATATYPE_ENUMERATION)) {
-            List tmpValues = Misc.newList(TypeHandler.ALL_OBJECT);
+            List tmpValues;
+            if (searchRows > 1) {
+                tmpValues = new ArrayList();
+            } else {
+                tmpValues = Misc.newList(TypeHandler.ALL_OBJECT);
+            }
             List<TwoFacedObject> values = typeHandler.getEnumValues(request,
                                               this, entry);
-            if (enumValues != null) {
-                for (TwoFacedObject o : values) {
-                    TwoFacedObject tfo = TwoFacedObject.findId(o.getId(),
-                                             enumValues);
-                    if (tfo != null) {
-                        tmpValues.add(tfo);
-                    } else {
-                        tmpValues.add(o);
-                    }
+            for (TwoFacedObject o : values) {
+                TwoFacedObject tfo = null;
+                if (enumValues != null) {
+                    tfo = TwoFacedObject.findId(o.getId(), enumValues);
                 }
-            } else {
-                tmpValues.addAll(values);
+                if (tfo != null) {
+                    tmpValues.add(tfo);
+                } else {
+                    String label = getEnumLabel("" + o, false);
+                    tmpValues.add(new TwoFacedObject(label, o));
+                }
             }
-            widget = HtmlUtils.select(searchArg, tmpValues,
-                                      request.getString(searchArg),
-                                      HtmlUtils.id(searchArg + "_id")
-                                      + HtmlUtils.cssClass("search-select"));
+
+            String selectExtra = HtmlUtils.id(searchArg + "_id");
+            if (searchRows > 1) {
+                selectExtra += " multiple rows=\"" + searchRows + "\" ";
+            } else {
+                selectExtra += HtmlUtils.cssClass("search-select");
+            }
+            //            System.err.println(getName() + " values=" + tmpValues);
+            widget = HtmlUtils.select(
+                searchArg, tmpValues,
+                request.get(searchArg, new ArrayList<String>()), selectExtra);
+
         } else if (isNumeric()) {
             String expr =
                 HtmlUtils.select(searchArg + "_expr", EXPR_ITEMS,
@@ -3128,6 +3246,45 @@ public class Column implements DataTypes, Constants {
      */
     public boolean getCanSearch() {
         return canSearch;
+    }
+
+    /**
+     * Set the SearchRows property.
+     *
+     * @param value The new value for SearchRows
+     */
+    public void setSearchRows(int value) {
+        searchRows = value;
+    }
+
+    /**
+     * Get the SearchRows property.
+     *
+     * @return The SearchRows
+     */
+    public int getSearchRows() {
+        return searchRows;
+    }
+
+
+
+
+    /**
+     * Set the IsSearchable property.
+     *
+     * @param value The new value for IsSearchable
+     */
+    public void setCanSearchText(boolean value) {
+        canSearchText = value;
+    }
+
+    /**
+     * Get the IsSearchable property.
+     *
+     * @return The IsSearchable
+     */
+    public boolean getCanSearchText() {
+        return canSearchText;
     }
 
     /**
