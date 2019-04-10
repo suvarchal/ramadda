@@ -1,6 +1,6 @@
-<<<<<<< HEAD
 [![Build Status](https://travis-ci.com/suvarchal/ramadda.svg?branch=master)](https://travis-ci.com/suvarchal/ramadda)
-=======
+
+# Building
 
 
 
